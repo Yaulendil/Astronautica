@@ -1,6 +1,16 @@
 from astropy import units
 import numpy
 
+# CONSTANT DIRECTIONS
+# (θ elevation, φ azimuth)
+NORTH = (0 * units.degree, 0 * units.degree)
+EAST = (0 * units.degree, 90 * units.degree)
+WEST = (0 * units.degree, -90 * units.degree)
+SOUTH = (0 * units.degree, 180 * units.degree)
+
+ZENITH = (90 * units.degree, 0 * units.degree)
+NADIR = (-90 * units.degree, 0 * units.degree)
+
 
 def cart2_polar2(x, y):
     rho = numpy.sqrt(x ** 2 + y ** 2)
@@ -78,6 +88,6 @@ def get_bearing(a, b):
     return ab
 
 
-def get_relative(a, b):
-    """Return CYLINDRICAL coordinates of relative position"""
-    pass
+# def get_relative(a, b):
+#     """Return CYLINDRICAL coordinates of relative position"""
+#     pass
