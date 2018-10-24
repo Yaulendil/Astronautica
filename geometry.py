@@ -33,12 +33,9 @@ class Coordinates:
         # Velocity can be considered the rho of the course
 
     @property
-    def c_pol(self):
-        """Return the SPHERICAL coordinates (horizontal)"""
-        x, y, z = self.cartesian
-        rho0, phi = cart_polar(x, y)
-        rho, theta = cart_polar(z, rho0)
-        return rho, phi, theta
+    def c_car(self):
+        """Return the CARTESIAN coordinates"""
+        return self.cartesian
 
     @property
     def c_cyl(self):
@@ -48,9 +45,12 @@ class Coordinates:
         return rho, phi, y  # Return rho, phi, and height
 
     @property
-    def c_car(self):
-        """Return the CARTESIAN coordinates"""
-        return self.cartesian
+    def c_pol(self):
+        """Return the SPHERICAL coordinates (horizontal)"""
+        x, y, z = self.cartesian
+        rho0, phi = cart_polar(x, y)
+        rho, theta = cart_polar(z, rho0)
+        return rho, phi, theta
 
 
 def get_bearing(a, b):
