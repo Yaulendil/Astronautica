@@ -19,7 +19,7 @@ From [Wikipedia](https://en.wikipedia.org/wiki/Spherical_coordinate_system#Conve
 coordinates|corresponding local geographical directions (Z, X, Y)|right/left-handed
 ---:|:---:|---
 (*r*, *θ* elevation, *φ* azimuth,right)|(U, N, E)|left
-`Note: easting (E), northing (N), upwardness (U). Local azimuth angle would be measured, e.g., counterclockwise from S to E in the case of (U, S, E).`
+| |`Note: easting (E), northing (N), upwardness (U). Local azimuth angle would be measured, e.g., counterclockwise from S to E in the case of (U, S, E).`
 
 This pre-existing coordinate system has been chosen because:
 1. An angle where *φ*=0 is straight ahead,
