@@ -1,6 +1,8 @@
 from astropy import units, constants
 import numpy
 
+from . import interior
+
 
 def get_bearing(a, b):
     pass
@@ -23,14 +25,6 @@ class ObjectInSpace:
             0 * units.rad,
             0 * units.rad,
         )  # (azimuth, altitude); Direction object is MOVING
-
-
-class Department:
-    def __init__(self, size, maximum=None):
-        if maximum is None:
-            maximum = size
-        self.crew = size
-        self.crew_cap = maximum
 
 
 class Ship:
