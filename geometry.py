@@ -1,30 +1,33 @@
-import math
+from math import radians, degrees
 
-from astropy import units as u
+# from astropy import units as u
 import numpy as np
 
 # CONSTANT DIRECTIONS
 # (θ elevation, φ azimuth)
-NORTH = (0 * u.degree, 0 * u.degree)
-EAST = (0 * u.degree, 90 * u.degree)
-WEST = (0 * u.degree, -90 * u.degree)
-SOUTH = (0 * u.degree, 180 * u.degree)
+NORTH = (0, 0)
+EAST = (0, 90)
+WEST = (0, -90)
+SOUTH = (0, 180)
 
-ZENITH = (90 * u.degree, 0 * u.degree)
-NADIR = (-90 * u.degree, 0 * u.degree)
+ZENITH = (90, 0)
+NADIR = (-90, 0)
 
+###===---
+# MATH FUNCTIONS
+###===---
 
 def npr(n):
     return np.round(n, 5)
 
 
 def rad_deg(theta):
-    return npr(math.degrees(theta))
+    return npr(degrees(theta))
     # return np.round(theta * 57.2958, Precision)
 
 
 def deg_rad(theta):
-    return npr(math.radians(theta))
+    return npr(radians(theta))
 
 
 def cart2_polar2(x, y):
@@ -49,9 +52,9 @@ def cart3_polar3(x, y, z):
 def polar3_cart3(rho, theta, phi):
     theta = np.pi / 2 - deg_rad(theta)
     phi = deg_rad(phi)
+    z = rho * np.cos(phi) * np.sin(theta)
     x = rho * np.sin(phi) * np.sin(theta)
     y = rho * np.cos(theta)
-    z = rho * np.cos(phi) * np.sin(theta)
     return npr((x, y, z))
 
 
@@ -76,22 +79,16 @@ class Coordinates:
             0,
             0,
         )  # (pitch, yaw, roll); FACING orientation of object
+        self.velocity = 0  # * (u.meter / u.second)
+        # Velocity can be considered the rho of the course
         self.course = course or (
             0,
             0,
         )  # (θ elevation, φ azimuth); Direction object is MOVING
-        self.velocity = 0 #* (u.meter / u.second)
-        # Velocity can be considered the rho of the course
 
     @property
     def array(self):
-        return np.array(
-            [
-                self.cartesian,
-                self.heading,
-                self.course + (self.velocity,)
-            ]
-        )
+        return np.array([self.cartesian, self.heading, (self.velocity,) + self.course])
         # return np.array(
         #     [
         #         [*self.cartesian] * u.kilometer,
@@ -122,6 +119,9 @@ class Coordinates:
         # rho, theta = cart2_polar2(z, rho0)
         # return rho, theta, phi
 
+###===---
+# COORDINATE OPERATIONS
+###===---
 
 def get_bearing(a, b):
     """Return SPHERICAL coordinates (horizontal) of relative position"""
@@ -137,7 +137,8 @@ def get_bearing(a, b):
     return ab
 
 
-def get_cylinder(a, b):
+def get_cylindrical(a, b):
+    """Get CYLINDRICAL position of B, from the perspective of A"""
     bearing = get_bearing(a, b)
 
 
