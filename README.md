@@ -22,6 +22,7 @@ coordinates|corresponding local geographical directions (Z, X, Y)|right/left-han
 | |`Note: easting (E), northing (N), upwardness (U). Local azimuth angle would be measured, e.g., counterclockwise from S to E in the case of (U, S, E).`
 
 This pre-existing coordinate system has been chosen because:
-1. An angle where *φ*=0 is straight ahead,
-2. Positive values of *φ* increase clockwise, and
-3. An angle where *θ*=0 is on a flat plane.
+1. An angle where *φ*=0 is straight ahead
+2. Positive values of *φ* increase clockwise
+3. An angle where *θ*=0 is on a flat plane
+4. UNE could be the United Nations of Earth
