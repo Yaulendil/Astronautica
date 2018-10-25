@@ -1,7 +1,7 @@
+import math
+
 from astropy import units as u
 import numpy as np
-
-Precision = 5
 
 # CONSTANT DIRECTIONS
 # (θ elevation, φ azimuth)
@@ -14,13 +14,22 @@ ZENITH = (90 * u.degree, 0 * u.degree)
 NADIR = (-90 * u.degree, 0 * u.degree)
 
 
+def npr(n):
+    return np.round(n, 5)
+
+
+def rad_deg(theta):
+    return npr(math.degrees(theta))
+    # return np.round(theta * 57.2958, Precision)
+
+
+def deg_rad(theta):
+    return npr(math.radians(theta))
+
+
 def cart2_polar2(x, y):
     rho = np.sqrt(x ** 2 + y ** 2)
-    phi = np.arctan2(y, x)
-    try:
-        phi = phi.to(u.degree)
-    except:
-        pass
+    phi = np.pi / 2 - np.arctan2(y, x)
     return rho, phi
 
 
@@ -30,13 +39,20 @@ def polar2_cart2(rho, phi):
     return x, y
 
 
+def cart3_polar3(x, y, z):
+    rho = np.sqrt(x ** 2 + y ** 2 + z ** 2)
+    phi = rad_deg(np.arccos(z / rho))
+    theta = rad_deg(np.arctan(y / x))
+    return npr((rho, theta, phi))
+
+
 def polar3_cart3(rho, theta, phi):
-    theta = np.pi / 2 - theta / 57.2958
-    phi = phi / 57.2958
+    theta = np.pi / 2 - deg_rad(theta)
+    phi = deg_rad(phi)
     x = rho * np.sin(phi) * np.sin(theta)
     y = rho * np.cos(theta)
     z = rho * np.cos(phi) * np.sin(theta)
-    return np.round((x, y, z), Precision)
+    return npr((x, y, z))
 
 
 class Coordinates:
@@ -48,7 +64,7 @@ class Coordinates:
             self.cartesian = (car[0], car[1], car[2])
         elif cyl and len(cyl) >= 3:  # CYLINDRICAL: (R, φ azimuth, Y)
             y = cyl[2]
-            x, z = polar2_cart2(cyl[0], cyl[1])
+            z, x = polar2_cart2(cyl[0], deg_rad(cyl[1]))
             self.cartesian = (x, y, z)
         elif pol and len(pol) >= 3:  # SPHERICAL: (R, θ elevation, φ azimuth)
             self.cartesian = polar3_cart3(*pol)
@@ -73,22 +89,23 @@ class Coordinates:
     @property
     def c_car(self):
         """Return the CARTESIAN coordinates"""
-        return self.cartesian
+        return np.array([npr(v) for v in self.cartesian])
 
     @property
     def c_cyl(self):
         """Return the CYLINDRICAL coordinates"""
         x, y, z = self.cartesian  # Take the cartesian coordinates
         rho, phi = cart2_polar2(x, z)  # Find rho and phi of x and z
-        return rho, phi, y  # Return rho, phi, and height
+        return np.array((npr(rho), rad_deg(phi), npr(y)))  # Return rho, phi, and height
 
     @property
     def c_pol(self):
         """Return the SPHERICAL coordinates (horizontal)"""
         x, y, z = self.cartesian
-        rho0, phi = cart2_polar2(x, y)
-        rho, theta = cart2_polar2(z, rho0)
-        return rho, theta, phi
+        return cart3_polar3(x, y, z)
+        # rho0, phi = cart2_polar2(x, y)
+        # rho, theta = cart2_polar2(z, rho0)
+        # return rho, theta, phi
 
 
 def get_bearing(a, b):
