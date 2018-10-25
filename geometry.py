@@ -59,7 +59,7 @@ class Coordinates:
     """Coordinates object:
     Store coordinates as a cartesian tuple and return transformations as requested"""
 
-    def __init__(self, *, car=None, cyl=None, pol=None):
+    def __init__(self, *, car=None, cyl=None, pol=None, heading=None, course=None):
         if car and len(car) >= 3:  # CARTESIAN: (X, Y, Z)
             self.cartesian = (car[0], car[1], car[2])
         elif cyl and len(cyl) >= 3:  # CYLINDRICAL: (R, φ azimuth, Y)
@@ -71,20 +71,35 @@ class Coordinates:
         else:
             raise TypeError("Coordinates object requires initial values")
 
-        self.heading = (
-            0 * u.degree,
-            0 * u.degree,
-        )  # (θ elevation, φ azimuth); Direction object is FACING
-        self.course = (
-            0 * u.degree,
-            0 * u.degree,
+        self.heading = heading or (
+            0,
+            0,
+            0,
+        )  # (pitch, yaw, roll); FACING orientation of object
+        self.course = course or (
+            0,
+            0,
         )  # (θ elevation, φ azimuth); Direction object is MOVING
-        self.velocity = 0 * (u.meter / u.second)
+        self.velocity = 0 #* (u.meter / u.second)
         # Velocity can be considered the rho of the course
 
     @property
     def array(self):
-        return np.array([*self.cartesian]) * u.kilometer
+        return np.array(
+            [
+                self.cartesian,
+                self.heading,
+                self.course + (self.velocity,)
+            ]
+        )
+        # return np.array(
+        #     [
+        #         [*self.cartesian] * u.kilometer,
+        #         [*self.heading] * u.degree,
+        #         [*self.course] * u.degree,
+        #         self.velocity
+        #     ]
+        # )
 
     @property
     def c_car(self):
@@ -120,6 +135,10 @@ def get_bearing(a, b):
     ab_tp = ap[1] - bp[1], ap[2] - bp[2]  # Theta and Phi of output
     ab = ab_r, *ab_tp
     return ab
+
+
+def get_cylinder(a, b):
+    bearing = get_bearing(a, b)
 
 
 # def get_relative(a, b):
