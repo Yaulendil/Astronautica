@@ -1,7 +1,8 @@
 from math import radians, degrees
 
-# from astropy import units as u
+from astropy import units as u
 import numpy as np
+from xarray import Dataset, DataArray
 
 # CONSTANT DIRECTIONS
 # (θ elevation, φ azimuth)
@@ -16,6 +17,7 @@ NADIR = (-90, 0)
 ###===---
 # MATH FUNCTIONS
 ###===---
+
 
 def npr(n):
     return np.round(n, 5)
@@ -43,34 +45,43 @@ def polar2_cart2(rho, phi):
 
 
 def cart3_polar3(x, y, z):
-    rho = np.sqrt(x ** 2 + y ** 2 + z ** 2)
-    phi = rad_deg(np.arccos(z / rho))
-    theta = rad_deg(np.arctan(y / x))
-    return npr((rho, theta, phi))
+    ρ = np.sqrt(x ** 2 + y ** 2 + z ** 2)
+    φ = rad_deg(np.arccos(z / ρ))
+    θ = rad_deg(np.arctan(y / x))
+    return npr((ρ, θ, φ))
 
 
-def polar3_cart3(rho, theta, phi):
-    theta = np.pi / 2 - deg_rad(theta)
-    phi = deg_rad(phi)
-    z = rho * np.cos(phi) * np.sin(theta)
-    x = rho * np.sin(phi) * np.sin(theta)
-    y = rho * np.cos(theta)
+def polar3_cart3(ρ, θ, φ):
+    θ = np.pi / 2 - deg_rad(θ)
+    φ = deg_rad(φ)
+    z = ρ * np.cos(φ) * np.sin(θ)
+    x = ρ * np.sin(φ) * np.sin(θ)
+    y = ρ * np.cos(θ)
     return npr((x, y, z))
+
+
+def cyl3_cart3(*cyl):
+    y = cyl[2]
+    z, x = polar2_cart2(cyl[0], deg_rad(cyl[1]))
+    return x, y, z
 
 
 class Coordinates:
     """Coordinates object:
-    Store coordinates as a cartesian tuple and return transformations as requested"""
+    Store coordinates as a cartesian tuple and return transformations as requested
+    Real data:
+        Cartesian (x[km],y[km],z[km])
+        Heading   (p[deg],y[deg],r[deg])
+        Velocity  (n[m/s])
+        Course    (θ[deg],φ[deg])"""
 
     def __init__(self, *, car=None, cyl=None, pol=None, heading=None, course=None):
         if car and len(car) >= 3:  # CARTESIAN: (X, Y, Z)
-            self.cartesian = (car[0], car[1], car[2])
+            cartesian = tuple(car)
         elif cyl and len(cyl) >= 3:  # CYLINDRICAL: (R, φ azimuth, Y)
-            y = cyl[2]
-            z, x = polar2_cart2(cyl[0], deg_rad(cyl[1]))
-            self.cartesian = (x, y, z)
+            cartesian = cyl3_cart3(*cyl)  # (x, y, z)
         elif pol and len(pol) >= 3:  # SPHERICAL: (R, θ elevation, φ azimuth)
-            self.cartesian = polar3_cart3(*pol)
+            cartesian = polar3_cart3(*pol)
         else:
             raise TypeError("Coordinates object requires initial values")
 
@@ -86,9 +97,37 @@ class Coordinates:
             0,
         )  # (θ elevation, φ azimuth); Direction object is MOVING
 
+        # veloc = (DataArray(0.0, attrs={"units": u.meter / u.second}),)
+        # direc = (
+        #     DataArray(course or (0.0, 0.0), attrs={"units": u.degree}),
+        # )  # (θ elevation, φ azimuth); Direction object is MOVING),
+        # course = xr.concat([veloc, direc], dim="course")
+
+        self.data = Dataset(
+            {
+                "position": DataArray(
+                    [float(n) for n in cartesian],
+                    # dims="pos",
+                    attrs={"units": [u.kilometer, u.kilometer, u.kilometer]},
+                ),
+                "orientation": DataArray(
+                    heading or [0.0, 0.0, 0.0],
+                    # dims="fac",
+                    attrs={"units": [u.degree, u.degree, u.degree]},
+                ),  # (pitch, yaw, roll); FACING orientation of object),
+                # "velocity": DataArray(0.0, attrs={"units": u.meter / u.second}),
+                "course": DataArray(
+                    course or [0.0, 0.0, 0.0],
+                    # dims="dir",
+                    attrs={"units": [u.meter / u.second, u.degree, u.degree]},
+                ),  # (θ elevation, φ azimuth); Direction object is MOVING),
+            }
+        )
+        self.cartesian = self.data["position"]
+
     @property
     def array(self):
-        return np.array([self.cartesian, self.heading, (self.velocity,) + self.course])
+        return self.data
         # return np.array(
         #     [
         #         [*self.cartesian] * u.kilometer,
@@ -119,12 +158,25 @@ class Coordinates:
         # rho, theta = cart2_polar2(z, rho0)
         # return rho, theta, phi
 
+
+class Projectile:
+    def __init__(self, start, target):
+        """
+
+        :type start: Coordinates
+        :type target: Coordinates
+        """
+        self.start = start
+        self.target = target
+
+
 ###===---
 # COORDINATE OPERATIONS
 ###===---
 
+
 def get_bearing(a, b):
-    """Return SPHERICAL coordinates (horizontal) of relative position"""
+    """Return SPHERICAL position of B, from the perspective of A"""
     ap = a.c_pol  # Polar of A
     ac = a.c_car  # Cartesian of A
     bp = b.c_pol  # Polar of B
@@ -137,9 +189,21 @@ def get_bearing(a, b):
     return ab
 
 
+def bearing_respecting_heading(bearing, heading):
+    """Given an absolute bearing and a heading, rotate the bearing relative to the heading"""
+    # bearing: rho, theta, phi --- distance, elevation, turn
+    # heading: pitch, yaw, roll --- elevation, turn, tilt
+    new = np.array((0, 0, 0))  # init: rho, theta, phi --- distance, elevation, turn
+    new[0] = bearing[0]
+    new[1] = bearing[1] - heading[0]
+    new[2] = bearing[2] - heading[1]
+    return new
+
+
 def get_cylindrical(a, b):
-    """Get CYLINDRICAL position of B, from the perspective of A"""
-    bearing = get_bearing(a, b)
+    """Return CYLINDRICAL position of B, from the perspective of A"""
+    bearing = bearing_respecting_heading(get_bearing(a, b), a.heading)
+    return cyl3_cart3(*bearing)
 
 
 # def get_relative(a, b):
