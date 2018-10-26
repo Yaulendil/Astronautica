@@ -101,16 +101,27 @@ def r_z(theta):
     )
 
 
-def get_matrix(heading):
+def rotate_matrix(matrix, rot):
+    """Return a copy of the input 'matrix', rotated by the tuple 'rot'"""
+    pitch, yaw, roll = rot
+    print(rot)
+    # rr = r_x(pitch) * r_y(yaw) * r_z(roll)
+    rr = heading_to_matrix(rot)
+    print(rr)
+    return matrix * rr
+
+
+def heading_to_matrix(heading):
     """Return a rotational matrix based on a pitch/yaw/roll iterable"""
     return r_x(heading[0]) * r_y(heading[1]) * r_z(heading[2])
 
 
-def rotate(matrix, rot):
-    """Return a copy of the input 'matrix', rotated by the tuple 'rot'"""
-    pitch, yaw, roll = rot
-    rr = r_x(pitch) * r_y(yaw) * r_z(roll)
-    return matrix * rr
+def matrix_to_heading(r):
+    """Convert a rotation matrix into pitch/yaw/roll"""
+    α = np.arctan2(r[1][0], r[0][0])
+    β = np.arctan2(-r[2][1], np.sqrt(r[2][1] ** 2 + r[2][2] ** 2))
+    γ = np.arctan2(r[2][1], r[2][2])
+    return α, β, γ
 
 
 class Coordinates:
@@ -134,18 +145,6 @@ class Coordinates:
         else:
             raise TypeError("Coordinates object requires initial values")
 
-        self.heading = heading or (
-            0,
-            0,
-            0,
-        )  # (pitch, yaw, roll); FACING orientation of object
-        self.velocity = 0  # * (u.meter / u.second)
-        # Velocity can be considered the rho of the course
-        self.course = course or (
-            0,
-            0,
-        )  # (θ elevation, φ azimuth); Direction object is MOVING
-
         self.data = np.array(
             [
                 cartesian,  # 0. Position
@@ -157,8 +156,8 @@ class Coordinates:
         self.cartesian = self.data[0:1]
 
     @property
-    def array(self):
-        return self.data
+    def heading_matrix(self):
+        return heading_to_matrix(self.data[1])
 
     @property
     def c_car(self):
@@ -177,14 +176,19 @@ class Coordinates:
         """Return the SPHERICAL coordinates (horizontal)"""
         x, y, z = self.cartesian
         return cart3_polar3(x, y, z)
-        # rho0, phi = cart2_polar2(x, y)
-        # rho, theta = cart2_polar2(z, rho0)
-        # return rho, theta, phi
 
-    def move(self):
+    def move(self, delta=None):
+        delta = delta or self.data[2]  # With no parameter, use own velocity
         d = self.data[0]
         for i in range(len(d)):
-            d[i] = d[i] + self.data[2][i]
+            d[i] = d[i] + delta[i]
+
+    def rotate(self, rot):
+        m = self.heading_matrix
+        mm = rotate_matrix(m, rot)
+        print(mm)
+        new = matrix_to_heading(mm)
+        return new
 
 
 class Projectile:
