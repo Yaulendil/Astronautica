@@ -26,3 +26,5 @@ This pre-existing coordinate system has been chosen because:
 2. Positive values of *φ* increase clockwise
 3. An angle where *θ*=0 is on a flat plane
 4. UNE could be the United Nations of Earth
+
+Coordinates are stored in xarrays.

@@ -25,7 +25,6 @@ def npr(n):
 
 def rad_deg(theta):
     return npr(degrees(theta))
-    # return np.round(theta * 57.2958, Precision)
 
 
 def deg_rad(theta):
@@ -66,6 +65,41 @@ def cyl3_cart3(*cyl):
     return x, y, z
 
 
+###===---
+# ROTATIONAL FUNCTIONS
+###===---
+
+# https://en.wikipedia.org/wiki/Rotation_matrix#Basic_rotations
+
+
+def r_x(θ):
+    return np.array([[1, 0, 0], [0, np.cos(θ), -np.sin(θ)], [0, np.sin(θ), np.cos(θ)]])
+
+
+def r_y(θ):
+    return np.array([[np.cos(θ), 0, np.sin(θ)], [0, 1, 0], [-np.sin(θ), 0, np.cos(θ)]])
+
+
+def r_z(θ):
+    return np.array([[np.cos(θ), -np.sin(θ), 0], [np.sin(θ), np.cos(θ), 0], [0, 0, 1]])
+
+
+def get_matrix(coord):
+    """Return a rotational matrix based on the current orientation of a Coordinates"""
+    return (
+        r_x(coord.data.orientation.values[0])
+        * r_y(coord.data.orientation.values[1])
+        * r_z(coord.data.orientation.values[2])
+    )
+
+
+def rotate(matrix, rot):
+    """Return a copy of the input 'matrix', rotated by the tuple 'rot'"""
+    pitch, yaw, roll = rot
+    rr = r_x(pitch) * r_y(yaw) * r_z(roll)
+    return matrix * rr
+
+
 class Coordinates:
     """Coordinates object:
     Store coordinates as a cartesian tuple and return transformations as requested
@@ -77,11 +111,11 @@ class Coordinates:
 
     def __init__(self, *, car=None, cyl=None, pol=None, heading=None, course=None):
         if car and len(car) >= 3:  # CARTESIAN: (X, Y, Z)
-            cartesian = tuple(car)
+            cartesian = [float(n) for n in car]
         elif cyl and len(cyl) >= 3:  # CYLINDRICAL: (R, φ azimuth, Y)
-            cartesian = cyl3_cart3(*cyl)  # (x, y, z)
+            cartesian = list(cyl3_cart3(*cyl))  # (x, y, z)
         elif pol and len(pol) >= 3:  # SPHERICAL: (R, θ elevation, φ azimuth)
-            cartesian = polar3_cart3(*pol)
+            cartesian = list(polar3_cart3(*pol))
         else:
             raise TypeError("Coordinates object requires initial values")
 
@@ -97,16 +131,10 @@ class Coordinates:
             0,
         )  # (θ elevation, φ azimuth); Direction object is MOVING
 
-        # veloc = (DataArray(0.0, attrs={"units": u.meter / u.second}),)
-        # direc = (
-        #     DataArray(course or (0.0, 0.0), attrs={"units": u.degree}),
-        # )  # (θ elevation, φ azimuth); Direction object is MOVING),
-        # course = xr.concat([veloc, direc], dim="course")
-
         self.data = Dataset(
             {
                 "position": DataArray(
-                    [float(n) for n in cartesian],
+                    cartesian,
                     # dims="pos",
                     attrs={"units": [u.kilometer, u.kilometer, u.kilometer]},
                 ),
@@ -114,13 +142,24 @@ class Coordinates:
                     heading or [0.0, 0.0, 0.0],
                     # dims="fac",
                     attrs={"units": [u.degree, u.degree, u.degree]},
-                ),  # (pitch, yaw, roll); FACING orientation of object),
+                ),  # (pitch, yaw, roll); FACING orientation of object,
                 # "velocity": DataArray(0.0, attrs={"units": u.meter / u.second}),
                 "course": DataArray(
                     course or [0.0, 0.0, 0.0],
                     # dims="dir",
                     attrs={"units": [u.meter / u.second, u.degree, u.degree]},
-                ),  # (θ elevation, φ azimuth); Direction object is MOVING),
+                ),  # (v velocity, θ elevation, φ azimuth); Speed and Direction object is MOVING,
+                "rotation": DataArray(
+                    [0.0, 0.0, 0.0],
+                    # dims="rot",
+                    attrs={
+                        "units": [
+                            u.degree / u.minute,
+                            u.degree / u.minute,
+                            u.degree / u.minute,
+                        ]
+                    },
+                ),  # (pitch, yaw, roll); CHANGE in orientation of object per minute,
             }
         )
         self.cartesian = self.data["position"]
@@ -189,7 +228,7 @@ def get_bearing(a, b):
     return ab
 
 
-def bearing_respecting_heading(bearing, heading):
+def bearing_wrt_heading(bearing, heading):
     """Given an absolute bearing and a heading, rotate the bearing relative to the heading"""
     # bearing: rho, theta, phi --- distance, elevation, turn
     # heading: pitch, yaw, roll --- elevation, turn, tilt
@@ -202,7 +241,7 @@ def bearing_respecting_heading(bearing, heading):
 
 def get_cylindrical(a, b):
     """Return CYLINDRICAL position of B, from the perspective of A"""
-    bearing = bearing_respecting_heading(get_bearing(a, b), a.heading)
+    bearing = bearing_wrt_heading(get_bearing(a, b), a.heading)
     return cyl3_cart3(*bearing)
 
 
