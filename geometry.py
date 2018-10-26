@@ -1,8 +1,7 @@
 from math import radians, degrees
 
-from astropy import units as u
+# from astropy import units as u
 import numpy as np
-from xarray import Dataset, DataArray
 
 # CONSTANT DIRECTIONS
 # (θ elevation, φ azimuth)
@@ -46,7 +45,7 @@ def polar2_cart2(rho, phi):
 def cart3_polar3(x, y, z):
     ρ = np.sqrt(x ** 2 + y ** 2 + z ** 2)
     φ = rad_deg(np.arccos(z / ρ))
-    θ = rad_deg(np.arctan(y / x))
+    θ = rad_deg(np.arctan2(y, x))
     return npr((ρ, θ, φ))
 
 
@@ -72,25 +71,39 @@ def cyl3_cart3(*cyl):
 # https://en.wikipedia.org/wiki/Rotation_matrix#Basic_rotations
 
 
-def r_x(θ):
-    return np.array([[1, 0, 0], [0, np.cos(θ), -np.sin(θ)], [0, np.sin(θ), np.cos(θ)]])
-
-
-def r_y(θ):
-    return np.array([[np.cos(θ), 0, np.sin(θ)], [0, 1, 0], [-np.sin(θ), 0, np.cos(θ)]])
-
-
-def r_z(θ):
-    return np.array([[np.cos(θ), -np.sin(θ), 0], [np.sin(θ), np.cos(θ), 0], [0, 0, 1]])
-
-
-def get_matrix(coord):
-    """Return a rotational matrix based on the current orientation of a Coordinates"""
-    return (
-        r_x(coord.data.orientation.values[0])
-        * r_y(coord.data.orientation.values[1])
-        * r_z(coord.data.orientation.values[2])
+def r_x(theta):
+    return np.array(
+        [
+            [1, 0, 0],
+            [0, np.cos(theta), -np.sin(theta)],
+            [0, np.sin(theta), np.cos(theta)],
+        ]
     )
+
+
+def r_y(theta):
+    return np.array(
+        [
+            [np.cos(theta), 0, np.sin(theta)],
+            [0, 1, 0],
+            [-np.sin(theta), 0, np.cos(theta)],
+        ]
+    )
+
+
+def r_z(theta):
+    return np.array(
+        [
+            [np.cos(theta), -np.sin(theta), 0],
+            [np.sin(theta), np.cos(theta), 0],
+            [0, 0, 1],
+        ]
+    )
+
+
+def get_matrix(heading):
+    """Return a rotational matrix based on a pitch/yaw/roll iterable"""
+    return r_x(heading[0]) * r_y(heading[1]) * r_z(heading[2])
 
 
 def rotate(matrix, rot):
@@ -106,10 +119,12 @@ class Coordinates:
     Real data:
         Cartesian (x[km],y[km],z[km])
         Heading   (p[deg],y[deg],r[deg])
-        Velocity  (n[m/s])
-        Course    (θ[deg],φ[deg])"""
+        Course    (v[m/s],θ[deg],φ[deg])
+        Rotation   (p[deg/min],y[deg/min],r[deg/min])"""
 
-    def __init__(self, *, car=None, cyl=None, pol=None, heading=None, course=None):
+    def __init__(
+        self, *, car=None, cyl=None, pol=None, heading=None, course=None, rotation=None
+    ):
         if car and len(car) >= 3:  # CARTESIAN: (X, Y, Z)
             cartesian = [float(n) for n in car]
         elif cyl and len(cyl) >= 3:  # CYLINDRICAL: (R, φ azimuth, Y)
@@ -131,50 +146,19 @@ class Coordinates:
             0,
         )  # (θ elevation, φ azimuth); Direction object is MOVING
 
-        self.data = Dataset(
-            {
-                "position": DataArray(
-                    cartesian,
-                    # dims="pos",
-                    attrs={"units": [u.kilometer, u.kilometer, u.kilometer]},
-                ),
-                "orientation": DataArray(
-                    heading or [0.0, 0.0, 0.0],
-                    # dims="fac",
-                    attrs={"units": [u.degree, u.degree, u.degree]},
-                ),  # (pitch, yaw, roll); FACING orientation of object,
-                # "velocity": DataArray(0.0, attrs={"units": u.meter / u.second}),
-                "course": DataArray(
-                    course or [0.0, 0.0, 0.0],
-                    # dims="dir",
-                    attrs={"units": [u.meter / u.second, u.degree, u.degree]},
-                ),  # (v velocity, θ elevation, φ azimuth); Speed and Direction object is MOVING,
-                "rotation": DataArray(
-                    [0.0, 0.0, 0.0],
-                    # dims="rot",
-                    attrs={
-                        "units": [
-                            u.degree / u.minute,
-                            u.degree / u.minute,
-                            u.degree / u.minute,
-                        ]
-                    },
-                ),  # (pitch, yaw, roll); CHANGE in orientation of object per minute,
-            }
+        self.data = np.array(
+            [
+                cartesian,  # 0. Position
+                heading or [0.0, 0.0, 0.0],  # 1. Facing
+                course or [0.0, 0.0, 0.0],  # 2. Moving
+                rotation or [0.0, 0.0, 0.0],  # 3. Turning
+            ]
         )
-        self.cartesian = self.data["position"]
+        self.cartesian = self.data[0:1]
 
     @property
     def array(self):
         return self.data
-        # return np.array(
-        #     [
-        #         [*self.cartesian] * u.kilometer,
-        #         [*self.heading] * u.degree,
-        #         [*self.course] * u.degree,
-        #         self.velocity
-        #     ]
-        # )
 
     @property
     def c_car(self):
@@ -196,6 +180,11 @@ class Coordinates:
         # rho0, phi = cart2_polar2(x, y)
         # rho, theta = cart2_polar2(z, rho0)
         # return rho, theta, phi
+
+    def move(self):
+        d = self.data[0]
+        for i in range(len(d)):
+            d[i] = d[i] + self.data[2][i]
 
 
 class Projectile:
