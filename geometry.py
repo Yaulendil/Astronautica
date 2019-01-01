@@ -1,4 +1,4 @@
-from math import radians, degrees
+from math import radians, degrees, isnan
 
 # from astropy import units as u
 import numpy as np
@@ -153,7 +153,7 @@ class Coordinates:
                 rotation or [0.0, 0.0, 0.0],  # 3. Turning
             ]
         )
-        self.cartesian = self.data[0:1]
+        self.cartesian = self.data[0]
 
     @property
     def heading_matrix(self):
@@ -213,11 +213,15 @@ def get_bearing(a, b):
     ac = a.c_car  # Cartesian of A
     bp = b.c_pol  # Polar of B
     bc = b.c_car  # Cartesian of B
+
     ab_r = np.sqrt(
         (ac[0] - bc[0]) ** 2 + (ac[1] - bc[1]) ** 2 + (ac[2] - bc[2]) ** 2
     )  # Rho of output
-    ab_tp = ap[1] - bp[1], ap[2] - bp[2]  # Theta and Phi of output
-    ab = ab_r, *ab_tp
+
+    ab_t, ab_p = ap[1] - bp[1], ap[2] - bp[2]  # Theta and Phi of output
+    ab_p = 0 if isnan(ab_p) else ab_p
+
+    ab = [ab_r, ab_t, ab_p]
     return ab
 
 
@@ -227,17 +231,25 @@ def bearing_wrt_heading(bearing, heading):
     # heading: pitch, yaw, roll --- elevation, turn, tilt
     new = np.array((0, 0, 0))  # init: rho, theta, phi --- distance, elevation, turn
     new[0] = bearing[0]
-    new[1] = bearing[1] - heading[0]
-    new[2] = bearing[2] - heading[1]
+    new[1] = bearing[1] - heading[0]  # bearing elevation minus heading elevation
+    new[2] = bearing[2] - heading[1]  # bearing turn minus heading turn
+    print(bearing, heading)
+    print(new)
     return new
 
 
 def get_cylindrical(a, b):
     """Return CYLINDRICAL position of B, from the perspective of A"""
-    bearing = bearing_wrt_heading(get_bearing(a, b), a.heading)
-    return cyl3_cart3(*bearing)
+    bearing = get_bearing(a, b)  # Get the direction from A to B
+    heading = a.data[1]  # Heading of A
+    bearing_wr = bearing_wrt_heading(bearing, heading)  # Adjust for heading
+    return cyl3_cart3(*bearing_wr)  # Convert to cartesian
 
 
 # def get_relative(a, b):
 #     """Return CYLINDRICAL coordinates of relative position"""
 #     pass
+
+
+A = Coordinates(car=[0,0,0])
+B = Coordinates(car=[5,5,0])
