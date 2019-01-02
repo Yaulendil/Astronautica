@@ -1,3 +1,6 @@
+import random
+
+
 class Department:
     """
     A section of voidcraft housing equipment and personnel, serving a particular purpose.
@@ -52,3 +55,39 @@ class Department:
         equip = self.equip
         equip -= self.equip_brk
         return max([equip, 0])
+
+    def damage_crew(self, num):
+        """Damage a number of personnel"""
+
+        # First, make sure the number of people to damage is no more than the number alive
+        num = min([num, self.crew_alive])
+        # Then, pick a number of injured to kill no more than either:
+        #   The number of people to damage
+        #   The number of people who ARE hurt
+        killed = random.randint(0, min([num, self.crew_hurt]))
+        # The number of people injured is the remaining number
+        injured = num - killed
+        # Wait...Are there that many healthy people left?
+        remaining_healthy = self.crew_healthy - injured
+        if remaining_healthy < 0:
+            # No? Then kill some more injured people.
+            injured -= remaining_healthy
+        # Time to ruin some lives.
+        self.crew_hurt += injured
+        self.crew_hurt -= killed
+        self.crew_dead += killed
+
+    def damage_equip(self, num):
+        """Damage a number of machines"""
+
+        # All the same logic as the last method
+        num = min([num, self.equip_avail])
+        destroyed = random.randint(0, min([num, self.crew_hurt]))
+        damaged = num - destroyed
+        remaining_running = self.equip_running - damaged
+        if remaining_running < 0:
+            damaged -= remaining_running
+        # Time to put the sad in sysadmin.
+        self.equip_dmg += damaged
+        self.equip_dmg -= destroyed
+        self.equip_brk += destroyed
