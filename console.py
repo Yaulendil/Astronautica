@@ -34,6 +34,11 @@ def _interruptible(func):
 
 
 class TerminalCore(Cmd):
+    """
+    The core shell, implementing functionality shared by all three primaries.
+    Also wraps the cmdloop method as an interruptible, allowing smoother exiting via ^C.
+    """
+
     prompt_init = "Offline"
     intro = None
     farewell = None
@@ -73,6 +78,10 @@ class TerminalCore(Cmd):
 
 
 class TerminalHost(TerminalCore):
+    """
+    The Host shell, within which the game engine itself will run.
+    """
+
     prompt_init = "Panopticon"
     promptColor = "\033[91m"
 
@@ -84,6 +93,11 @@ class TerminalHost(TerminalCore):
 
 
 class TerminalGame(TerminalCore):
+    """
+    The Game shell, from which starships are given orders and their scans are read.
+    The main interface through which most users will be issuing commands. Password-protected.
+    """
+
     prompt_init = "Starship"
     promptColor = "\033[36m"
 
@@ -92,30 +106,38 @@ class TerminalGame(TerminalCore):
         super().__init__()
         self.game = game
         self.vessel = vessel
-        self.host = "FleetNet.{}:{}".format(self.game.name, self.vessel.name[:-5])
+        self.host = "FleetNet.{}:{}".format(self.game.stem, self.vessel.stem)
         self.path = "/command"
 
         self.model = None
         self.load()
         self.updated = self.model["updated"]
 
+    @property
+    def name(self):
+        return self.vessel.stem
+
     def rescan(self):
-        path = pathlib.PurePath(self.game, self.vessel.name)
-        concrete = pathlib.Path(*path.parts)
+        # path = pathlib.PurePath(self.game, self.vessel.name)
+        # concrete = pathlib.Path(*path.parts)
+        concrete = self.vessel.resolve()
         if concrete.is_file():
             return astroio.load(concrete)
 
     def load(self):
         self.model = self.rescan()
+        self.updated = self.model["updated"]
 
     def save(self):
         latest = self.rescan()
-        if latest["updated"] > self.model["updated"]:
+        if latest["updated"] != self.model["updated"]:
             print("Failed to commit changes: Telemetry out of date")
             return
         elif hash(latest) == hash(self.model):
-            print("Failed to commit changes: No Change")
+            print("Failed to commit changes: No changes to commit")
             return
+        else:
+            astroio.save(self.vessel, self.model)
 
     def authenticate(self):
         if not self.model["hash"]:
@@ -123,7 +145,9 @@ class TerminalGame(TerminalCore):
             self.do_passwd()
             return True
         else:
-            pwhash = crypt.crypt(getpass.getpass(), self.model["salt"])
+            pwhash = crypt.crypt(
+                getpass.getpass(), self.model.get("salt", "asdfqwertyuiop")
+            )
             if pwhash == self.model["hash"]:
                 return True
             else:
@@ -132,19 +156,31 @@ class TerminalGame(TerminalCore):
     def do_update(self, *_):
         """Retrieve the latest telemetry scans of the voidcraft and its local space."""
         if input("Unsaved changes will be lost. Confirm? [y/N] ").lower() == "y":
+            print("Updating telemetry...")
             self.load()
-            print("Reloaded.")
+            _delay()
+            print("Latest telemetry scans retrieved.")
 
     def do_passwd(self, *_):
-        h1 = getpass.getpass("Enter new password: ")
-        h2 = getpass.getpass("Confirm password: ")
+        h1 = crypt.crypt(
+            getpass.getpass("Enter new password: "),
+            self.model.get("salt", "asdfqwertyuiop"),
+        )
+        h2 = crypt.crypt(
+            getpass.getpass("Confirm password: "),
+            self.model.get("salt", "asdfqwertyuiop"),
+        )
         if h1 != h2:
             print("Passwords do not match.")
             return
+        self.model["hash"] = h1
+        print("Password set.")
 
 
 class TerminalLogin(TerminalCore):
-    """The login shell. A game lobby of sorts, from which the user launches the other shells."""
+    """
+    The login shell. A game lobby of sorts, from which the user launches the other shells.
+    """
 
     prompt_init = "FleetNet"
     intro = "Secure connection to FleetNet complete. For help: 'help' or '?'"
@@ -166,12 +202,12 @@ class TerminalLogin(TerminalCore):
             title = "List of live Host Stations:"
         ls = [p.stem for p in path.glob("*")]
         if not path.is_dir() or not ls:
-            print("Nothing found")
+            print("Nothing found.")
             return
         print(title)
         for game in ls:
             if not game.endswith("_orders"):
-                print("  - " + game[:-5])
+                print("  - " + game)
 
     def do_host(self, line):
         """Tunnel to a Host Station through which interacting voidcraft can be directed.
@@ -183,7 +219,7 @@ class TerminalLogin(TerminalCore):
 
     @_interruptible
     def do_login(self, line):
-        """Connect to a vessel via QSH to poll its state or issue orders.
+        """Connect to a vessel via QSH to check its scans or issue orders.
         Syntax: login <host>/<vessel_name>"""
         name = (line or input("Enter 'host/vessel': ")).strip()
         if not name or name.count("/") != 1:
@@ -194,10 +230,10 @@ class TerminalLogin(TerminalCore):
         hostpath = pathlib.Path(wd, host)
         shippath = pathlib.Path(wd, host, vessel + ".json")
         if not hostpath.is_dir():
-            print("Host Station not found")
+            print("Host Station not found.")
             return
         elif not shippath.is_file():
-            print("Vessel not found")
+            print("Vessel not found.")
             return
 
         print(

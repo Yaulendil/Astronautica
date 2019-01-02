@@ -2,7 +2,12 @@ import json
 
 
 def load(path):
-    with path.open() as content:
-        j = json.load(content)
-    return j
+    with path.open() as file:
+        data = json.load(file)
+    return data
 
+
+def save(path, data):
+    with path.open("w") as file:
+        json.dump(data, file)
+    return
