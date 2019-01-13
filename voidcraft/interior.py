@@ -1,4 +1,4 @@
-import random
+from random import randint
 
 
 class Department:
@@ -17,7 +17,11 @@ class Department:
         An assigned Medical Team will clear away corpses, while there is space in the Morgue, and an assigned Engineering Team will clear away debris, while there is space in the Hold.
     """
 
-    def __init__(self, size, crew=None, equip=None):
+    difficulty = 2
+    title = "Genericity Dept"
+
+    def __init__(self, ship, size, crew=None, equip=None):
+        self.ship = ship
         # Number of crewmembers/machines that can operate here
         self.size = size
         # Number of crewmembers assigned here
@@ -29,6 +33,8 @@ class Department:
         self.crew_dead = 0  # Dead crew
         self.equip_dmg = 0  # Damaged machines needing maintenance
         self.equip_brk = 0  # Destroyed machines
+
+        self.target = None
 
     @property
     def crew_healthy(self):
@@ -64,7 +70,7 @@ class Department:
         # Then, pick a number of injured to kill no more than either:
         #   The number of people to damage
         #   The number of people who ARE hurt
-        killed = random.randint(0, min([num, self.crew_hurt]))
+        killed = randint(0, min([num, self.crew_hurt]))
         # The number of people injured is the remaining number
         injured = num - killed
         # Wait...Are there that many healthy people left?
@@ -82,7 +88,7 @@ class Department:
 
         # All the same logic as the last method
         num = min([num, self.equip_avail])
-        destroyed = random.randint(0, min([num, self.crew_hurt]))
+        destroyed = randint(0, min([num, self.crew_hurt]))
         damaged = num - destroyed
         remaining_running = self.equip_running - damaged
         if remaining_running < 0:
@@ -91,3 +97,35 @@ class Department:
         self.equip_dmg += damaged
         self.equip_dmg -= destroyed
         self.equip_brk += destroyed
+
+    def work(self):
+        cap = int(min(self.crew_healthy, self.equip_running)/self.difficulty)
+        for i in range(cap):
+            if randint(0, self.crew_dead) == 0:
+                self.work_once()
+
+    def work_once(self):
+        pass
+
+
+class DepartmentMedical(Department):
+    title = "Medical Team"
+
+    def work_once(self):
+        if self.target.crew_hurt > 0:
+            self.target.crew_hurt -= 1
+        elif self.target.crew_dead > 0:
+            self.target.crew_dead -= 1
+            self.target.crew -= 1
+
+
+class DepartmentMaintenance(Department):
+    difficulty = 3
+    title = "Maintenance Team"
+
+    def work_once(self):
+        if self.target.equip_dmg > 0:
+            self.target.equip_dmg -= 1
+        elif self.target.equip_brk > 0:
+            self.target.equip_brk -= 1
+            self.target.equip -= 1
