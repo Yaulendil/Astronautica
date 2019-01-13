@@ -15,7 +15,11 @@ class ObjectInSpace:
         self.radius = size * units.meter  # Assume a spherical cow in a vacuum...
         self.coordinates = geometry.Coordinates(car=[x, y, z])
 
-    def tick_movement(self):
+    def tick_movement(self, time):
+        # TODO:
+        # Return a vector from start position to end position of this tick
+        # Vector returned will be checked against all other motion vectors
+        # If two motion vectors pass closer together than the sum of the radii of the objects, they collided
         pass
 
 
