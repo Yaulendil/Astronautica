@@ -1,8 +1,13 @@
-from astropy import units, constants
-import numpy
+from astropy import units#, constants
+import crypt
+from datetime import datetime as dt
+# import numpy
 
 from . import interior
 import geometry
+
+
+_SALT = crypt.mksalt()
 
 
 class ObjectInSpace:
@@ -15,4 +20,19 @@ class ObjectInSpace:
 
 
 class Ship(ObjectInSpace):
-    pass
+    """A pressurized vessel allowing living creatures to brave the void"""
+
+    def __init__(self, name, *a, **kw):
+        super().__init__(*a, **kw)
+        self.name = name
+        self.hash = None
+        self.salt = _SALT
+        self.updated = dt.utcnow().timestamp()
+        self.struct = {}
+
+
+class Sloop(Ship):
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.struct["medbay"] = interior.DepartmentMedical(self, 4)
+        self.struct["maint"] = interior.DepartmentMaintenance(self, 6)
