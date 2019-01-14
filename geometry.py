@@ -7,9 +7,7 @@ import vectormath as vm
 
 
 ###===---
-# MATH FUNCTIONS
-# Huge thanks to aeroeng15 for help with this
-# Quaternions are the best and also worst
+# COORDINATE TRANSFORMATIONS
 ###===---
 
 
@@ -59,7 +57,17 @@ def cyl3_cart3(*cyl):
     return x, y, z
 
 
+###===---
+# QUATERNION FUNCTIONS
+# Huge thanks to aeroeng15 for help with this
+# Quaternions are the best and also worst
+###===---
+
+
 def get_rotor(theta: int, axis: vm.Vector3):
+    """
+    Return a Unit Quaternion which will rotate a Heading by Theta about Axis
+    """
     q = quaternion(
         np.cos(theta / 2), *[v * np.sin(theta / 2) for v in axis]
     ).normalized()
@@ -107,7 +115,7 @@ class Coordinates:
 
     def increment(self, seconds):
         self.increment_rotation(seconds)
-        return self.increment_position(seconds)
+        self.increment_position(seconds)
 
     def increment_rotation(self, seconds):
         # TODO: Do this more correctly; this feels like a hack
@@ -115,20 +123,7 @@ class Coordinates:
             self.heading = self.rotate * self.heading
 
     def increment_position(self, seconds, motion=None):
-        start = self.position
         self.position += motion or self.movement(seconds)
-        return start, motion
-
-
-class Projectile:
-    def __init__(self, start, target):
-        """
-
-        :type start: Coordinates
-        :type target: Coordinates
-        """
-        self.start = start
-        self.target = target
 
 
 ###===---
@@ -138,6 +133,7 @@ class Projectile:
 
 def get_bearing(a, b):
     """Return SPHERICAL position of B, from the perspective of A"""
+    # TODO: Rewrite or remove in accordance with new Quaternion math
     ap = a.c_pol  # Polar of A
     ac = a.c_car  # Cartesian of A
     bp = b.c_pol  # Polar of B
@@ -158,6 +154,7 @@ def bearing_wrt_heading(bearing, heading):
     """Given an absolute bearing and a heading, rotate the bearing relative to the heading"""
     # bearing: rho, theta, phi --- distance, elevation, turn
     # heading: pitch, yaw, roll --- elevation, turn, tilt
+    # TODO: Rewrite or remove in accordance with new Quaternion math
     new = np.array((0, 0, 0))  # init: rho, theta, phi --- distance, elevation, turn
     new[0] = bearing[0]
     new[1] = bearing[1] - heading[0]  # bearing elevation minus heading elevation
@@ -169,16 +166,8 @@ def bearing_wrt_heading(bearing, heading):
 
 def get_cylindrical(a, b):
     """Return CYLINDRICAL position of B, from the perspective of A"""
+    # TODO: Rewrite or remove in accordance with new Quaternion math
     bearing = get_bearing(a, b)  # Get the direction from A to B
     heading = a.data[1]  # Heading of A
     bearing_wr = bearing_wrt_heading(bearing, heading)  # Adjust for heading
     return cyl3_cart3(*bearing_wr)  # Convert to cartesian
-
-
-# def get_relative(a, b):
-#     """Return CYLINDRICAL coordinates of relative position"""
-#     pass
-
-
-A = Coordinates([0, 0, 0])
-B = Coordinates([5, 5, 0])
