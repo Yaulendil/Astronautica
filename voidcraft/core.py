@@ -1,7 +1,8 @@
-from astropy import units#, constants
 import crypt
 from datetime import datetime as dt
-# import numpy
+
+from astropy import units#, constants
+# import numpy as np
 
 from . import interior
 import geometry
@@ -13,7 +14,7 @@ _SALT = crypt.mksalt()
 class ObjectInSpace:
     def __init__(self, x=0, y=0, z=0, size=100):
         self.radius = size * units.meter  # Assume a spherical cow in a vacuum...
-        self.coordinates = geometry.Coordinates(car=[x, y, z])
+        self.coordinates = geometry.Coordinates([x, y, z])
 
     def tick_movement(self, time):
         # TODO:

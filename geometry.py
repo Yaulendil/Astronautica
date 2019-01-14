@@ -2,19 +2,14 @@ from math import radians, degrees, isnan
 
 # from astropy import units as u
 import numpy as np
+from quaternion import quaternion
+import vectormath as vm
 
-# CONSTANT DIRECTIONS
-# (θ elevation, φ azimuth)
-NORTH = (0, 0)
-EAST = (0, 90)
-WEST = (0, -90)
-SOUTH = (0, 180)
-
-ZENITH = (90, 0)
-NADIR = (-90, 0)
 
 ###===---
 # MATH FUNCTIONS
+# Huge thanks to aeroeng15 for help with this
+# Quaternions are the best and also worst
 ###===---
 
 
@@ -64,131 +59,65 @@ def cyl3_cart3(*cyl):
     return x, y, z
 
 
-###===---
-# ROTATIONAL FUNCTIONS
-###===---
-
-# https://en.wikipedia.org/wiki/Rotation_matrix#Basic_rotations
-
-
-def r_x(theta):
-    return np.array(
-        [
-            [1, 0, 0],
-            [0, np.cos(theta), -np.sin(theta)],
-            [0, np.sin(theta), np.cos(theta)],
-        ]
-    )
+def get_rotor(theta: int, axis: vm.Vector3):
+    q = quaternion(
+        np.cos(theta / 2), *[v * np.sin(theta / 2) for v in axis]
+    ).normalized()
+    return q
 
 
-def r_y(theta):
-    return np.array(
-        [
-            [np.cos(theta), 0, np.sin(theta)],
-            [0, 1, 0],
-            [-np.sin(theta), 0, np.cos(theta)],
-        ]
-    )
-
-
-def r_z(theta):
-    return np.array(
-        [
-            [np.cos(theta), -np.sin(theta), 0],
-            [np.sin(theta), np.cos(theta), 0],
-            [0, 0, 1],
-        ]
-    )
-
-
-def rotate_matrix(matrix, rot):
-    """Return a copy of the input 'matrix', rotated by the tuple 'rot'"""
-    pitch, yaw, roll = rot
-    print(rot)
-    # rr = r_x(pitch) * r_y(yaw) * r_z(roll)
-    rr = heading_to_matrix(rot)
-    print(rr)
-    return matrix * rr
-
-
-def heading_to_matrix(heading):
-    """Return a rotational matrix based on a pitch/yaw/roll iterable"""
-    return r_x(heading[0]) * r_y(heading[1]) * r_z(heading[2])
-
-
-def matrix_to_heading(r):
-    """Convert a rotation matrix into pitch/yaw/roll"""
-    α = np.arctan2(r[1][0], r[0][0])
-    β = np.arctan2(-r[2][1], np.sqrt(r[2][1] ** 2 + r[2][2] ** 2))
-    γ = np.arctan2(r[2][1], r[2][2])
-    return α, β, γ
+def rotate_vector(vector: vm.Vector3, rotor: quaternion):
+    """
+    p' = q*p*(q^-1)
+    https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+    """
+    p = quaternion(0, *vector)
+    qvec = rotor * p * rotor.inverse()
+    vector_out = vm.Vector3(*[round(x, 3) for x in qvec.vec])
+    return vector_out
 
 
 class Coordinates:
     """Coordinates object:
-    Store coordinates as a cartesian tuple and return transformations as requested
-    Real data:
-        Cartesian (x[km],y[km],z[km])
-        Heading   (p[deg],y[deg],r[deg])
-        Course    (v[m/s],θ[deg],φ[deg])
-        Rotation   (p[deg/min],y[deg/min],r[deg/min])"""
+    Store information as Vector3 and Quaternions and return transformations as requested
+    """
 
-    def __init__(
-        self, *, car=None, cyl=None, pol=None, heading=None, course=None, rotation=None
-    ):
-        if car and len(car) >= 3:  # CARTESIAN: (X, Y, Z)
-            cartesian = [float(n) for n in car]
-        elif cyl and len(cyl) >= 3:  # CYLINDRICAL: (R, φ azimuth, Y)
-            cartesian = list(cyl3_cart3(*cyl))  # (x, y, z)
-        elif pol and len(pol) >= 3:  # SPHERICAL: (R, θ elevation, φ azimuth)
-            cartesian = list(polar3_cart3(*pol))
-        else:
-            raise TypeError("Coordinates object requires initial values")
+    def __init__(self, pos=(0, 0, 0), vel=(0, 0, 0), heading=None, rot=None):
+        self.position = vm.Vector3(*pos)  # Physical location
+        self.velocity = vm.Vector3(*vel)  # Change in location per second
+        self.heading = heading or quaternion(0, 0, 0, 0)  # Orientation
+        self.rotate = rot or quaternion(0, 0, 0, 0)  # Change in orientation per second
 
-        self.data = np.array(
-            [
-                cartesian,  # 0. Position
-                heading or [0.0, 0.0, 0.0],  # 1. Facing
-                course or [0.0, 0.0, 0.0],  # 2. Moving
-                rotation or [0.0, 0.0, 0.0],  # 3. Turning
-            ]
-        )
-        self.cartesian = self.data[0]
+    def as_seen_from(self, pov):
+        """
+        Return a new Coordinates, from the perspective a given frame of reference
+        """
+        pos_relative = self.position - pov.position
+        vel_relative = self.velocity - pov.velocity
+        dir_relative = self.heading / pov.heading
+        rot_relative = self.rotate / pov.heading
 
-    @property
-    def heading_matrix(self):
-        return heading_to_matrix(self.data[1])
+        relative = Coordinates(pos_relative, vel_relative)
+        relative.heading = dir_relative
+        relative.rotation = rot_relative
+        return relative
 
-    @property
-    def c_car(self):
-        """Return the CARTESIAN coordinates"""
-        return np.array([npr(v) for v in self.cartesian])
+    def movement(self, seconds):
+        return self.position, self.velocity * seconds
 
-    @property
-    def c_cyl(self):
-        """Return the CYLINDRICAL coordinates"""
-        x, y, z = self.cartesian  # Take the cartesian coordinates
-        rho, phi = cart2_polar2(x, z)  # Find rho and phi of x and z
-        return np.array((npr(rho), rad_deg(phi), npr(y)))  # Return rho, phi, and height
+    def increment(self, seconds):
+        self.increment_rotation(seconds)
+        return self.increment_position(seconds)
 
-    @property
-    def c_pol(self):
-        """Return the SPHERICAL coordinates (horizontal)"""
-        x, y, z = self.cartesian
-        return cart3_polar3(x, y, z)
+    def increment_rotation(self, seconds):
+        # TODO: Do this more correctly; this feels like a hack
+        for i in range(seconds):
+            self.heading = self.rotate * self.heading
 
-    def move(self, delta=None):
-        delta = delta or self.data[2]  # With no parameter, use own velocity
-        d = self.data[0]
-        for i in range(len(d)):
-            d[i] = d[i] + delta[i]
-
-    def rotate(self, rot):
-        m = self.heading_matrix
-        mm = rotate_matrix(m, rot)
-        print(mm)
-        new = matrix_to_heading(mm)
-        return new
+    def increment_position(self, seconds, motion=None):
+        start = self.position
+        self.position += motion or self.movement(seconds)
+        return start, motion
 
 
 class Projectile:
@@ -251,5 +180,5 @@ def get_cylindrical(a, b):
 #     pass
 
 
-A = Coordinates(car=[0,0,0])
-B = Coordinates(car=[5,5,0])
+A = Coordinates([0, 0, 0])
+B = Coordinates([5, 5, 0])
