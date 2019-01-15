@@ -4,7 +4,7 @@
 
 
 # Astronautica
-"Real-time" PVP space combat game, played via SSH, currently primarily in the **planning** phase.
+"Real-time" PVP space combat game, played via SSH, currently primarily in the **structure** phase.
 
 In actuality, it will be turn-based, but with turns at strict intervals in real time. Missing a turn is not necessarily a problem as most turns will not require action.
 
@@ -14,17 +14,10 @@ Client instances will connect to the Host of a game session, and give directions
 
 ### Coordinates
 
-From [Wikipedia](https://en.wikipedia.org/wiki/Spherical_coordinate_system#Conventions) (slightly clipped):
+Any entity in space has a local frame of reference, an object of the "Coordinates" class which contains:
+- **Physical location**, as a Vector3 measured from the Origin of the universal frame of reference
+- **Velocity**, as a Vector3 measuring the change in Position over one second
+- **Heading**, as a [Quaternion](https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation) representing current angular orientation relative to the universal frame of reference
+- **Rotation**, as a Quaternion representing the angular velocity, measuring the change in Heading over one second
 
-coordinates|corresponding local geographical directions (Z, X, Y)|right/left-handed
----:|:---:|---
-(*r*, *θ* elevation, *φ* azimuth,right)|(U, N, E)|left
-| |`Note: easting (E), northing (N), upwardness (U). Local azimuth angle would be measured, e.g., counterclockwise from S to E in the case of (U, S, E).`
-
-This pre-existing coordinate system has been chosen because:
-1. An angle where *φ*=0 is straight ahead
-2. Positive values of *φ* increase clockwise
-3. An angle where *θ*=0 is on a flat plane
-4. UNE could be the United Nations of Earth
-
-Coordinates are stored in numpy arrays.
+A frame of reference can be measured from the perspective of another. This returns a **new** Coordinates object representing the properties the entity would have, if the "viewing" frame of reference were the one defining the coordinates.
