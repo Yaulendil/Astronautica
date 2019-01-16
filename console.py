@@ -71,6 +71,11 @@ class TerminalCore(Cmd):
         return True
 
     def default(self, line):
+        if line.lower() in ["credits", "source"]:
+            print(
+                "Astronautica by @Davarice, licensed under GPLv3\n"
+                + "https://github.com/Davarice/Astronautica"
+            )
         if line == "EOF":
             print("exit")
             return self.do_exit(line)
