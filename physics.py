@@ -8,6 +8,8 @@ index = []
 
 
 class ObjectInSpace:
+    visibility = 5
+
     def __init__(self, x=0, y=0, z=0, size=100, mass=100):
         index.append(self)
         self.radius = size  # Assume a spherical cow in a vacuum...
