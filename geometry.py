@@ -3,7 +3,7 @@ from math import radians, degrees, isnan
 # from astropy import units as u
 import numpy as np
 from quaternion import quaternion
-import vectormath as vm
+from vectormath import Vector3
 
 
 ###===---
@@ -64,7 +64,7 @@ def cyl3_cart3(*cyl):
 ###===---
 
 
-def get_rotor(theta: int, axis: vm.Vector3):
+def get_rotor(theta: int, axis: Vector3):
     """
     Return a Unit Quaternion which will rotate a Heading by Theta about Axis
     """
@@ -74,14 +74,14 @@ def get_rotor(theta: int, axis: vm.Vector3):
     return q
 
 
-def rotate_vector(vector: vm.Vector3, rotor: quaternion):
+def rotate_vector(vector: Vector3, rotor: quaternion):
     """
     p' = q*p*(q^-1)
     https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
     """
     p = quaternion(0, *vector)
     qvec = rotor * p * rotor.inverse()
-    vector_out = vm.Vector3(*[round(x, 3) for x in qvec.vec])
+    vector_out = Vector3(*[round(x, 3) for x in qvec.vec])
     return vector_out
 
 
@@ -91,8 +91,8 @@ class Coordinates:
     """
 
     def __init__(self, pos=(0, 0, 0), vel=(0, 0, 0), heading=None, rot=None):
-        self.position = vm.Vector3(*pos)  # Physical location
-        self.velocity = vm.Vector3(*vel)  # Change in location per second
+        self.position = Vector3(*pos)  # Physical location
+        self.velocity = Vector3(*vel)  # Change in location per second
         self.heading = heading or quaternion(0, 0, 0, 0)  # Orientation
         self.rotate = rot or quaternion(0, 0, 0, 0)  # Change in orientation per second
 
@@ -110,20 +110,20 @@ class Coordinates:
         relative.rotation = rot_relative
         return relative
 
-    def movement(self, seconds):
+    def movement(self, seconds: int):
         return self.position, self.velocity * seconds
 
-    def increment(self, seconds):
+    def increment(self, seconds: int):
         self.increment_rotation(seconds)
         self.increment_position(seconds)
 
-    def increment_rotation(self, seconds):
+    def increment_rotation(self, seconds: int):
         # TODO: Do this more correctly; this feels like a hack
         for i in range(seconds):
             self.heading = self.rotate * self.heading
 
-    def increment_position(self, seconds, motion=None):
-        self.position += motion or self.movement(seconds)
+    def increment_position(self, seconds: int, motion=None):
+        self.position += motion or self.movement(seconds)[1]
 
 
 ###===---
