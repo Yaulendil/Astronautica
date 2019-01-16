@@ -1,10 +1,7 @@
-import crypt
 from datetime import datetime as dt
 
 from . import interior
 import physics
-
-_SALT = crypt.mksalt()
 
 
 class Ship(physics.ObjectInSpace):
@@ -14,7 +11,6 @@ class Ship(physics.ObjectInSpace):
         super().__init__(*a, **kw)
         self.name = name
         self.hash = None
-        self.salt = _SALT
         self.updated = dt.utcnow().timestamp()
         self.struct = {}
 

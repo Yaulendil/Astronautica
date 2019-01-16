@@ -1,11 +1,12 @@
 print("Connection established. Initiating QES 3.1 key exchange...")
 
 from cmd import Cmd
-import crypt
-import getpass
-import pathlib
-import random
-import time
+from getpass import getuser, getpass
+from pathlib import Path
+from random import randint
+from time import sleep
+
+from passlib.hash import pbkdf2_sha256 as pw
 
 import astroio
 
@@ -17,7 +18,7 @@ _PromptString = "{c}{u}@{h}\033[0m:\033[94m{p}\033[0m$ "
 def _delay(a=5, b=20):
     """Wait a short time to simulate an advanced function that causes a hang"""
 
-    time.sleep(random.randint(a, b) / 10)
+    sleep(randint(a, b) / 10)
 
 
 def _interruptible(func):
@@ -51,7 +52,7 @@ class TerminalCore(Cmd):
 
     @property
     def user(self):
-        return getpass.getuser()
+        return getuser()
 
     @property
     def prompt(self):
@@ -133,25 +134,33 @@ class TerminalGame(TerminalCore):
         if latest["updated"] != self.model["updated"]:
             print("Failed to commit changes: Telemetry out of date")
             return
-        elif hash(latest) == hash(self.model):
+        elif latest == self.model:
             print("Failed to commit changes: No changes to commit")
             return
         else:
             astroio.save(self.vessel, self.model)
+            print("Changes uploaded.")
 
     def authenticate(self):
-        if not self.model["hash"]:
-            print("No password is set.")
-            self.do_passwd()
+        if not self.model.get("hash"):
+            print("No passphrase is set.")
+            return self._changepass()
+        elif pw.verify(
+            getpass("Passphrase for starship '{}': ".format(self.name)),
+            self.model["hash"],
+        ):
             return True
         else:
-            pwhash = crypt.crypt(
-                getpass.getpass(), self.model.get("salt", "asdfqwertyuiop")
-            )
-            if pwhash == self.model["hash"]:
-                return True
-            else:
-                print("Authentication failure.")
+            print("Authentication failure.")
+
+    def _changepass(self):
+        h1 = pw.hash(getpass("Enter new passphrase: "))
+        if not pw.verify(getpass("Confirm passphrase: "), h1):
+            print("Passphrases do not match.")
+            return False
+        self.model["hash"] = h1
+        print("Passphrase set. Change must be manually uploaded via 'commit'.")
+        return True
 
     def do_update(self, *_):
         """Retrieve the latest telemetry scans of the voidcraft and its local space."""
@@ -161,20 +170,15 @@ class TerminalGame(TerminalCore):
             _delay()
             print("Latest telemetry scans retrieved.")
 
+    def do_commit(self, *_):
+        """Upload orders and configuration changes to starship computer."""
+        if input("Uploading all changes to starship. Confirm? [y/N] ").lower() == "y":
+            self.save()
+
     def do_passwd(self, *_):
-        h1 = crypt.crypt(
-            getpass.getpass("Enter new password: "),
-            self.model.get("salt", "asdfqwertyuiop"),
-        )
-        h2 = crypt.crypt(
-            getpass.getpass("Confirm password: "),
-            self.model.get("salt", "asdfqwertyuiop"),
-        )
-        if h1 != h2:
-            print("Passwords do not match.")
-            return
-        self.model["hash"] = h1
-        print("Password set.")
+        """Change starship passphrase."""
+        # "Insulator" method so that the return status is not passed back to CMD
+        self._changepass()
 
 
 class TerminalLogin(TerminalCore):
@@ -195,10 +199,10 @@ class TerminalLogin(TerminalCore):
         """List currently active Host Stations, or vessels in range of a Host Station.
         Syntax: ls [<host_name>]"""
         if line:
-            path = pathlib.Path(wd, line)
+            path = Path(wd, line)
             title = "List of vessels in range of Host '{}':".format(line)
         else:
-            path = pathlib.Path(wd)
+            path = Path(wd)
             title = "List of live Host Stations:"
         ls = [p.stem for p in path.glob("*")]
         if not path.is_dir() or not ls:
@@ -227,8 +231,8 @@ class TerminalLogin(TerminalCore):
             return
 
         host, vessel = name.split("/")
-        hostpath = pathlib.Path(wd, host)
-        shippath = pathlib.Path(wd, host, vessel + ".json")
+        hostpath = Path(wd, host)
+        shippath = Path(wd, host, vessel + ".json")
         if not hostpath.is_dir():
             print("Host Station not found.")
             return
