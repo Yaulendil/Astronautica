@@ -11,8 +11,9 @@ from passlib.hash import pbkdf2_sha256 as pw
 import astroio
 
 
-wd = "astronautica"
+wd = "astronautica"  # Working Directory
 _PromptString = "{c}{u}@{h}\033[0m:\033[94m{p}\033[0m$ "
+_aliases = {"quit": "exit", "logout": "exit"}
 
 
 def _delay(a=5, b=20):
@@ -76,6 +77,11 @@ class TerminalCore(Cmd):
                 "Astronautica by @Davarice, licensed under GPLv3\n"
                 + "https://github.com/Davarice/Astronautica"
             )
+            return
+        ls = line.split(" ", 1)
+        cmd, rest = ls.pop(0), ls if ls else ""
+        if cmd in _aliases and getattr(self, "do_" + _aliases[cmd], False):
+            return self.onecmd(" ".join([_aliases[cmd], rest]))
         if line == "EOF":
             print("exit")
             return self.do_exit(line)
