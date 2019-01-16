@@ -61,18 +61,18 @@ def collide(a: ObjectInSpace, b: ObjectInSpace):
     b.on_collide(a)
 
 
-def progress(time: int):
-    """Simulate the passing of time"""
+def tick(seconds=1):
+    """Simulate the passing of one second"""
     list_a = index.copy()
     list_b = list_a.copy()
     collisions = []
 
     for obj_a in list_a:
         list_b.pop(0)
-        start_a, motion_a = obj_a.coords.movement(time)
+        start_a, motion_a = obj_a.coords.movement(seconds)
         end_a = start_a + motion_a
         for obj_b in list_b:
-            start_b, motion_b = obj_b.coords.movement(time)
+            start_b, motion_b = obj_b.coords.movement(seconds)
             end_b = start_b + motion_b
             # TODO: Collision detection that doesnt suck
             if (
@@ -84,7 +84,16 @@ def progress(time: int):
                 collisions.append((obj_a, obj_b))
 
     for obj in index:
-        obj.coords.increment(time)
+        obj.coords.increment(seconds)
 
     for pair in collisions:
         collide(*pair)
+
+
+def progress(time: int, granularity=1):
+    """Simulate the passing of time"""
+    if granularity <= 0:
+        raise ValueError("Progression granularity must be positive and nonzero")
+    # TODO: Implement proper scaling for rotations in geometry.py before enabling granularity
+    for i in range(time):
+        tick(1)
