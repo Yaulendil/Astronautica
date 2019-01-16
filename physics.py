@@ -4,49 +4,57 @@
 import geometry
 
 
-class ObjectInSpace:
-    idx = []
+index = []
 
+
+class ObjectInSpace:
     def __init__(self, x=0, y=0, z=0, size=100, mass=100):
-        self.idx.append(self)
+        index.append(self)
         self.radius = size  # Assume a spherical cow in a vacuum...
         self.mass = mass
         self.coords = geometry.Coordinates([x, y, z])
 
     @property
     def momentum(self):
-        # p=mv
+        """p = mv"""
         return self.mass * self.coords.velocity
 
-    def impulse(self, force):
-        pass
+    def impulse(self, impulse):
+        """
+        Momentum is mass times velocity, so the change in velocity is
+        the change in momentum, or impulse, divided by the object mass
+        """
+        d_velocity = impulse / self.mass
+        self.coords.velocity += d_velocity
 
     def on_collide(self, other):
         pass
 
 
 def impact_force(self: ObjectInSpace, other: ObjectInSpace):
+    """F = ma = m(Δv/Δt) = Δp/Δt
+    Force is nothing more than a change in Momentum over Time, and this impact is happening
+    over the course of one second, so Force is equivalent to Change in Momentum (Δp or Impulse)
+    """
     relative_motion = other.coords.velocity - self.coords.velocity
     relative_momentum = other.momentum - self.momentum
     # Direction of imparted force
     direction = other.coords.position - self.coords.position
-    # TODO: Get the component of relative_momentum which is the same direction as 'direction'
-    # TODO: Then turn it into an impulse vector (if theres any difference) and return that
     return 0
 
 
-def collide(a, b):
-    # TODO: Finish this
+def collide(a: ObjectInSpace, b: ObjectInSpace):
+    """Simulate an impact between two objects, resulting in altered paths"""
+
     # Determine the impulses the objects impart on each other
-    a_tx_b = impact_force(b, a)
-    b_tx_a = impact_force(a, b)
+    action, reaction = impact_force(a, b)
 
     # Apply the impulses
-    a.impulse(b_tx_a)
-    b.impulse(a_tx_b)
-    # Now, the objects should have velocities such that on the next tick, they will not intersect
-    # If for some reason they do still intersect, they will not collide again until they separate
-    # This is obviously not realistic, but is less noticeable than the classic "glitchy stutters"
+    a.impulse(action)
+    b.impulse(reaction)
+    # Now, the objects should have velocities such that on the next tick, they will not intersect.
+    # If for some reason they do still intersect, they will not interact again until they separate;
+    # This is obviously not realistic, but is less noticeable than the classic "stuttery glitching"
 
     # Run any special collision code the objects have; Projectile damage goes here
     a.on_collide(b)
@@ -54,7 +62,8 @@ def collide(a, b):
 
 
 def progress(time: int):
-    list_a = ObjectInSpace.idx.copy()
+    """Simulate the passing of time"""
+    list_a = index.copy()
     list_b = list_a.copy()
     collisions = []
 
@@ -74,7 +83,7 @@ def progress(time: int):
                 # Objects intersect, and did not intersect a moment ago
                 collisions.append((obj_a, obj_b))
 
-    for obj in ObjectInSpace.idx:
+    for obj in index:
         obj.coords.increment(time)
 
     for pair in collisions:
