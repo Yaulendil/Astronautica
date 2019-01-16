@@ -64,7 +64,7 @@ def cyl3_cart3(*cyl):
 ###===---
 
 
-def get_rotor(theta: int, axis: Vector3):
+def get_rotor(theta: float, axis: Vector3) -> quaternion:
     """
     Return a Unit Quaternion which will rotate a Heading by Theta about Axis
     """
@@ -74,7 +74,16 @@ def get_rotor(theta: int, axis: Vector3):
     return q
 
 
-def rotate_vector(vector: Vector3, rotor: quaternion):
+def break_rotor(q: quaternion) -> tuple:
+    """
+    Given a Unit Quaternion, break it into an angle and a Vector3
+    """
+    theta, v = 2 * np.arccos(q.w), []
+    axis = Vector3(*v)
+    return theta, axis
+
+
+def rotate_vector(vector: Vector3, rotor: quaternion) -> Vector3:
     """
     p' = q*p*(q^-1)
     https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
@@ -116,7 +125,8 @@ class Rotor(quaternion):
 
 
 class Coordinates:
-    """Coordinates object:
+    """
+    Coordinates object:
     Store information as Vector3 and Quaternions and return transformations as requested
     """
 
@@ -140,19 +150,20 @@ class Coordinates:
         relative.rotation = rot_relative
         return relative
 
-    def movement(self, seconds: int):
+    def movement(self, seconds):
         return self.position, self.velocity * seconds
 
-    def increment(self, seconds: int):
+    def increment(self, seconds):
         self.increment_rotation(seconds)
         self.increment_position(seconds)
 
-    def increment_rotation(self, seconds: int):
-        # TODO: Do this more correctly; this feels like a hack
-        for i in range(seconds):
-            self.heading = self.rotate * self.heading
+    def increment_rotation(self, seconds):
+        theta, vec = break_rotor(self.rotate)
+        theta *= seconds
+        rotate = get_rotor(theta, vec)
+        self.heading = rotate * self.heading
 
-    def increment_position(self, seconds: int, motion=None):
+    def increment_position(self, seconds, motion=None):
         self.position += motion or self.movement(seconds)[1]
 
 
