@@ -30,6 +30,16 @@ class ObjectInSpace:
     def on_collide(self, other):
         pass
 
+    def clone(self):
+        c = ObjectInSpace(size=self.radius, mass=self.mass)
+        c.coords = geometry.Coordinates(
+            self.coords.position,
+            self.coords.velocity,
+            self.coords.heading,
+            self.coords.rotate,
+        )
+        return c
+
 
 def impact_force(self: ObjectInSpace, other: ObjectInSpace):
     """F = ma = m(Δv/Δt) = Δp/Δt
@@ -59,6 +69,34 @@ def collide(a: ObjectInSpace, b: ObjectInSpace):
     # Run any special collision code the objects have; Projectile damage goes here
     a.on_collide(b)
     b.on_collide(a)
+
+
+def pinpoint_collision(a, b, time, granularity=10):
+    """
+    A and B are believed to collide sometime in the next $time.
+    Simulate this collision precisely.
+    """
+
+    a_, b_ = a.clone(), b.clone()  # Work on copies
+
+    contact = a_.radius + b_.radius
+    d_now = (a_.coords.position - b_.coords.position).length
+
+    if d_now < contact:
+        return 0, a_, b_
+
+    for i in range(int(time * granularity)):
+        d_last = d_now
+        a_.coords.increment_position(time/granularity)
+        b_.coords.increment_position(time/granularity)
+        d_now = (a_.coords.position - b_.coords.position).length
+        if d_now < contact:
+            # Objects are in contact; Return the time, as well as the clones
+            return (i+1)/granularity, a_, b_
+        elif d_now > d_last:
+            # Objects are moving apart; They wont collide, stop wasting time
+            break
+    return False
 
 
 def tick(seconds=1, allow_collision=True):
@@ -97,7 +135,9 @@ def progress(time: int, granularity=1):
     if time == 0:
         return
     if time < 0:
-        raise ValueError("Unfortunately the laws of thermodynamics prohibit time reversal.")
+        raise ValueError(
+            "Unfortunately the laws of thermodynamics prohibit time reversal."
+        )
     elif granularity <= 0:
         raise ValueError("Progression granularity must be positive and nonzero")
     # TODO: Implement proper scaling for rotations in geometry.py before enabling granularity
