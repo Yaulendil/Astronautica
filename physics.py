@@ -59,12 +59,11 @@ class Sim:
     simulate the collision on its own terms. It is a locator above all else.
     """
 
-    def __init__(self, a: ObjectInSpace, b: ObjectInSpace, precision=4, *, allow_collision=False):
+    def __init__(self, a: ObjectInSpace, b: ObjectInSpace, precision=4):
         self.a_real = a
         self.b_real = b
         self.a_virt = self.a_real.clone()
         self.b_virt = self.b_real.clone()
-        self.c = allow_collision
         self.contact = a.radius + b.radius
         self.precision = precision
 
@@ -72,7 +71,7 @@ class Sim:
         self.a_virt = self.a_real.clone()
         self.b_virt = self.b_real.clone()
 
-    def distance_at(self, time: float):
+    def distance_at(self, time: float) -> float:
         a_future = sum(self.a_virt.coords.movement(time))
         b_future = sum(self.b_virt.coords.movement(time))
         return (a_future - b_future).length
@@ -81,6 +80,8 @@ class Sim:
         """
         Iteratively zero in on the first time where the distance between the
         objects is less than the sum of their radii
+
+        Returns a float of seconds at which the objects collide, or False if they do not
         """
 
         t0 = start  # Time 0, minimum time
@@ -99,10 +100,12 @@ class Sim:
                 break
             elif dm < self.contact:
                 # The objects are in contact halfway through this window
+                result = tm
                 t1 = tm
                 d1 = dm
             elif d1 < self.contact:
                 # The objects are in contact at the end of this window
+                result = t1
                 t0 = tm
                 d0 = dm
             else:
