@@ -7,6 +7,10 @@ import geometry
 index = []
 
 
+def avg(*numbers):
+    return sum(numbers)/len(numbers)
+
+
 class ObjectInSpace:
     visibility = 5
 
@@ -41,6 +45,93 @@ class ObjectInSpace:
             self.coords.rotate,
         )
         return c
+
+
+class Sim:
+    """
+    A simplified representation of two objects which can be rocked
+    back and forth in time to closely examine their interactions.
+
+    In this "sub-simulation", no acceleration takes place, and rotation is ignored.
+
+    It is only meant to find exactly WHEN a collision takes place, so that
+    the main simulation can pass the correct amount of time, and then fully
+    simulate the collision on its own terms. It is a locator above all else.
+    """
+
+    def __init__(self, a: ObjectInSpace, b: ObjectInSpace, precision=4, *, allow_collision=False):
+        self.a_real = a
+        self.b_real = b
+        self.a_virt = self.a_real.clone()
+        self.b_virt = self.b_real.clone()
+        self.c = allow_collision
+        self.contact = a.radius + b.radius
+        self.precision = precision
+
+    def reset(self):
+        self.a_virt = self.a_real.clone()
+        self.b_virt = self.b_real.clone()
+
+    def distance_at(self, time: float):
+        a_future = sum(self.a_virt.coords.movement(time))
+        b_future = sum(self.b_virt.coords.movement(time))
+        return (a_future - b_future).length
+
+    def find_collision(self, end: float, start=0.0):
+        """
+        Iteratively zero in on the first time where the distance between the
+        objects is less than the sum of their radii
+        """
+
+        t0 = start  # Time 0, minimum time
+        d0 = self.distance_at(t0)
+        t1 = end  # Time 1, maximum time
+        d1 = self.distance_at(t1)
+        result = False
+
+        for i in range(self.precision):
+            # Repeat the following over a steadily more precise window of time
+            tm = avg(t0, t1)  # Time M, middle time
+            dm = self.distance_at(tm)
+            if d0 < self.contact:
+                # The objects are in contact at the start of this window
+                result = t0
+                break
+            elif dm < self.contact:
+                # The objects are in contact halfway through this window
+                t1 = tm
+                d1 = dm
+            elif d1 < self.contact:
+                # The objects are in contact at the end of this window
+                t0 = tm
+                d0 = dm
+            else:
+                # The objects are not in contact at any known point;
+                # However, they may still pass through each other between points
+                if d0 < dm < d1 or d0 > dm < d1:
+                    # The objects seem to be diverging, but may have passed
+                    half_0 = dm - d0  # Change in distance over the first half
+                    half_1 = d1 - dm  # Change in distance over the second half
+                    if half_0 == half_1:
+                        # Divergence is constant; Objects do not pass
+                        result = False
+                        break
+                    elif half_0 > half_1:
+                        # First half is greater change than second half;
+                        # If they pass, it happens in the second half
+                        t0 = tm
+                        d0 = dm
+                    else: # half_0 < half_1
+                        # First half is smaller change than second half;
+                        # If they pass, it happens in the first half
+                        t1 = tm
+                        d1 = dm
+                # elif d0 > dm < d1:
+                    # The objects pass each other during this window
+                else:
+                    # No other condition could result in an impact
+                    return False
+        return result
 
 
 def impact_force(self: ObjectInSpace, other: ObjectInSpace):
