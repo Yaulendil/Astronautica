@@ -1,11 +1,11 @@
 import sys
 
-import console
+from cli import TerminalLogin as Console
 import voidcraft
 
 
 def go():
-    console.TerminalLogin().cmdloop()
+    Console().cmdloop()
 
 
 if __name__ == "__main__":
