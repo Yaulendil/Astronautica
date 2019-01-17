@@ -174,7 +174,7 @@ def increment(seconds):
         obj.coords.increment(seconds)
 
 
-def tick(seconds=1, allow_collision=True):
+def tick(seconds=1.0, allow_collision=True):
     """Simulate the passing of one second"""
     list_a = index.copy()
     list_b = list_a.copy()
@@ -224,9 +224,8 @@ def progress(time: int, granularity=1):
         )
     elif granularity <= 0:
         raise ValueError("Progression granularity must be positive and nonzero")
-    # TODO: Implement proper scaling for rotations in geometry.py before enabling granularity
-    for i in range(time):
-        tick(1, True)
+    for i in range(time * granularity):
+        tick(1 / granularity, True)
 
 
 def simulate(time):
