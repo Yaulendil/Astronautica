@@ -2,13 +2,14 @@
 # import numpy as np
 
 import geometry
+from linemath import distance_between_lines
 
 
 index = []
 
 
 def avg(*numbers):
-    return sum(numbers)/len(numbers)
+    return sum(numbers) / len(numbers)
 
 
 class ObjectInSpace:
@@ -125,7 +126,7 @@ class Sim:
                         # If they pass, it happens in the second half
                         t0 = tm
                         d0 = dm
-                    else: # half_0 < half_1
+                    else:  # half_0 < half_1
                         # First half is smaller change than second half;
                         # If they pass, it happens in the first half
                         t1 = tm
@@ -182,13 +183,13 @@ def tick(seconds=1, allow_collision=True):
     if allow_collision:
         for obj_a in list_a:
             list_b.pop(0)
-            start_a, motion_a = obj_a.coords.movement(seconds)
-            end_a = start_a + motion_a
+            start_a = obj_a.coords.position
+            end_a = sum(obj_a.coords.movement(seconds))
             for obj_b in list_b:
-                start_b, motion_b = obj_b.coords.movement(seconds)
-                end_b = start_b + motion_b
-                # TODO: Collision detection that doesnt suck
-                if True:
+                start_b = obj_b.coords.position
+                end_b = sum(obj_b.coords.movement(seconds))
+                proximity = distance_between_lines(start_a, end_a, start_b, end_b)
+                if proximity < (obj_a.radius + obj_b.radius).length:
                     # Objects look like they might collide
                     with Sim(obj_a, obj_b) as subsim:
                         impact = subsim.find_collision(seconds)
