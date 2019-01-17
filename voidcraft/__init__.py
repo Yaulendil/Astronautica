@@ -1,3 +1,1 @@
-from . import core
-
-__all__ = ["core"]
+from voidcraft import core
