@@ -1,7 +1,7 @@
 from datetime import datetime as dt
 
-from . import interior
-import physics
+from voidcraft import interior
+from engine import physics
 
 
 class Ship(physics.ObjectInSpace):

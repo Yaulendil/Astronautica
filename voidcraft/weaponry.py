@@ -1,4 +1,4 @@
-import physics
+from engine import physics
 
 
 class Slug(physics.ObjectInSpace):

@@ -1,8 +1,8 @@
 # from astropy import units  # , constants
 # import numpy as np
 
-import geometry
-from linemath import distance_between_lines
+from engine import geometry
+from engine.linemath import distance_between_lines
 
 
 index = []
