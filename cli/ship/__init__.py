@@ -4,8 +4,8 @@ from passlib.handlers.pbkdf2 import pbkdf2_sha256 as pw
 
 import astroio
 from cli import TerminalCore, _delay
-from cli.navigation import TerminalNav
-from cli.weapons import TerminalWpn
+from cli.ship.navigation import TerminalNav
+from cli.ship.weapons import TerminalWpn
 
 
 class TerminalShip(TerminalCore):
