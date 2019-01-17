@@ -90,6 +90,7 @@ class Sim:
         d1 = self.distance_at(t1)
         result = False
 
+        # TODO: Automatically select precision such that uncertainty < object radius
         for i in range(self.precision):
             # Repeat the following over a steadily more precise window of time
             tm = avg(t0, t1)  # Time M, middle time
@@ -167,32 +168,9 @@ def collide(a: ObjectInSpace, b: ObjectInSpace):
     b.on_collide(a)
 
 
-def pinpoint_collision(a, b, time, granularity=10):
-    """
-    A and B are believed to collide sometime in the next $time.
-    Simulate this collision precisely.
-    """
-
-    a_, b_ = a.clone(), b.clone()  # Work on copies
-
-    contact = a_.radius + b_.radius
-    d_now = (a_.coords.position - b_.coords.position).length
-
-    if d_now < contact:
-        return 0, a_, b_
-
-    for i in range(int(time * granularity)):
-        d_last = d_now
-        a_.coords.increment_position(time/granularity)
-        b_.coords.increment_position(time/granularity)
-        d_now = (a_.coords.position - b_.coords.position).length
-        if d_now < contact:
-            # Objects are in contact; Return the time, as well as the clones
-            return (i+1)/granularity, a_, b_
-        elif d_now > d_last:
-            # Objects are moving apart; They wont collide, stop wasting time
-            break
-    return False
+def increment(seconds):
+    for obj in index:
+        obj.coords.increment(seconds)
 
 
 def tick(seconds=1, allow_collision=True):
@@ -210,20 +188,29 @@ def tick(seconds=1, allow_collision=True):
                 start_b, motion_b = obj_b.coords.movement(seconds)
                 end_b = start_b + motion_b
                 # TODO: Collision detection that doesnt suck
-                if (
-                    (end_a - end_b).length
-                    < obj_a.radius + obj_b.radius
-                    <= (start_a - start_b).length
-                ):
-                    # Objects intersect, and did not intersect a moment ago
-                    collisions.append((obj_a, obj_b))
+                if True:
+                    # Objects look like they might collide
+                    with Sim(obj_a, obj_b) as subsim:
+                        impact = subsim.find_collision(seconds)
+                        if impact is not False:
+                            collisions.append([impact, (obj_a, obj_b)])
 
-    for obj in index:
-        obj.coords.increment(seconds)
+    # Each entry in collisions is a list: [float, (object, object)]
+    # TODO: Sort collisions list by the float
 
-    if allow_collision:
-        for pair in collisions:
-            collide(*pair)
+    total = 0
+    for impact in collisions:
+        # Convert absolute times to relative time differences
+        impact[0] -= total
+        total += impact[0]
+    after = seconds - total
+
+    for impact in collisions:
+        # Simulate to the time of each collision, and then run the math
+        increment(impact[0])
+        collide(*impact[1])
+    # Then, simulate the rest of the time
+    increment(after)
 
 
 def progress(time: int, granularity=1):
