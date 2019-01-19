@@ -3,7 +3,10 @@ from math import radians, degrees, isnan
 # from astropy import units as u
 import numpy as np
 from quaternion import quaternion
-from vectormath import Vector3
+from vectormath import Vector3, Vector3Array
+
+
+all_space = None
 
 
 ###===---
@@ -124,17 +127,90 @@ class Rotor(quaternion):
         super().__init__(*self.plain)
 
 
+class Space:
+    """
+    Coordinates tracker/handler object
+    """
+
+    def __init__(self, first_pos, first_vel):
+        # TODO: Make this have enough levels
+        self.array_position = Vector3Array([Vector3Array([first_pos])])
+        self.array_velocity = Vector3Array([Vector3Array([first_vel])])
+
+    def register_coordinates(self, coords, newpos, newvel):
+        # Register coordinates and return ID number with which to retrieve them
+        new_id = len(self.array_position)
+        if coords.domain == new_id:
+            # New domain needs to be made
+            self.array_position = np.append(self.array_position, Vector3Array(newpos))
+            self.array_velocity = np.append(self.array_velocity, Vector3Array(newvel))
+        elif coords.domain > new_id:
+            # Domain number is too high, cannot make
+            raise ValueError("Cannot make a new domain higher than the next index")
+        else:
+            # Do thing
+            self.array_position[coords.domain] = np.append(
+                self.array_position[coords.domain], Vector3Array(newpos)
+            )
+            self.array_velocity[coords.domain] = np.append(
+                self.array_velocity[coords.domain], Vector3Array(newvel)
+            )
+        return new_id
+
+    def get_coordinates(self, domain, index):
+        return self.array_position[domain][index], self.array_velocity[domain][index]
+
+    def progress(self, time: float):
+        self.array_position += self.array_velocity * time
+
+
 class Coordinates:
     """
     Coordinates object:
     Store information as Vector3 and Quaternions and return transformations as requested
     """
 
-    def __init__(self, pos=(0, 0, 0), vel=(0, 0, 0), heading=None, rot=None):
-        self.position = Vector3(*pos)  # Physical location
-        self.velocity = Vector3(*vel)  # Change in location per second
-        self.heading = heading or quaternion(0, 0, 0, 0)  # Orientation
+    def __init__(
+        self,
+        pos=(0, 0, 0),
+        vel=(0, 0, 0),
+        aim=None,
+        rot=None,
+        *,
+        noregister=False,
+        domain=0
+    ):
+        pos = Vector3(*pos)  # Physical location
+        vel = Vector3(*vel)  # Change in location per second
+        self.heading = aim or quaternion(0, 0, 0, 0)  # Orientation
         self.rotate = rot or quaternion(0, 0, 0, 0)  # Change in orientation per second
+
+        global all_space
+
+        if noregister:
+            self.private = True
+            self.space = Space(pos, vel)
+            self.domain = 0
+            self.id = 0
+        else:
+            if not all_space:
+                all_space = Space(pos, vel)
+                self.space = all_space
+                self.domain = 0
+                self.id = 0
+            else:
+                self.space = all_space
+                self.domain = domain
+                self.id = self.space.register_coordinates(self, pos, vel)
+            self.private = False
+
+    @property
+    def position(self):
+        return self.space.array_position[self.domain][self.id]
+
+    @property
+    def velocity(self):
+        return self.space.array_velocity[self.domain][self.id]
 
     def as_seen_from(self, pov):
         """
@@ -145,9 +221,9 @@ class Coordinates:
         dir_relative = self.heading / pov.heading
         rot_relative = self.rotate / pov.heading
 
-        relative = Coordinates(pos_relative, vel_relative)
-        relative.heading = dir_relative
-        relative.rotation = rot_relative
+        relative = Coordinates(
+            pos_relative, vel_relative, dir_relative, rot_relative, noregister=True
+        )
         return relative
 
     def movement(self, seconds):
@@ -164,6 +240,7 @@ class Coordinates:
         self.heading = rotate * self.heading
 
     def increment_position(self, seconds, motion=None):
+        # FIXME
         self.position += motion or self.movement(seconds)[1]
 
 

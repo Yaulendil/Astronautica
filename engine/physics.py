@@ -98,7 +98,7 @@ class Sim:
             dm = self.distance_at(tm)
             if d0 < self.contact:
                 # The objects are in contact at the start of this window
-                result = t0
+                result = False
                 break
             elif dm < self.contact:
                 # The objects are in contact halfway through this window
@@ -170,6 +170,12 @@ def collide(a: ObjectInSpace, b: ObjectInSpace):
 
 
 def increment(seconds):
+    """TODO:
+    Rather than iterating through a list of all objects, store the position and
+        velocity of all objects in a numpy ndarray or Vector3Array; Then, to
+        increment time, simply scale the array of velocities and add it to the
+        array of positions.
+    """
     for obj in index:
         obj.coords.increment(seconds)
 
