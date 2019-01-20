@@ -1,5 +1,5 @@
 # from astropy import units  # , constants
-# import numpy as np
+import numpy as np
 
 from engine import geometry
 from engine.linemath import distance_between_lines
@@ -54,7 +54,7 @@ class ObjectInSpace:
             "class": str(type(self)),
             "radius": self.radius,
             "mass": self.mass,
-            "coords": self.coords.serialize()
+            "coords": self.coords.serialize(),
         }
         return flat
 
@@ -169,34 +169,41 @@ class Sim:
                         t1 = tm
                         d1 = dm
                 # elif d0 > dm < d1:
-                    # The objects pass each other during this window
+                #     # The objects pass each other during this window
                 else:
                     # No other condition could result in an impact
                     return False
         return result
 
 
-def impact_force(self: ObjectInSpace, other: ObjectInSpace):
-    """F = ma = m(Δv/Δt) = Δp/Δt
-    Force is nothing more than a change in Momentum over Time, and this impact is happening
-    over the course of one second, so Force is equivalent to Change in Momentum (Δp or Impulse)
-    """
-    relative_motion = other.coords.velocity - self.coords.velocity
-    relative_momentum = other.momentum - self.momentum
-    # Direction of imparted force
-    direction = other.coords.position - self.coords.position
-    return 0
-
-
 def collide(a: ObjectInSpace, b: ObjectInSpace):
-    """Simulate an impact between two objects, resulting in altered paths"""
+    """
+    Simulate an impact between two objects, resulting in altered paths.
+    F = ma = m(Δv/Δt) = Δp/Δt
+    Force is nothing more than a change in Momentum over Time, and this impact is happening
+    over the course of one second, so Force is equivalent to Change in Momentum (Δp or Impulse).
 
-    # Determine the impulses the objects impart on each other
-    action, reaction = impact_force(a, b)
+    These equations are not complete, as I have purposefully left out rotation,
+    at least for the time being.
+
+    http://www.euclideanspace.com/physics/dynamics/collision/threed/index.htm
+    |J| = (e+1) * (vai - vbi) / (1/Ma +n•([Ia]^-1(n × ra)) x ra + 1/Mb +n•([Ib]^-1(n × rb)) × rb)
+    """
+
+    # Determine the impulse the objects impart on each other
+    coeff_restitution = 0.6  # e  # Constant for the moment
+    n = b.coords.position - a.coords.position
+    vai = a.coords.velocity
+    vbi = b.coords.velocity
+
+    impulse = (-(1 + coeff_restitution) * np.dot((vai - vbi), n)) / (
+        (1 / a.mass) + (1 / b.mass)
+    )  # |J|
+    impulse *= n  # J
 
     # Apply the impulses
-    a.impulse(action)
-    b.impulse(reaction)
+    a.impulse(-impulse)
+    b.impulse(impulse)
     # Now, the objects should have velocities such that on the next tick, they will not intersect.
     # If for some reason they do still intersect, they will not interact again until they separate;
     # This is obviously not realistic, but is less noticeable than the classic "stuttery glitching"
