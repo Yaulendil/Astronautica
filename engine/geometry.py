@@ -97,36 +97,6 @@ def rotate_vector(vector: Vector3, rotor: quaternion) -> Vector3:
     return vector_out
 
 
-class Rotor(quaternion):
-    """
-    Extremely ugly hack, dont look directly at it
-    I wrote it to cut down a bit on calculations but eeewwwwww
-    I dont even know if it will work long term
-    Initial signs point to no
-    """
-
-    def __init__(self, theta: float, axis: Vector3):
-        self.theta = theta
-        self.axis = axis
-        super().__init__(*self.plain)
-
-    def __setattr__(self, name, value):
-        current = getattr(self, name, False)
-        super().__setattr__(name, value)
-        if current is not False:
-            # Only do this if the value is being changed, rather than set initially
-            self.update()
-
-    @property
-    def plain(self):
-        return [np.cos(self.theta / 2)] + [
-            v * np.sin(self.theta / 2) for v in self.axis
-        ]
-
-    def update(self):
-        super().__init__(*self.plain)
-
-
 class Space:
     """
     Coordinates tracker/handler object
