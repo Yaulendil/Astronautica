@@ -243,6 +243,16 @@ class Coordinates:
             self.domain, self.id, motion or self.movement(seconds)[1]
         )
 
+    def serialize(self):
+        flat = {
+            "pos": list(self.position),
+            "vel": list(self.velocity),
+            "hea": [self.heading.w, *self.heading.vec],
+            "rot": [self.rotate.w, *self.rotate.vec],
+            "domain": self.domain,
+        }
+        return flat
+
 
 ###===---
 # COORDINATE OPERATIONS

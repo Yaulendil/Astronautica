@@ -47,6 +47,41 @@ class ObjectInSpace:
         )
         return c
 
+    def serialize(self):
+        flat = {
+            "class": str(type(self)),
+            "radius": self.radius,
+            "mass": self.mass,
+            "coords": self.coords.serialize()
+        }
+        return flat
+
+
+def reconstruct(flat: dict, keep_scans=False):
+    """
+    Reconstruct an object of unknown type from serialized data
+    This is NOT best practices...but for now it will do
+    TODO: Make this not terrible
+    """
+    if keep_scans:
+        # # Keep saved telemetry
+        # for i in range(len(flat.get("scans", []))):
+        #     # Construct a model of each scanned object
+        #     flat["scans"][i] = reconstruct(flat["scans"][i])
+        pass
+    elif "scans" in flat:
+        # Throw away any saved telemetry
+        del flat["scans"]
+    # Find the original class
+    t = eval(flat.pop("class").split("'")[1])
+    # Reconstruct the Coordinates object
+    c = geometry.Coordinates(**flat.pop("coords"))
+    # Instantiate a new object of the original type and overwrite all its data
+    new = t()
+    new.__dict__.update(flat)
+    new.coords = c
+    return new
+
 
 class Sim:
     """
