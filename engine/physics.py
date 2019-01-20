@@ -32,7 +32,7 @@ class ObjectInSpace:
         the change in momentum, or impulse, divided by the object mass
         """
         d_velocity = impulse / self.mass
-        self.coords.velocity += d_velocity
+        self.coords.add_velocity(d_velocity)
 
     def on_collide(self, other):
         pass
