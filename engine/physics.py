@@ -15,11 +15,12 @@ def avg(*numbers):
 class ObjectInSpace:
     visibility = 5
 
-    def __init__(self, x=0, y=0, z=0, size=100, mass=100):
-        index.append(self)
+    def __init__(self, x=0, y=0, z=0, size=100, mass=100, *, domain=0, priv=False):
+        if not priv:
+            index.append(self)
         self.radius = size  # Assume a spherical cow in a vacuum...
         self.mass = mass
-        self.coords = geometry.Coordinates([x, y, z])
+        self.coords = geometry.Coordinates([x, y, z], domain=domain, priv=priv)
 
     @property
     def momentum(self):
@@ -29,7 +30,7 @@ class ObjectInSpace:
     def impulse(self, impulse):
         """
         Momentum is mass times velocity, so the change in velocity is
-        the change in momentum, or impulse, divided by the object mass
+        the change in momentum, or impulse, divided by mass of object
         """
         d_velocity = impulse / self.mass
         self.coords.add_velocity(d_velocity)
@@ -38,12 +39,13 @@ class ObjectInSpace:
         pass
 
     def clone(self):
-        c = ObjectInSpace(size=self.radius, mass=self.mass)
+        c = ObjectInSpace(size=self.radius, mass=self.mass, priv=True)
         c.coords = geometry.Coordinates(
             self.coords.position,
             self.coords.velocity,
             self.coords.heading,
             self.coords.rotate,
+            priv=True,
         )
         return c
 
@@ -204,15 +206,15 @@ def collide(a: ObjectInSpace, b: ObjectInSpace):
     b.on_collide(a)
 
 
-def increment(seconds):
+def increment(seconds, space=geometry.all_space):
     """TODO:
     Rather than iterating through a list of all objects, store the position and
         velocity of all objects in a numpy ndarray or Vector3Array; Then, to
         increment time, simply scale the array of velocities and add it to the
         array of positions.
     """
-    for obj in index:
-        obj.coords.increment(seconds)
+    if space:
+        space.progress(seconds)
 
 
 def tick(seconds=1.0, allow_collision=True):
@@ -227,10 +229,12 @@ def tick(seconds=1.0, allow_collision=True):
             start_a = obj_a.coords.position
             end_a = sum(obj_a.coords.movement(seconds))
             for obj_b in list_b:
+                if obj_a.domain != obj_b.domain:
+                    continue
                 start_b = obj_b.coords.position
                 end_b = sum(obj_b.coords.movement(seconds))
                 proximity = distance_between_lines(start_a, end_a, start_b, end_b)
-                if proximity < (obj_a.radius + obj_b.radius).length:
+                if proximity < obj_a.radius + obj_b.radius:
                     # Objects look like they might collide
                     with Sim(obj_a, obj_b) as subsim:
                         impact = subsim.find_collision(seconds)

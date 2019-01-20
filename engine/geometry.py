@@ -116,7 +116,10 @@ class Space:
         next_domain = len(self.next_id)
         shape = self.array_position.shape
 
-        if coords.domain in [next_domain, -1]:
+        if coords.domain > next_domain < -1:
+            # Domain number is too high, cannot make
+            raise IndexError("Cannot make new domain <0 or higher than next index")
+        elif coords.domain in [next_domain, -1]:
             # New domain needs to be made
             new_id = 0
             self.next_id[next_domain] = 1
@@ -125,9 +128,6 @@ class Space:
                 # Increase the size of the arrays along the Domain axis
                 self.array_position = np.append(self.array_position, addition, 0)
                 self.array_velocity = np.append(self.array_velocity, addition, 0)
-        elif coords.domain > next_domain < -1:
-            # Domain number is too high, cannot make
-            raise IndexError("Cannot make new domain <0 or higher than next index")
         else:
             # Not a new domain, but a new index in the domain
             new_id = self.next_id[coords.domain]
@@ -135,7 +135,7 @@ class Space:
 
             if new_id >= shape[1]:
                 # Increase the size of the arrays along the Index axis
-                addition = np.array([[[0, 0, 0]]] * (shape[0]))
+                addition = np.array([[[0, 0, 0]]] * shape[0])
                 self.array_position = np.append(self.array_position, addition, 1)
                 self.array_velocity = np.append(self.array_velocity, addition, 1)
         self.set_coordinates(coords.domain, new_id, newpos, newvel)
@@ -198,11 +198,11 @@ class Coordinates:
 
     @property
     def position(self):
-        return self.space.array_position[self.domain][self.id]
+        return Vector3(self.space.array_position[self.domain][self.id])
 
     @property
     def velocity(self):
-        return self.space.array_velocity[self.domain][self.id]
+        return Vector3(self.space.array_velocity[self.domain][self.id])
 
     @property
     def id(self):
@@ -212,14 +212,12 @@ class Coordinates:
         """
         Return a new Coordinates, from the perspective a given frame of reference
         """
-        pos_relative = self.position - pov.position
-        vel_relative = self.velocity - pov.velocity
-        dir_relative = self.heading / pov.heading
-        rot_relative = self.rotate / pov.heading
+        pos_rel = self.position - pov.position
+        vel_rel = self.velocity - pov.velocity
+        dir_rel = self.heading / pov.heading
+        rot_rel = self.rotate / pov.heading
 
-        relative = Coordinates(
-            pos_relative, vel_relative, dir_relative, rot_relative, priv=True
-        )
+        relative = Coordinates(pos_rel, vel_rel, dir_rel, rot_rel, priv=True)
         return relative
 
     def add_velocity(self, velocity):
