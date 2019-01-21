@@ -1,7 +1,7 @@
 import sys
 
 from cli import TerminalLogin as Console
-import voidcraft
+import constructs
 
 
 def go():

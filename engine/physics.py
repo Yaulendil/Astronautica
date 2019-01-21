@@ -214,12 +214,6 @@ def collide(a: ObjectInSpace, b: ObjectInSpace):
 
 
 def increment(seconds, space=geometry.all_space):
-    """TODO:
-    Rather than iterating through a list of all objects, store the position and
-        velocity of all objects in a numpy ndarray or Vector3Array; Then, to
-        increment time, simply scale the array of velocities and add it to the
-        array of positions.
-    """
     if space:
         space.progress(seconds)
 
@@ -278,9 +272,3 @@ def progress(time: int, granularity=1):
         raise ValueError("Progression granularity must be positive and nonzero")
     for i in range(time * granularity):
         tick(1 / granularity, True)
-
-
-def simulate(time):
-    if time == 0:
-        return
-    tick(time, False)

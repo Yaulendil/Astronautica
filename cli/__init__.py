@@ -3,8 +3,8 @@ print("Connection established. Initiating QES 3.1 key exchange...")
 from pathlib import Path
 
 from cli.core import TerminalCore, _delay, _interruptible
-from cli.game import TerminalHost as Host
-from cli.ship import TerminalShip as Ship
+from cli.game import TerminalHost
+from cli.ship import TerminalShip
 
 
 wd = "astronautica"  # Working Directory
@@ -23,6 +23,7 @@ class TerminalLogin(TerminalCore):
     def __init__(self):
         super().__init__()
         self.path = "/"
+        self.game = None
 
     def do_ls(self, line):
         """List currently active Host Stations, or vessels in range of a Host Station.
@@ -43,12 +44,22 @@ class TerminalLogin(TerminalCore):
                 print("  - " + host)
 
     def do_host(self, line):
-        """Tunnel to a Host Station through which interacting voidcraft can be directed.
+        """Tunnel to a Host Station through which interacting constructs can be directed.
         Syntax: host <host>"""
-        name = (line or input("Enter title of Host Station: ")).strip()
-        if not name:
-            print("Invalid name.")
-            return
+        if self.game:
+            if line:
+                print("A game is already running on this connection.")
+            else:
+                self.game.cmdloop()
+        else:
+            name = (line or input("Enter title of Host Station: ")).strip()
+            if not name:
+                print("Invalid name.")
+            elif Path(wd).glob(name):
+                print("Duplicate name.")
+            else:
+                self.game = TerminalHost(name)
+                self.game.cmdloop()
 
     @_interruptible
     def do_login(self, line):
@@ -74,6 +85,6 @@ class TerminalLogin(TerminalCore):
                 host, vessel, self.user
             )
         )
-        shell = Ship(hostpath, shippath)
+        shell = TerminalShip(hostpath, shippath)
         if shell.authenticate():
             shell.cmdloop()

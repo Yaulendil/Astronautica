@@ -51,10 +51,8 @@ class TerminalShip(TerminalCore):
         latest = self.rescan()
         if latest["updated"] != self.model["updated"]:
             print("Failed to commit changes: Telemetry out of date")
-            return
         elif latest == self.model:
             print("Failed to commit changes: No changes to commit")
-            return
         else:
             astroio.save(self.vessel, self.model)
             print("Changes uploaded.")
@@ -81,7 +79,7 @@ class TerminalShip(TerminalCore):
         return True
 
     def do_update(self, *_):
-        """Retrieve the latest telemetry scans of the voidcraft and its local space."""
+        """Retrieve the latest telemetry scans of the constructs and its local space."""
         if input("Unsaved changes will be lost. Confirm? [y/N] ").lower() == "y":
             print("Updating telemetry...")
             self.load()
