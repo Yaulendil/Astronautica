@@ -3,7 +3,7 @@ from random import randint
 
 class Department:
     """
-    A section of voidcraft housing equipment and personnel, serving a particular purpose.
+    A section of constructs housing equipment and personnel, serving a particular purpose.
     A Department has a number of Crew and a number of Machines.
         Crew represents people serving as Department staff who utilize Machines.
             A healthy Crewman can be injured, disabling them.
