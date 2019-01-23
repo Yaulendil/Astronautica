@@ -2,14 +2,10 @@
 import numpy as np
 
 from engine import geometry
-from engine.linemath import distance_between_lines
+from engine.collision import distance_between_lines, find_collision
 
 
 index = []
-
-
-def avg(*numbers):
-    return sum(numbers) / len(numbers)
 
 
 class ObjectInSpace:
@@ -114,67 +110,6 @@ class Sim:
         b_future = sum(self.b_virt.coords.movement(time))
         return (a_future - b_future).length
 
-    def find_collision(self, end: float, start=0.0):
-        """
-        Iteratively zero in on the first time where the distance between the
-        objects is less than the sum of their radii
-
-        Returns a float of seconds at which the objects collide, or False if they do not
-        """
-
-        t0 = start  # Time 0, minimum time
-        d0 = self.distance_at(t0)
-        t1 = end  # Time 1, maximum time
-        d1 = self.distance_at(t1)
-        result = False
-
-        # TODO: Automatically select precision such that uncertainty < object radius
-        for i in range(self.precision):
-            # Repeat the following over a steadily more precise window of time
-            tm = avg(t0, t1)  # Time M, middle time
-            dm = self.distance_at(tm)
-            if d0 < self.contact:
-                # The objects are in contact at the start of this window
-                result = False
-                break
-            elif dm < self.contact:
-                # The objects are in contact halfway through this window
-                result = tm
-                t1 = tm
-                d1 = dm
-            elif d1 < self.contact:
-                # The objects are in contact at the end of this window
-                result = t1
-                t0 = tm
-                d0 = dm
-            else:
-                # The objects are not in contact at any known point;
-                # However, they may still pass through each other between points
-                if d0 < dm < d1 or d0 > dm < d1:
-                    # The objects seem to be diverging, but may have passed
-                    half_0 = dm - d0  # Change in distance over the first half
-                    half_1 = d1 - dm  # Change in distance over the second half
-                    if half_0 == half_1:
-                        # Divergence is constant; Objects do not pass
-                        result = False
-                        break
-                    elif half_0 > half_1:
-                        # First half is greater change than second half;
-                        # If they pass, it happens in the second half
-                        t0 = tm
-                        d0 = dm
-                    else:  # half_0 < half_1
-                        # First half is smaller change than second half;
-                        # If they pass, it happens in the first half
-                        t1 = tm
-                        d1 = dm
-                # elif d0 > dm < d1:
-                #     # The objects pass each other during this window
-                else:
-                    # No other condition could result in an impact
-                    return False
-        return result
-
 
 def collide(a: ObjectInSpace, b: ObjectInSpace):
     """
@@ -238,7 +173,7 @@ def tick(seconds=1.0, allow_collision=True):
                 if proximity < obj_a.radius + obj_b.radius:
                     # Objects look like they might collide
                     with Sim(obj_a, obj_b) as subsim:
-                        impact = subsim.find_collision(seconds)
+                        impact = find_collision(subsim, seconds)
                         if impact is not False:
                             collisions.append([impact, (obj_a, obj_b)])
 
