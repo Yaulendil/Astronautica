@@ -3,8 +3,7 @@ from getpass import getuser
 from random import randint
 from time import sleep
 
-_PromptString = "{c}{u}@{h}\033[0m:\033[94m{p}\033[0m$ "
-_aliases = {"quit": "exit", "logout": "exit"}
+import config
 
 
 def _delay(a=5, b=20):
@@ -49,7 +48,7 @@ class TerminalCore(Cmd):
 
     @property
     def prompt(self):
-        return _PromptString.format(
+        return config.cmd_prompt.format(
             c=self.promptColor, u=self.user.lower(), h=self.host, p=self.path
         )
 
@@ -72,8 +71,8 @@ class TerminalCore(Cmd):
             return
         ls = line.split(" ", 1)
         cmd, rest = ls.pop(0), ls if ls else ""
-        if cmd in _aliases and getattr(self, "do_" + _aliases[cmd], False):
-            return self.onecmd(" ".join([_aliases[cmd], rest]))
+        if cmd in config.cmd_aliases and getattr(self, "do_" + config.cmd_aliases[cmd], False):
+            return self.onecmd(" ".join([config.cmd_aliases[cmd], rest]))
         if line == "EOF":
             print("exit")
             return self.do_exit(line)

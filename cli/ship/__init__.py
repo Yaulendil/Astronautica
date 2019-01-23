@@ -6,6 +6,7 @@ import astroio
 from cli import TerminalCore, _delay
 from cli.ship.navigation import TerminalNav
 from cli.ship.weapons import TerminalWpn
+from cli.ship import telemetry
 
 
 class TerminalShip(TerminalCore):
@@ -26,8 +27,9 @@ class TerminalShip(TerminalCore):
         self.path = "~/command"
 
         self.model = None
+        self.scans = telemetry.Scan([])
+        self.updated = 0
         self.load()
-        self.updated = self.model["updated"]
 
         self.nav = TerminalNav(game, vessel)
         self.wpn = TerminalWpn(game, vessel)
@@ -37,14 +39,13 @@ class TerminalShip(TerminalCore):
         return self.vessel.stem
 
     def rescan(self):
-        # path = pathlib.PurePath(self.game, self.vessel.name)
-        # concrete = pathlib.Path(*path.parts)
-        concrete = self.vessel.resolve()
+        concrete = self.vessel.with_suffix(".json").resolve()
         if concrete.is_file():
             return astroio.load(concrete)
 
     def load(self):
         self.model = self.rescan()
+        self.scans = telemetry.Scan(*self.model.get("scans", [[], None]))
         self.updated = self.model["updated"]
 
     def save(self):

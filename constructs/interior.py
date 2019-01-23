@@ -129,3 +129,17 @@ class DepartmentMaintenance(Department):
         elif self.target.equip_brk > 0:
             self.target.equip_brk -= 1
             self.target.equip -= 1
+
+
+class DepartmentWeapons(Department):
+    difficulty = 4
+    title = "Weapons Bay"
+
+
+class DepartmentEngineering(Department):
+    title = "Engine Room"
+
+
+class DepartmentDetection(Department):
+    difficulty = 1/4
+    title = "Detection Lab"

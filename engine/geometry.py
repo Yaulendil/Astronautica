@@ -14,6 +14,24 @@ all_space = None
 ###===---
 
 
+def polar_convert(ρ, θ, φ):
+    # Given polar coordinates in the conventions of Physics, convert to Navigation
+    # Physics conventions: +θ = North of East from 0° to 360°, +φ = Down from Zenith
+    #   # North: θ = 90°
+    #   # South: θ = 270°
+    #   # Zenith: φ = 0°
+    # Navigational format: +θ = West of South from -180° to 180°, +φ = Up from Horizon
+    #   # North: θ = 0°
+    #   # South: θ = -180° OR 180°
+    #   # Zenith: φ = 90°
+
+    θ = 180 - ((90 + θ) % 360)
+    φ = 90 - φ
+    if φ in [90, -90]:
+        θ = 0
+    return ρ, θ, φ
+
+
 def npr(n):
     return np.round(n, 5)
 
@@ -42,7 +60,7 @@ def cart3_polar3(x, y, z):
     ρ = np.sqrt(x ** 2 + y ** 2 + z ** 2)
     φ = rad_deg(np.arccos(z / ρ))
     θ = rad_deg(np.arctan2(y, x))
-    return npr((ρ, θ, φ))
+    return npr(polar_convert(ρ, θ, φ))
 
 
 def polar3_cart3(ρ, θ, φ):
@@ -203,6 +221,14 @@ class Coordinates:
     @property
     def velocity(self):
         return Vector3(self.space.array_velocity[self.domain][self.id])
+
+    @property
+    def position_pol(self):
+        return cart3_polar3(*self.position)
+
+    @property
+    def velocity_pol(self):
+        return cart3_polar3(*self.velocity)
 
     @property
     def id(self):

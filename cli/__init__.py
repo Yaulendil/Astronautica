@@ -2,12 +2,10 @@ print("Connection established. Initiating QES 3.1 key exchange...")
 
 from pathlib import Path
 
+import config
 from cli.core import TerminalCore, _delay, _interruptible
 from cli.game import TerminalHost
 from cli.ship import TerminalShip
-
-
-wd = "astronautica"  # Working Directory
 
 
 class TerminalLogin(TerminalCore):
@@ -29,10 +27,10 @@ class TerminalLogin(TerminalCore):
         """List currently active Host Stations, or vessels in range of a Host Station.
         Syntax: ls [<host_name>]"""
         if line:
-            path = Path(wd, line)
+            path = Path(config.working_dir, line)
             title = "List of vessels in range of Host '{}':".format(line)
         else:
-            path = Path(wd)
+            path = Path(config.working_dir)
             title = "List of live Host Stations:"
         ls = [p.stem for p in path.glob("*")]
         if not path.is_dir() or not ls:
@@ -55,7 +53,7 @@ class TerminalLogin(TerminalCore):
             name = (line or input("Enter title of Host Station: ")).strip()
             if not name:
                 print("Invalid name.")
-            elif Path(wd).glob(name):
+            elif Path(config.working_dir, name).resolve().exists():
                 print("Duplicate name.")
             else:
                 self.game = TerminalHost(name)
@@ -71,12 +69,12 @@ class TerminalLogin(TerminalCore):
             return
 
         host, vessel = name.split("/")
-        hostpath = Path(wd, host)
-        shippath = Path(wd, host, vessel + ".json")
-        if not hostpath.is_dir():
+        hostpath = Path(config.working_dir, host)
+        shippath = hostpath.joinpath(vessel)
+        if not hostpath.resolve().is_dir():
             print("Host Station not found.")
             return
-        elif not shippath.is_file():
+        elif not shippath.with_suffix(".json").resolve().is_file():
             print("Vessel not found.")
             return
 
