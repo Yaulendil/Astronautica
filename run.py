@@ -1,7 +1,4 @@
-import sys
-
 from cli import TerminalLogin as Console
-import constructs
 
 
 def go():

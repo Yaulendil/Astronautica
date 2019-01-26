@@ -1,6 +1,5 @@
 from math import radians, degrees, isnan
 
-# from astropy import units as u
 import numpy as np
 from quaternion import quaternion
 from vectormath import Vector3
@@ -60,7 +59,7 @@ def cart3_polar3(x, y, z):
     ρ = np.sqrt(x ** 2 + y ** 2 + z ** 2)
     φ = rad_deg(np.arccos(z / ρ))
     θ = rad_deg(np.arctan2(y, x))
-    return npr(polar_convert(ρ, θ, φ))
+    return polar_convert(ρ, θ, φ)
 
 
 def polar3_cart3(ρ, θ, φ):
@@ -69,7 +68,7 @@ def polar3_cart3(ρ, θ, φ):
     z = ρ * np.cos(φ) * np.sin(θ)
     x = ρ * np.sin(φ) * np.sin(θ)
     y = ρ * np.cos(θ)
-    return npr((x, y, z))
+    return x, y, z
 
 
 def cyl3_cart3(*cyl):
@@ -113,6 +112,11 @@ def rotate_vector(vector: Vector3, rotor: quaternion) -> Vector3:
     qvec = rotor * p * rotor.inverse()
     vector_out = Vector3(*[round(x, 3) for x in qvec.vec])
     return vector_out
+
+
+def facing(quat):
+    # Given a Unit Quaternion, return the Unit Vector of its direction
+    return rotate_vector(Vector3(0, 1, 0), quat)
 
 
 class Space:
@@ -189,8 +193,8 @@ class Coordinates:
     ):
         pos = np.array(pos)  # Physical location
         vel = np.array(vel)  # Change in location per second
-        self.heading = aim or quaternion(0, 0, 0, 0)  # Orientation
-        self.rotate = rot or quaternion(0, 0, 0, 0)  # Spin per second
+        self.heading = aim or quaternion(1, 0, 0, 0)  # Orientation
+        self.rotate = rot or quaternion(1, 0, 0, 0)  # Spin per second
         self._id = {}
 
         global all_space
@@ -216,23 +220,62 @@ class Coordinates:
 
     @property
     def position(self):
+        # Go into the relevant Space structure and retrieve the position
+        #   that is assigned to this FoR, and wrap it in a Vector3
         return Vector3(self.space.array_position[self.domain][self.id])
+
+    @position.setter
+    def position(self, v: np.array):
+        # Transparently change the value of the position assigned to this FoR
+        # NOTE: If a scalar is given, all values of the array will be that value
+        self.space.array_position[self.domain][self.id] = v
 
     @property
     def velocity(self):
+        # See position
         return Vector3(self.space.array_velocity[self.domain][self.id])
+
+    @velocity.setter
+    def velocity(self, v: np.array):
+        # See position.setter
+        self.space.array_velocity[self.domain][self.id] = v
 
     @property
     def position_pol(self):
+        # Convert cartesian position from a vector to a tuple of Rho, Theta, Phi
         return cart3_polar3(*self.position)
 
     @property
     def velocity_pol(self):
+        # See position_pol
         return cart3_polar3(*self.velocity)
+
+    @property
+    def position_cyl(self):
+        # Return the position of this FoR in Cylindrical Coordinates
+        # First, get the initial Rho, Theta, and Phi as normal
+        i_rho, theta, i_phi = self.position_pol
+        # Theta is going to be the same, but final Rho and Z are going to be the
+        #   lengths of component vectors making up a 2D vector whose angle of
+        #   inclination is equal to Phi and whose length is equal to initial Rho
+        f_rho, f_z = polar2_cart2(i_rho, i_phi)
+        # Return the new Cylindrical Coordinates
+        return f_rho, theta, f_z
+
+    @property
+    def velocity_cyl(self):
+        # See position_cyl
+        i_rho, theta, i_phi = self.velocity_pol
+        f_rho, f_z = polar2_cart2(i_rho, i_phi)
+        return f_rho, theta, f_z
 
     @property
     def id(self):
         return self._id[self.domain]
+
+    @id.setter
+    def id(self, v):
+        self._id[self.domain] = v
 
     def as_seen_from(self, pov):
         """

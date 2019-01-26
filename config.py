@@ -9,3 +9,4 @@ class Scan:
     result_none = "Telemetry includes no {}."
     indent=3
     display_attr = ["radius", "mass", "coords"]
+    decimals = 3

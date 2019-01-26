@@ -1,4 +1,3 @@
-# from astropy import units  # , constants
 import numpy as np
 
 from engine import geometry
