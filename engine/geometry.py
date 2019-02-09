@@ -213,7 +213,7 @@ class Coordinates:
                 self.space = all_space
                 self.domain = 0
             else:
-                # Space exists; Register coordinates and save returned ID
+                # Space exists; Register coordinates and publish returned ID
                 self.space = all_space
                 self.domain = domain
         self._id[self.domain] = self.space.register_coordinates(self, pos, vel)

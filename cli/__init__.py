@@ -6,6 +6,7 @@ import config
 from cli.core import TerminalCore, _delay, _interruptible
 from cli.game import TerminalHost
 from cli.ship import TerminalShip
+from util import paths
 
 
 class TerminalLogin(TerminalCore):
@@ -13,7 +14,7 @@ class TerminalLogin(TerminalCore):
     The login shell. A game lobby of sorts, from which the user launches the other shells.
     """
 
-    prompt_init = "FleetNet"
+    host_init = "FleetNet"
     intro = "Secure connection to FleetNet complete. For help: 'help' or '?'"
     farewell = "QLink powering down..."
     promptColor = "\033[33m"
@@ -43,17 +44,17 @@ class TerminalLogin(TerminalCore):
 
     def do_host(self, line):
         """Tunnel to a Host Station through which interacting constructs can be directed.
-        Syntax: host <host>"""
+        Syntax: host <host_name>"""
         if self.game:
             if line:
-                print("A game is already running on this connection.")
+                print("Another connection to this station is already open.")
             else:
                 self.game.cmdloop()
         else:
             name = (line or input("Enter title of Host Station: ")).strip()
             if not name:
                 print("Invalid name.")
-            elif Path(config.working_dir, name).resolve().exists():
+            elif (paths.root / name).resolve().exists():
                 print("Duplicate name.")
             else:
                 self.game = TerminalHost(name)
@@ -62,7 +63,7 @@ class TerminalLogin(TerminalCore):
     @_interruptible
     def do_login(self, line):
         """Connect to a vessel via QSH to check its scans or issue orders.
-        Syntax: login <host>/<vessel_name>"""
+        Syntax: login <host_name>/<vessel_name>"""
         name = (line or input("Enter 'host/vessel': ")).strip()
         if not name or name.count("/") != 1:
             print("Invalid name.")

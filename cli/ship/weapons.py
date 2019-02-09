@@ -5,8 +5,7 @@ class TerminalWpn(TerminalCore):
     """
     Weaponry shell, segmented sub-interpreter for attack commands.
     """
-
-    prompt_init = "Weapons"
+    host_init = "Weapons"
     promptColor = "\033[36m"
 
     def __init__(self, game, vessel):

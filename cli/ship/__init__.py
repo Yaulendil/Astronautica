@@ -2,11 +2,11 @@ from getpass import getpass
 
 from passlib.handlers.pbkdf2 import pbkdf2_sha256 as pw
 
-import astroio
 from cli import TerminalCore, _delay
+from cli.ship import telemetry
 from cli.ship.navigation import TerminalNav
 from cli.ship.weapons import TerminalWpn
-from cli.ship import telemetry
+from util import astroio
 
 
 class TerminalShip(TerminalCore):
@@ -14,8 +14,7 @@ class TerminalShip(TerminalCore):
     The Game shell, from which starships are given orders and their scans are read.
     The main interface through which most users will be issuing commands. Password-protected.
     """
-
-    prompt_init = "Starship"
+    host_init = "Starship"
     promptColor = "\033[36m"
 
     def __init__(self, game, vessel):
@@ -80,7 +79,7 @@ class TerminalShip(TerminalCore):
         return True
 
     def do_update(self, *_):
-        """Retrieve the latest telemetry scans of the constructs and its local space."""
+        """Retrieve the latest telemetry scans of the construct and its local space."""
         if input("Unsaved changes will be lost. Confirm? [y/N] ").lower() == "y":
             print("Updating telemetry...")
             self.load()
@@ -93,7 +92,7 @@ class TerminalShip(TerminalCore):
             self.save()
 
     def do_passwd(self, *_):
-        """Change starship passphrase."""
+        """Change starship access passphrase."""
         # "Insulator" method so that the return status is not passed back to CMD
         self._changepass()
 

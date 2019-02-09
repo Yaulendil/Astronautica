@@ -3,6 +3,8 @@ from getpass import getuser
 from random import randint
 from time import sleep
 
+import shlex
+
 import config
 
 
@@ -32,14 +34,14 @@ class TerminalCore(Cmd):
     Also wraps the cmdloop method as an interruptible, allowing smoother exiting via ^C.
     """
 
-    prompt_init = "Offline"
+    host_init = "Offline"
     intro = None
     farewell = None
     promptColor = "\033[93m"
 
     def __init__(self):
         super().__init__()
-        self.host = self.prompt_init
+        self.host = self.host_init
         self.path = "/"
 
     @property
@@ -49,12 +51,20 @@ class TerminalCore(Cmd):
     @property
     def prompt(self):
         return config.cmd_prompt.format(
-            c=self.promptColor, u=self.user.lower(), h=self.host, p=self.path
-        )
+            c=self.promptColor, u=self.user, h=self.host, p=self.path
+        ).lower()
 
     @_interruptible
     def cmdloop(self, *a, **kw):
         return super().cmdloop(*a, **kw)
+
+    # def parseline(self, line):
+    #     # Wrapper for default parseline function. Split line into a list that
+    #     #     separates arguments like a proper command interpreter.
+    #     cmd, arg, line = super().parseline(line)
+    #     if line:
+    #         line = shlex.split(line)
+    #     return cmd, arg, line
 
     def do_exit(self, *_):
         """Exit this context and return to the above shell."""

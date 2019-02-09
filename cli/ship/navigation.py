@@ -5,8 +5,7 @@ class TerminalNav(TerminalCore):
     """
     Navigational shell, segmented sub-interpreter for movement commands.
     """
-
-    prompt_init = "Navigation"
+    host_init = "Navigation"
     promptColor = "\033[36m"
 
     def __init__(self, game, vessel):
