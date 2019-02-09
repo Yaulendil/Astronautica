@@ -1,4 +1,4 @@
-working_dir = "astronautica"
+working_dir = "/astronautica"
 turn_length = 300  # Seconds
 
 cmd_prompt = "{c}{u}@{h}\033[0m:\033[94m{p}\033[0m$ "
