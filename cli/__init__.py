@@ -47,18 +47,20 @@ class TerminalLogin(TerminalCore):
         Syntax: host <host_name>"""
         if self.game:
             if line:
-                print("Another connection to this station is already open.")
+                print("Another connection from this terminal is already open.")
             else:
                 self.game.cmdloop()
         else:
             name = (line or input("Enter title of Host Station: ")).strip()
             if not name:
                 print("Invalid name.")
-            elif (paths.root / name).resolve().exists():
+            elif (paths.root / name).exists():
                 print("Duplicate name.")
             else:
                 self.game = TerminalHost(name)
                 self.game.cmdloop()
+        if self.game.killed:
+            self.game = None
 
     @_interruptible
     def do_login(self, line):
@@ -87,3 +89,9 @@ class TerminalLogin(TerminalCore):
         shell = TerminalShip(hostpath, shippath)
         if shell.authenticate():
             shell.cmdloop()
+
+    def do_exit(self, *_):
+        if self.game:
+            return self.game.do_kill()
+        else:
+            return super().do_exit()

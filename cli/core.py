@@ -18,7 +18,7 @@ def _interruptible(func):
 
     def attempt(*a, **kw):
         try:
-            func(*a, **kw)
+            return func(*a, **kw)
         except EOFError:
             print("(Interrupted)")
         except KeyboardInterrupt:

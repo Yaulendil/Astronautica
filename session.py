@@ -1,10 +1,10 @@
+from datetime import datetime as dt, timedelta as td
 from getpass import getuser
 from time import sleep
 
 import config
 from engine import geometry, physics
-from util import astroio
-from util.paths import get_path
+from util import astroio, paths
 
 
 class Game:
@@ -15,7 +15,7 @@ class Game:
     """
     def __init__(self, name):
         self.name = name
-        self.path = get_path(config.working_dir, name)
+        self.path = paths.get_path(config.working_dir, name)
         if not self.path.exists():
             # Not a preexisting game? Make the directory to run the game in.
             self.path.mkdir()
@@ -35,23 +35,37 @@ class Game:
 
     def run(self):
         self.running = True
+        start = dt.utcnow()
         while self.running:
             # TODO: Create empty input files for client use
             # `config.working_dir/<game_name>/*.txt`
             self.publish()
             # TODO: Mark input files as writable
-            self._wait()
-            # TODO: Mark input files as unwritable
-            # TODO: Read input files and send orders to ships
-            # TODO: Execute ship orders
-            physics.progress(self.turn_length)
+            start = self._wait(start)
+            # Time from wait end to wait end should be as precise as possible.
+            #     This prevents the expensive process of simulating a turn from
+            #     cutting into the NEXT wait, by timing the start of every wait
+            #     relative to the end of the previous one.
+            if self.running: # Just to double check
+                # TODO: Mark input files as unwritable
+                # TODO: Read input files and send orders to ships
+                # TODO: Execute ship orders
+                physics.progress(self.turn_length)
 
-    def _wait(self):
+    def _wait(self, start: dt):
+        """Wait until $turn_length seconds after $start. This allows the turn
+            period to remain constant even though to calculate a turn takes a
+            non-zero amount of time.
+        """
         # TODO: Replace with a method that waits only until the next (hour/turn_length)
-        waited = 0
-        while waited < self.turn_length:
+        until = start + td(seconds=self.turn_length)
+        # waited = 0
+        now = dt.utcnow()
+        while now < until and self.running:
             sleep(1)
-            waited += 1
+            now = dt.utcnow()
+            # waited += 1
+        return now
 
     def publish(self):
         """Save a limited dataset onto disk, for access by clients"""
@@ -61,12 +75,38 @@ class Game:
                 astroio.save(self.path / obj.name, obj.serialize())
 
     def close(self):
-        pass
+        """Delete self and go home."""
+        rmdir_f(self.path)
+
+    def add_object(self, obj):
+        """Given a set of data, make it into a thing."""
+        print(obj)
 
 
-def load(user: str, name: str):
+def load(name: str) -> Game:
+    """Read previously-saved serializations from `astronautica/saves/$user/$name.json`
+        and create a Game object out of them.
     """
-    Read previously-saved serializations from `astronautica/saves/$user/$name.json`
-        and create a Game object out of them
+    newgame = Game(name)
+    user = getuser()
+
+    src = (paths.root / "saves" / user / name).with_suffix(".json")
+    world = astroio.load(src)
+
+    for o in world:
+        newgame.add_object(o)
+    return newgame
+
+
+def rmdir_f(path):
+    """Recursively delete an entire directory and everything in it.
+    WARNING: Very dangerous. Duh.
     """
-    pass
+    if not path.is_dir() or not path.is_absolute():
+        return
+    for sub in path.iterdir():
+        if sub.is_dir() and not sub.is_symlink():
+            rmdir_f(sub)
+        else:
+            sub.unlink()
+    path.rmdir()

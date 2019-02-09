@@ -15,8 +15,9 @@ class TerminalHost(TerminalCore):
         super().__init__()
         self.name = name
         self.session = Game(name)
-        self.host = "FleetNet.{}:".format(self.session.path.stem)
+        self.host = "FleetNet.{}".format(self.session.path.stem)
         self.path = "/"
+        self.killed = False
 
     @_interruptible
     def do_run(self, *_):
@@ -30,13 +31,14 @@ class TerminalHost(TerminalCore):
             voidcraft.Sloop(*params)
 
     @_interruptible
-    def do_exit(self, *_):
+    def do_kill(self, *_):
         """Sever the connection to this station and return to the above shell."""
         if input("This will end the currently loaded session. Confirm? [y/N] ").lower() == "y":
+            self.killed = True
             self.session.close()
             return super().do_exit()
         else:
-            print("Exit cancelled.")
+            print("Cancelled.")
 
     def do_save(self, name):
         """Fully serialize all objects and save to disk for storage"""
