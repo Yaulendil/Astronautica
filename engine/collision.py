@@ -1,67 +1,78 @@
-# This module is meant to be compiled to C via Cython
+"""Module dedicated to calculating Collision Detection between Objects.
 
-import numpy as _np
+Uses Numba for JIT Compilation.
+"""
+
+from numba import jit
+import numpy as np
 
 
-def _avg(*numbers):
-    return sum(numbers) / len(numbers)
-
-
-def find_collision(pair, end: float, start=0.0):
+@jit
+def find_collision(pair, end: float, start: float = 0.0):
+    """Iteratively zero in on the first time where the distance between two
+        objects is less than the sum of their radii. Return a float of seconds
+        at which the objects collide, or False if they do not.
     """
-    Iteratively zero in on the first time where the distance between two
-    objects is less than the sum of their radii
+    contact = pair.contact
+    distance_at = pair.distance_at
+    precision: int = pair.precision
 
-    Returns a float of seconds at which the objects collide, or False if they do not
-    """
+    time_min: float = start
+    dist_min: float = distance_at(time_min)
+    time_max: float = end
+    dist_max: float = distance_at(time_max)
 
-    t0 = start  # Time 0, minimum time
-    d0 = pair.distance_at(t0)
-    t1 = end  # Time 1, maximum time
-    d1 = pair.distance_at(t1)
     result = False
 
     # TODO: Automatically select precision such that uncertainty < object radius
-    for i in range(pair.precision):
-        # Repeat the following over a steadily more precise window of time
-        tm = _avg(t0, t1)  # Time M, middle time
-        dm = pair.distance_at(tm)
-        if d0 < pair.contact:
-            # The objects are in contact at the start of this window
-            result = False
-            break
-        elif dm < pair.contact:
-            # The objects are in contact halfway through this window
-            result = tm
-            t1 = tm
-            d1 = dm
-        elif d1 < pair.contact:
-            # The objects are in contact at the end of this window
-            result = t1
-            t0 = tm
-            d0 = dm
+    for i in range(precision):
+        # Repeat the following over an increasingly precise window of time.
+        time_mid = (time_min + time_max) / 2
+        dist_mid = distance_at(time_mid)
+
+        if dist_min < contact:
+            # The objects are in contact at the start of this window.
+            return False
+
+        elif dist_mid < contact:
+            # The objects are in contact halfway through this window.
+            result = time_mid
+            time_max = time_mid
+            dist_max = dist_mid
+
+        elif dist_max < contact:
+            # The objects are in contact at the end of this window.
+            result = time_max
+            time_min = time_mid
+            dist_min = dist_mid
+
         else:
-            # The objects are not in contact at any known point;
-            # However, they may still pass through each other between points
-            if d0 < dm < d1 or d0 > dm < d1:
-                # The objects seem to be diverging, but may have passed
-                half_0 = dm - d0  # Change in distance over the first half
-                half_1 = d1 - dm  # Change in distance over the second half
+            # The objects are not in contact at any known point; However, they
+            #   may still pass through each other between points. Check the
+            #   distance differences to find which half of this window would
+            #   contain the pass.
+            if dist_min < dist_mid < dist_max or dist_min > dist_mid < dist_max:
+                # The objects seem to be diverging, but may have passed.
+                half_0 = dist_mid - dist_min  # Change in distance over the first half
+                half_1 = dist_max - dist_mid  # Change in distance over the second half
+
                 if half_0 == half_1:
-                    # Divergence is constant; Objects do not pass
-                    result = False
-                    break
+                    # Divergence is constant; Objects do not pass.
+                    return False
+
                 elif half_0 > half_1:
                     # First half is greater change than second half;
-                    # If they pass, it happens in the second half
-                    t0 = tm
-                    d0 = dm
+                    # If they pass, it happens in the second half.
+                    time_min = time_mid
+                    dist_min = dist_mid
+
                 else:  # half_0 < half_1
                     # First half is smaller change than second half;
-                    # If they pass, it happens in the first half
-                    t1 = tm
-                    d1 = dm
-            # elif d0 > dm < d1:
+                    # If they pass, it happens in the first half.
+                    time_max = time_mid
+                    dist_max = dist_mid
+
+            # elif dist_min > dist_mid < dist_max:
             #     # The objects pass each other during this window
             else:
                 # No other condition could result in an impact
@@ -98,46 +109,46 @@ def distance_between_lines(
     # Calculate denomitator
     A = a1 - a0
     B = b1 - b0
-    magA = _np.linalg.norm(A)
-    magB = _np.linalg.norm(B)
+    magA = np.linalg.norm(A)
+    magB = np.linalg.norm(B)
 
     _A = A / magA
     _B = B / magB
 
-    cross = _np.cross(_A, _B)
-    denom = _np.linalg.norm(cross) ** 2
+    cross = np.cross(_A, _B)
+    denom = np.linalg.norm(cross) ** 2
 
     # If lines are parallel (denom=0) test if lines overlap.
     # If they don't overlap then there is a closest point solution.
     # If they do overlap, there are infinite closest positions, but there is a closest distance
     if not denom:
-        d0 = _np.dot(_A, (b0 - a0))
+        d0 = np.dot(_A, (b0 - a0))
 
         # Overlap only possible with clamping
         if clampA0 or clampA1 or clampB0 or clampB1:
-            d1 = _np.dot(_A, (b1 - a0))
+            d1 = np.dot(_A, (b1 - a0))
 
             # Is segment B before A?
             if d0 <= 0 >= d1:
                 if clampA0 and clampB1:
-                    if _np.absolute(d0) < _np.absolute(d1):
-                        return a0, b0, _np.linalg.norm(a0 - b0)
-                    return a0, b1, _np.linalg.norm(a0 - b1)
+                    if np.absolute(d0) < np.absolute(d1):
+                        return a0, b0, np.linalg.norm(a0 - b0)
+                    return a0, b1, np.linalg.norm(a0 - b1)
 
             # Is segment B after A?
             elif d0 >= magA <= d1:
                 if clampA1 and clampB0:
-                    if _np.absolute(d0) < _np.absolute(d1):
-                        return a1, b0, _np.linalg.norm(a1 - b0)
-                    return a1, b1, _np.linalg.norm(a1 - b1)
+                    if np.absolute(d0) < np.absolute(d1):
+                        return a1, b0, np.linalg.norm(a1 - b0)
+                    return a1, b1, np.linalg.norm(a1 - b1)
 
         # Segments overlap, return distance between parallel segments
-        return None, None, _np.linalg.norm(((d0 * _A) + a0) - b0)
+        return None, None, np.linalg.norm(((d0 * _A) + a0) - b0)
 
     # Lines criss-cross: Calculate the projected closest points
     t = b0 - a0
-    detA = _np.linalg.det([t, _B, cross])
-    detB = _np.linalg.det([t, _A, cross])
+    detA = np.linalg.det([t, _B, cross])
+    detB = np.linalg.det([t, _A, cross])
 
     t0 = detA / denom
     t1 = detB / denom
@@ -159,7 +170,7 @@ def distance_between_lines(
 
         # Clamp projection A
         if (clampA0 and t0 < 0) or (clampA1 and t0 > magA):
-            dot = _np.dot(_B, (pA - b0))
+            dot = np.dot(_B, (pA - b0))
             if clampB0 and dot < 0:
                 dot = 0
             elif clampB1 and dot > magB:
@@ -168,11 +179,11 @@ def distance_between_lines(
 
         # Clamp projection B
         if (clampB0 and t1 < 0) or (clampB1 and t1 > magB):
-            dot = _np.dot(_A, (pB - a0))
+            dot = np.dot(_A, (pB - a0))
             if clampA0 and dot < 0:
                 dot = 0
             elif clampA1 and dot > magA:
                 dot = magA
             pA = a0 + (_A * dot)
 
-    return pA, pB, _np.linalg.norm(pA - pB)
+    return pA, pB, np.linalg.norm(pA - pB)

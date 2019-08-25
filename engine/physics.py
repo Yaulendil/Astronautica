@@ -1,21 +1,22 @@
+from numba import jit
 import numpy as np
 
-from engine import geometry
-from engine.collision import distance_between_lines, find_collision
+from . import geometry
+from .collision import distance_between_lines, find_collision
 
 
 index = []
 
 
 class ObjectInSpace:
-    visibility = 5
+    visibility: int = 5
 
     def __init__(self, x=0, y=0, z=0, size=100, mass=100, *, domain=0, priv=False):
         if not priv:
             index.append(self)
         self.radius = size  # Assume a spherical cow in a vacuum...
         self.mass = mass
-        self.coords = geometry.Coordinates([x, y, z], domain=domain, priv=priv)
+        self.coords = geometry.Coordinates((x, y, z), domain=domain, priv=priv)
 
     @property
     def momentum(self):
@@ -104,6 +105,7 @@ class Sim:
         self.a_virt = self.a_real.clone()
         self.b_virt = self.b_real.clone()
 
+    @jit
     def distance_at(self, time: float) -> float:
         a_future = sum(self.a_virt.coords.movement(time))
         b_future = sum(self.b_virt.coords.movement(time))
@@ -171,10 +173,9 @@ def tick(seconds=1.0, allow_collision=True):
                 proximity = distance_between_lines(start_a, end_a, start_b, end_b)
                 if proximity < obj_a.radius + obj_b.radius:
                     # Objects look like they might collide
-                    with Sim(obj_a, obj_b) as subsim:
-                        impact = find_collision(subsim, seconds)
-                        if impact is not False:
-                            collisions.append([impact, (obj_a, obj_b)])
+                    impact = find_collision(Sim(obj_a, obj_b), seconds)
+                    if impact is not False:
+                        collisions.append([impact, (obj_a, obj_b)])
 
     # Each entry in collisions is a list: [float, (object, object)]
     # TODO: Sort collisions list by the float

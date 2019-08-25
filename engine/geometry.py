@@ -40,20 +40,19 @@ def polar_convert(ρ: N, θ: N, φ: N) -> Tuple[N, N, N]:
     return ρ, θ, φ
 
 
-def npr(n: N) -> N:
-    return np.round(n, 5)
-
-
+@jit
 def rad_deg(theta: N) -> N:
     """Convert Radians to Degrees."""
-    return npr(degrees(theta))
+    return np.round(degrees(theta), 5)
 
 
+@jit
 def deg_rad(theta: N) -> N:
     """Convert Degrees to Radians."""
-    return npr(radians(theta))
+    return np.round(radians(theta), 5)
 
 
+@jit
 def cart2_polar2(x: N, y: N) -> Tuple[N, N]:
     """Convert two-dimensional Cartesian Coordinates to Polar."""
     rho = np.sqrt(x ** 2 + y ** 2)
@@ -61,6 +60,7 @@ def cart2_polar2(x: N, y: N) -> Tuple[N, N]:
     return rho, phi
 
 
+@jit
 def polar2_cart2(rho: N, phi: N) -> Tuple[N, N]:
     """Convert two-dimensional Polar Coordinates to Cartesian."""
     x = rho * np.cos(phi)
@@ -69,6 +69,7 @@ def polar2_cart2(rho: N, phi: N) -> Tuple[N, N]:
 
 
 # noinspection NonAsciiCharacters
+@jit
 def cart3_polar3(x: N, y: N, z: N) -> Tuple[N, N, N]:
     """Convert three-dimensional Cartesian Coordinates to Polar."""
     ρ = np.sqrt(x ** 2 + y ** 2 + z ** 2)
@@ -78,6 +79,7 @@ def cart3_polar3(x: N, y: N, z: N) -> Tuple[N, N, N]:
 
 
 # noinspection NonAsciiCharacters
+@jit
 def polar3_cart3(ρ: N, θ: N, φ: N) -> Tuple[N, N, N]:
     """Convert three-dimensional Polar Coordinates to Cartesian."""
     θ = np.pi / 2 - deg_rad(θ)
@@ -88,6 +90,7 @@ def polar3_cart3(ρ: N, θ: N, φ: N) -> Tuple[N, N, N]:
     return x, y, z
 
 
+@jit
 def cyl3_cart3(rho: N, theta: N, y: N) -> Tuple[N, N, N]:
     """Convert three-dimensional Cylindrical Coordinates to Cartesian."""
     # y = cyl[2]
@@ -260,7 +263,7 @@ class Coordinates:
         self._id[self.domain] = self.space.register_coordinates(self, pos, vel)
 
     @property
-    def position(self):
+    def position(self) -> Vector3:
         """Go into the relevant Space structure and retrieve the position that
             is assigned to this FoR, and wrap it in a Vector3.
         """
@@ -275,7 +278,7 @@ class Coordinates:
         self.space.array_position[self.domain][self.id] = v
 
     @property
-    def velocity(self):
+    def velocity(self) -> Vector3:
         # See position
         return Vector3(self.space.array_velocity[self.domain][self.id])
 
@@ -321,7 +324,7 @@ class Coordinates:
     def id(self, v):
         self._id[self.domain] = v
 
-    def as_seen_from(self, pov):
+    def as_seen_from(self, pov: "Coordinates") -> "Coordinates":
         """Return a new Coordinates, from the perspective a given frame of
             reference.
         """
@@ -336,6 +339,7 @@ class Coordinates:
     def add_velocity(self, velocity):
         self.space.add_coordinates(self.domain, self.id, vel=velocity)
 
+    @jit
     def movement(self, seconds: N) -> Tuple[Vector3, Vector3]:
         return self.position, self.velocity * seconds
 
