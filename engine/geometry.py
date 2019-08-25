@@ -13,8 +13,11 @@ all_space = None
 ###===---
 
 
+# noinspection NonAsciiCharacters
 def polar_convert(ρ, θ, φ):
-    # Given polar coordinates in the conventions of Physics, convert to Navigation
+    """Given polar coordinates in the conventions of Physics, convert to
+        conventions of Navigation.
+    """
     # Physics conventions: +θ = North of East from 0° to 360°, +φ = Down from Zenith
     #   # North: θ = 90°
     #   # South: θ = 270°
@@ -36,33 +39,41 @@ def npr(n):
 
 
 def rad_deg(theta):
+    """Convert Radians to Degrees."""
     return npr(degrees(theta))
 
 
 def deg_rad(theta):
+    """Convert Degrees to Radians."""
     return npr(radians(theta))
 
 
 def cart2_polar2(x, y):
+    """Convert two-dimensional Cartesian Coordinates to Polar."""
     rho = np.sqrt(x ** 2 + y ** 2)
     phi = np.pi / 2 - np.arctan2(y, x)
     return rho, phi
 
 
 def polar2_cart2(rho, phi):
+    """Convert two-dimensional Polar Coordinates to Cartesian."""
     x = rho * np.cos(phi)
     y = rho * np.sin(phi)
     return x, y
 
 
+# noinspection NonAsciiCharacters
 def cart3_polar3(x, y, z):
+    """Convert three-dimensional Cartesian Coordinates to Polar."""
     ρ = np.sqrt(x ** 2 + y ** 2 + z ** 2)
     φ = rad_deg(np.arccos(z / ρ))
     θ = rad_deg(np.arctan2(y, x))
     return polar_convert(ρ, θ, φ)
 
 
+# noinspection NonAsciiCharacters
 def polar3_cart3(ρ, θ, φ):
+    """Convert three-dimensional Polar Coordinates to Cartesian."""
     θ = np.pi / 2 - deg_rad(θ)
     φ = deg_rad(φ)
     z = ρ * np.cos(φ) * np.sin(θ)
@@ -72,6 +83,7 @@ def polar3_cart3(ρ, θ, φ):
 
 
 def cyl3_cart3(*cyl):
+    """Convert three-dimensional Cylindrical Coordinates to Cartesian."""
     y = cyl[2]
     z, x = polar2_cart2(cyl[0], deg_rad(cyl[1]))
     return x, y, z
@@ -79,14 +91,13 @@ def cyl3_cart3(*cyl):
 
 ###===---
 # QUATERNION FUNCTIONS
-# Huge thanks to aeroeng15 for help with this
-# Quaternions are the best and also worst
+# Huge thanks to aeroeng15 for help with this.
+# Quaternions are the best and also worst.
 ###===---
 
 
 def get_rotor(theta: float, axis: Vector3) -> quaternion:
-    """
-    Return a Unit Quaternion which will rotate a Heading by Theta about Axis
+    """Return a Unit Quaternion which will rotate a Heading by Theta about Axis.
     """
     q = quaternion(
         np.cos(theta / 2), *[v * np.sin(theta / 2) for v in axis]
@@ -95,9 +106,7 @@ def get_rotor(theta: float, axis: Vector3) -> quaternion:
 
 
 def break_rotor(q: quaternion) -> tuple:
-    """
-    Given a Unit Quaternion, break it into an angle and a Vector3
-    """
+    """Given a Unit Quaternion, break it into an angle and a Vector3."""
     theta, v = 2 * np.arccos(q.w), []
     axis = Vector3(*v)
     return theta, axis
@@ -115,20 +124,23 @@ def rotate_vector(vector: Vector3, rotor: quaternion) -> Vector3:
 
 
 def facing(quat):
-    # Given a Unit Quaternion, return the Unit Vector of its direction
+    """Given a Unit Quaternion, return the Unit Vector of its direction."""
     return rotate_vector(Vector3(0, 1, 0), quat)
 
 
 class Space:
-    """
-    Coordinates tracker/handler object
-    """
+    """Coordinates tracker/handler object."""
 
     def __init__(self):
-        # Initialize positions and velocities to be ndarrays, three dimensions deep
-        # Top level is "domains", or localities, spaces that are shared between objects
-        # Second level is objects, this is the axis the index ID of each object refers to
-        # Bottom level is the three values for X, Y, and Z
+        """Initialize positions and velocities to be ndarrays, three dimensions
+            deep.
+
+        Top level is "domains", or localities, spaces that are shared between
+            objects.
+        Second level is objects, this is the axis the index ID of each object
+            refers to.
+        Bottom level is the three values for X, Y, and Z.
+        """
         self.array_position = np.ndarray((1, 1, 3))
         self.array_velocity = np.ndarray((1, 1, 3))
         self.next_id = {0: 0}  # Keep track of values assigned per domain here
@@ -183,25 +195,24 @@ class Space:
 
 
 class Coordinates:
-    """
-    Coordinates object:
-    Store information as Vector3 and Quaternions and return transformations as requested
+    """Coordinates object: Store information as Vector3 and Quaternions and
+        return transformations as requested.
     """
 
     def __init__(
         self, pos=(0, 0, 0), vel=(0, 0, 0), aim=None, rot=None, *, domain=0, priv=False
     ):
-        pos = np.array(pos)  # Physical location
-        vel = np.array(vel)  # Change in location per second
-        self.heading = aim or quaternion(1, 0, 0, 0)  # Orientation
-        self.rotate = rot or quaternion(1, 0, 0, 0)  # Spin per second
+        pos = np.array(pos)  # Physical location.
+        vel = np.array(vel)  # Change in location per second.
+        self.heading = aim or quaternion(1, 0, 0, 0)  # Orientation.
+        self.rotate = rot or quaternion(1, 0, 0, 0)  # Spin per second.
         self._id = {}
 
         global all_space
 
         if priv:
             # This Coordinates does not represent a real physical object; Keep
-            # it separated from the general population in its own Space object
+            #   it separated from the general population in its own Space object
             self.private = True
             self.space = Space()
             self.domain = 0
@@ -220,14 +231,17 @@ class Coordinates:
 
     @property
     def position(self):
-        # Go into the relevant Space structure and retrieve the position
-        #   that is assigned to this FoR, and wrap it in a Vector3
+        """Go into the relevant Space structure and retrieve the position that
+            is assigned to this FoR, and wrap it in a Vector3.
+        """
         return Vector3(self.space.array_position[self.domain][self.id])
 
     @position.setter
     def position(self, v: np.array):
-        # Transparently change the value of the position assigned to this FoR
-        # NOTE: If a scalar is given, all values of the array will be that value
+        """Transparently change the value of the position assigned to this FoR.
+
+        NOTE: If a scalar is given, all values of the array will be that value.
+        """
         self.space.array_position[self.domain][self.id] = v
 
     @property
@@ -252,7 +266,7 @@ class Coordinates:
 
     @property
     def position_cyl(self):
-        # Return the position of this FoR in Cylindrical Coordinates
+        """Return the position of this FoR in Cylindrical Coordinates."""
         # First, get the initial Rho, Theta, and Phi as normal
         i_rho, theta, i_phi = self.position_pol
         # Theta is going to be the same, but final Rho and Z are going to be the
@@ -278,8 +292,8 @@ class Coordinates:
         self._id[self.domain] = v
 
     def as_seen_from(self, pov):
-        """
-        Return a new Coordinates, from the perspective a given frame of reference
+        """Return a new Coordinates, from the perspective a given frame of
+            reference.
         """
         pos_rel = self.position - pov.position
         vel_rel = self.velocity - pov.velocity
@@ -327,7 +341,7 @@ class Coordinates:
 
 
 def get_bearing(a, b):
-    """Return SPHERICAL position of B, from the perspective of A"""
+    """Return SPHERICAL position of B, from the perspective of A."""
     # TODO: Rewrite or remove in accordance with new Quaternion math
     ap = a.c_pol  # Polar of A
     ac = a.c_car  # Cartesian of A
@@ -346,7 +360,9 @@ def get_bearing(a, b):
 
 
 def bearing_wrt_heading(bearing, heading):
-    """Given an absolute bearing and a heading, rotate the bearing relative to the heading"""
+    """Given an absolute bearing and a heading, rotate the bearing relative to
+        the heading.
+    """
     # bearing: rho, theta, phi --- distance, elevation, turn
     # heading: pitch, yaw, roll --- elevation, turn, tilt
     # TODO: Rewrite or remove in accordance with new Quaternion math
@@ -360,7 +376,7 @@ def bearing_wrt_heading(bearing, heading):
 
 
 def get_cylindrical(a, b):
-    """Return CYLINDRICAL position of B, from the perspective of A"""
+    """Return CYLINDRICAL position of B, from the perspective of A."""
     # TODO: Rewrite or remove in accordance with new Quaternion math
     bearing = get_bearing(a, b)  # Get the direction from A to B
     heading = a.data[1]  # Heading of A
