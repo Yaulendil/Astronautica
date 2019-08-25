@@ -1,11 +1,16 @@
 from math import radians, degrees, isnan
+from typing import Dict, List, Tuple, Type, TypeVar, Union
 
+from numba import jit
 import numpy as np
 from quaternion import quaternion
 from vectormath import Vector3
 
 
 all_space = None
+N = TypeVar("N", float, int)
+NumpyVector: Type = Union[np.ndarray, Tuple[N, N, N]]
+Quat: Type = Union[quaternion, Tuple[N, N, N, N]]
 
 
 ###===---
@@ -14,7 +19,8 @@ all_space = None
 
 
 # noinspection NonAsciiCharacters
-def polar_convert(ρ, θ, φ):
+@jit
+def polar_convert(ρ: N, θ: N, φ: N) -> Tuple[N, N, N]:
     """Given polar coordinates in the conventions of Physics, convert to
         conventions of Navigation.
     """
@@ -29,33 +35,33 @@ def polar_convert(ρ, θ, φ):
 
     θ = 180 - ((90 + θ) % 360)
     φ = 90 - φ
-    if φ in [90, -90]:
+    if φ == 90 or φ == -90:
         θ = 0
     return ρ, θ, φ
 
 
-def npr(n):
+def npr(n: N) -> N:
     return np.round(n, 5)
 
 
-def rad_deg(theta):
+def rad_deg(theta: N) -> N:
     """Convert Radians to Degrees."""
     return npr(degrees(theta))
 
 
-def deg_rad(theta):
+def deg_rad(theta: N) -> N:
     """Convert Degrees to Radians."""
     return npr(radians(theta))
 
 
-def cart2_polar2(x, y):
+def cart2_polar2(x: N, y: N) -> Tuple[N, N]:
     """Convert two-dimensional Cartesian Coordinates to Polar."""
     rho = np.sqrt(x ** 2 + y ** 2)
     phi = np.pi / 2 - np.arctan2(y, x)
     return rho, phi
 
 
-def polar2_cart2(rho, phi):
+def polar2_cart2(rho: N, phi: N) -> Tuple[N, N]:
     """Convert two-dimensional Polar Coordinates to Cartesian."""
     x = rho * np.cos(phi)
     y = rho * np.sin(phi)
@@ -63,7 +69,7 @@ def polar2_cart2(rho, phi):
 
 
 # noinspection NonAsciiCharacters
-def cart3_polar3(x, y, z):
+def cart3_polar3(x: N, y: N, z: N) -> Tuple[N, N, N]:
     """Convert three-dimensional Cartesian Coordinates to Polar."""
     ρ = np.sqrt(x ** 2 + y ** 2 + z ** 2)
     φ = rad_deg(np.arccos(z / ρ))
@@ -72,7 +78,7 @@ def cart3_polar3(x, y, z):
 
 
 # noinspection NonAsciiCharacters
-def polar3_cart3(ρ, θ, φ):
+def polar3_cart3(ρ: N, θ: N, φ: N) -> Tuple[N, N, N]:
     """Convert three-dimensional Polar Coordinates to Cartesian."""
     θ = np.pi / 2 - deg_rad(θ)
     φ = deg_rad(φ)
@@ -82,10 +88,10 @@ def polar3_cart3(ρ, θ, φ):
     return x, y, z
 
 
-def cyl3_cart3(*cyl):
+def cyl3_cart3(rho: N, theta: N, y: N) -> Tuple[N, N, N]:
     """Convert three-dimensional Cylindrical Coordinates to Cartesian."""
-    y = cyl[2]
-    z, x = polar2_cart2(cyl[0], deg_rad(cyl[1]))
+    # y = cyl[2]
+    z, x = polar2_cart2(rho, deg_rad(theta))
     return x, y, z
 
 
@@ -105,7 +111,7 @@ def get_rotor(theta: float, axis: Vector3) -> quaternion:
     return q
 
 
-def break_rotor(q: quaternion) -> tuple:
+def break_rotor(q: quaternion) -> Tuple[N, N]:
     """Given a Unit Quaternion, break it into an angle and a Vector3."""
     theta, v = 2 * np.arccos(q.w), []
     axis = Vector3(*v)
@@ -143,17 +149,20 @@ class Space:
         """
         self.array_position = np.ndarray((1, 1, 3))
         self.array_velocity = np.ndarray((1, 1, 3))
-        self.next_id = {0: 0}  # Keep track of values assigned per domain here
+        self.next_id: Dict[int, int] = {
+            0: 0
+        }  # Keep track of values assigned per domain here
 
-    def register_coordinates(self, coords, newpos, newvel):
+    def register_coordinates(self, coords, newpos, newvel) -> int:
         # Register coordinates and return ID number with which to retrieve them
-        next_domain = len(self.next_id)
+        next_domain: int = len(self.next_id)
         shape = self.array_position.shape
 
         if coords.domain > next_domain < -1:
             # Domain number is too high, cannot make
             raise IndexError("Cannot make new domain <0 or higher than next index")
-        elif coords.domain in [next_domain, -1]:
+
+        elif coords.domain in (next_domain, -1):
             # New domain needs to be made
             new_id = 0
             self.next_id[next_domain] = 1
@@ -164,7 +173,7 @@ class Space:
                 self.array_velocity = np.append(self.array_velocity, addition, 0)
         else:
             # Not a new domain, but a new index in the domain
-            new_id = self.next_id[coords.domain]
+            new_id: int = self.next_id[coords.domain]
             self.next_id[coords.domain] += 1
 
             if new_id >= shape[1]:
@@ -172,23 +181,28 @@ class Space:
                 addition = np.array([[[0, 0, 0]]] * shape[0])
                 self.array_position = np.append(self.array_position, addition, 1)
                 self.array_velocity = np.append(self.array_velocity, addition, 1)
+
         self.set_coordinates(coords.domain, new_id, newpos, newvel)
         return new_id
 
-    def get_coordinates(self, domain, index):
+    def get_coordinates(self, domain: int, index: int) -> Tuple[np.ndarray, np.ndarray]:
         return self.array_position[domain][index], self.array_velocity[domain][index]
 
-    def set_coordinates(self, domain, index, pos=None, vel=None):
+    def set_coordinates(
+        self, domain: int, index: int, pos: np.ndarray = None, vel: np.ndarray = None
+    ):
         if pos is not None:
-            self.array_position[domain][index] = np.array(pos)
+            self.array_position[domain][index] = pos
         if vel is not None:
-            self.array_velocity[domain][index] = np.array(vel)
+            self.array_velocity[domain][index] = vel
 
-    def add_coordinates(self, domain, index, pos=None, vel=None):
+    def add_coordinates(
+        self, domain: int, index: int, pos: np.ndarray = None, vel: np.ndarray = None
+    ):
         if pos is not None:
-            self.array_position[domain][index] += np.array(pos)
+            self.array_position[domain][index] += pos
         if vel is not None:
-            self.array_velocity[domain][index] += np.array(vel)
+            self.array_velocity[domain][index] += vel
 
     def progress(self, time: float):
         self.array_position += self.array_velocity * time
@@ -200,13 +214,29 @@ class Coordinates:
     """
 
     def __init__(
-        self, pos=(0, 0, 0), vel=(0, 0, 0), aim=None, rot=None, *, domain=0, priv=False
+        self,
+        pos: NumpyVector = (0, 0, 0),
+        vel: NumpyVector = (0, 0, 0),
+        aim: Quat = (1, 0, 0, 0),
+        rot: Quat = (1, 0, 0, 0),
+        *,
+        domain: int = 0,
+        priv: bool = False,
     ):
-        pos = np.array(pos)  # Physical location.
-        vel = np.array(vel)  # Change in location per second.
-        self.heading = aim or quaternion(1, 0, 0, 0)  # Orientation.
-        self.rotate = rot or quaternion(1, 0, 0, 0)  # Spin per second.
-        self._id = {}
+        pos = (
+            pos if isinstance(pos, np.ndarray) else np.array(pos)
+        )  # Physical location.
+        vel = (
+            vel if isinstance(vel, np.ndarray) else np.array(vel)
+        )  # Change in location per second.
+
+        self.heading = (
+            aim if isinstance(aim, quaternion) else quaternion(*aim)
+        )  # Orientation.
+        self.rotate = (
+            rot if isinstance(rot, quaternion) else quaternion(*rot)
+        )  # Spin per second.
+        self._id: Dict[int, int] = {}
 
         global all_space
 
@@ -237,7 +267,7 @@ class Coordinates:
         return Vector3(self.space.array_position[self.domain][self.id])
 
     @position.setter
-    def position(self, v: np.array):
+    def position(self, v: np.ndarray):
         """Transparently change the value of the position assigned to this FoR.
 
         NOTE: If a scalar is given, all values of the array will be that value.
@@ -250,22 +280,22 @@ class Coordinates:
         return Vector3(self.space.array_velocity[self.domain][self.id])
 
     @velocity.setter
-    def velocity(self, v: np.array):
+    def velocity(self, v: np.ndarray):
         # See position.setter
         self.space.array_velocity[self.domain][self.id] = v
 
     @property
-    def position_pol(self):
+    def position_pol(self) -> Tuple[N, N, N]:
         # Convert cartesian position from a vector to a tuple of Rho, Theta, Phi
         return cart3_polar3(*self.position)
 
     @property
-    def velocity_pol(self):
+    def velocity_pol(self) -> Tuple[N, N, N]:
         # See position_pol
         return cart3_polar3(*self.velocity)
 
     @property
-    def position_cyl(self):
+    def position_cyl(self) -> Tuple[N, N, N]:
         """Return the position of this FoR in Cylindrical Coordinates."""
         # First, get the initial Rho, Theta, and Phi as normal
         i_rho, theta, i_phi = self.position_pol
@@ -277,7 +307,7 @@ class Coordinates:
         return f_rho, theta, f_z
 
     @property
-    def velocity_cyl(self):
+    def velocity_cyl(self) -> Tuple[N, N, N]:
         # See position_cyl
         i_rho, theta, i_phi = self.velocity_pol
         f_rho, f_z = polar2_cart2(i_rho, i_phi)
@@ -306,10 +336,10 @@ class Coordinates:
     def add_velocity(self, velocity):
         self.space.add_coordinates(self.domain, self.id, vel=velocity)
 
-    def movement(self, seconds):
+    def movement(self, seconds: N) -> Tuple[Vector3, Vector3]:
         return self.position, self.velocity * seconds
 
-    def increment(self, seconds):
+    def increment(self, seconds: N):
         self.increment_rotation(seconds)
         self.increment_position(seconds)
 
@@ -324,7 +354,7 @@ class Coordinates:
             self.domain, self.id, motion or self.movement(seconds)[1]
         )
 
-    def serialize(self):
+    def serialize(self) -> Dict[str, Union[List[N], int]]:
         flat = {
             "pos": list(self.position),
             "vel": list(self.velocity),
