@@ -343,6 +343,11 @@ class Coordinates:
     def movement(self, seconds: N) -> Tuple[Vector3, Vector3]:
         return self.position, self.velocity * seconds
 
+    @jit
+    def pos_after(self, seconds: N) -> Vector3:
+        p, v = self.movement(seconds)
+        return p + v
+
     def increment(self, seconds: N):
         self.increment_rotation(seconds)
         self.increment_position(seconds)

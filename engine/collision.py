@@ -84,6 +84,7 @@ def find_collision(pair, end: float, start: float = 0.0):
 # https://stackoverflow.com/a/18994296
 
 
+@jit
 def distance_between_lines(
     a0,
     a1,
