@@ -1,10 +1,10 @@
-from typing import List, Tuple
+from typing import List, Tuple, Type
 
 from numba import jit
 
 from .collision import distance_between_lines, find_collision
 from .geometry import Coordinates, Space
-from .physics import _Sim, ObjectInSpace
+from .physics import ObjectInSpace
 
 
 __all__ = ["Coordinates", "ObjectInSpace", "Space", "Spacetime"]
@@ -18,18 +18,19 @@ class Spacetime:
     def add(self, obj: ObjectInSpace):
         self.index.append(obj)
 
-    def new(self, cls: type = ObjectInSpace, *a, **kw) -> ObjectInSpace:
+    def new(self, cls: Type[ObjectInSpace] = ObjectInSpace, *a, **kw) -> ObjectInSpace:
+        kw["space"] = self.space
         obj: ObjectInSpace = cls(*a, **kw)
         self.add(obj)
         return obj
 
-    @jit
+    @jit(forceobj=True, nopython=False)
     def _find_collisions(
         self, seconds: float, list_a: List[ObjectInSpace], list_b: List[ObjectInSpace]
     ) -> List[Tuple[float, Tuple[ObjectInSpace, ObjectInSpace]]]:
         collisions: List[Tuple[float, Tuple[ObjectInSpace, ObjectInSpace]]] = []
 
-        for obj_a in reversed(list_a):
+        for obj_a in list_a[-1:0:-1]:
             list_b.pop(-1)
             start_a = obj_a.coords.position
             end_a = obj_a.coords.pos_after(seconds)
@@ -39,11 +40,11 @@ class Spacetime:
                     continue
                 start_b = obj_b.coords.position
                 end_b = obj_b.coords.pos_after(seconds)
-                proximity = distance_between_lines(start_a, end_a, start_b, end_b)
+                proximity = distance_between_lines(start_a, end_a, start_b, end_b)[2]
 
                 if proximity < obj_a.radius + obj_b.radius:
                     # Objects look like they might collide.
-                    impact = find_collision(_Sim(obj_a, obj_b), seconds)
+                    impact = find_collision(obj_a, obj_b, seconds)
                     if impact is not False:
                         collisions.append((impact, (obj_a, obj_b)))
 
@@ -69,7 +70,7 @@ class Spacetime:
         # Then, simulate the rest of the time.
         self.space.progress(seconds - total)
 
-    def progress(self, time: int, granularity=1):
+    def progress(self, time: int, granularity=10):
         """Simulate the passing of time"""
         if time == 0:
             return

@@ -7,10 +7,10 @@ from . import geometry
 class ObjectInSpace:
     visibility: int = 5
 
-    def __init__(self, x=0, y=0, z=0, size=100, mass=100, *, domain=0, priv=False):
+    def __init__(self, x=0, y=0, z=0, size=100, mass=100, *, domain=0, space: geometry.Space):
         self.radius = size  # Assume a spherical cow in a vacuum...
         self.mass = mass
-        self.coords = geometry.Coordinates((x, y, z), domain=domain, priv=priv)
+        self.coords = geometry.Coordinates((x, y, z), domain=domain, space=space)
 
     @property
     def momentum(self):
@@ -73,14 +73,14 @@ class ObjectInSpace:
         """
         pass
 
-    def clone(self) -> "ObjectInSpace":
-        c = ObjectInSpace(size=self.radius, mass=self.mass, priv=True)
+    def clone(self, space) -> "ObjectInSpace":
+        c = ObjectInSpace(size=self.radius, mass=self.mass, space=space)
         c.coords = geometry.Coordinates(
             self.coords.position,
             self.coords.velocity,
             self.coords.heading,
             self.coords.rotate,
-            priv=True,
+            space=space,
         )
         return c
 
@@ -118,35 +118,3 @@ def reconstruct(flat: dict, keep_scans=False):
     new.__dict__.update(flat)
     new.coords = c
     return new
-
-
-class _Sim:
-    """
-    A simplified representation of two objects which can be rocked
-    back and forth in time to closely examine their interactions.
-
-    In this "sub-simulation", no acceleration takes place, and rotation is ignored.
-
-    It is only meant to find exactly WHEN a collision takes place, so that
-    the main simulation can pass the correct amount of time, and then fully
-    simulate the collision on its own terms. It is a locator above all else.
-    """
-
-    def __init__(self, a: ObjectInSpace, b: ObjectInSpace, precision=4):
-        self.a_real = a
-        self.b_real = b
-        self.a_virt = self.a_real.clone()
-        self.b_virt = self.b_real.clone()
-        self.contact = a.radius + b.radius
-        self.precision = precision
-
-    def reset(self):
-        self.a_virt = self.a_real.clone()
-        self.b_virt = self.b_real.clone()
-
-    @jit
-    def distance_at(self, time: float) -> float:
-        a = self.a_virt.coords.pos_after(time)
-        b = self.b_virt.coords.pos_after(time)
-
-        return (a - b).length

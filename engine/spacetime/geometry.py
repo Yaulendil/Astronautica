@@ -19,7 +19,7 @@ Quat: Type = Union[quaternion, Tuple[N, N, N, N]]
 
 
 # noinspection NonAsciiCharacters
-@jit
+@jit(nopython=True)
 def polar_convert(ρ: N, θ: N, φ: N) -> Tuple[N, N, N]:
     """Given polar coordinates in the conventions of Physics, convert to
         conventions of Navigation.
@@ -40,19 +40,19 @@ def polar_convert(ρ: N, θ: N, φ: N) -> Tuple[N, N, N]:
     return ρ, θ, φ
 
 
-@jit
+@jit(nopython=True)
 def rad_deg(theta: N) -> N:
     """Convert Radians to Degrees."""
     return np.round(degrees(theta), 5)
 
 
-@jit
+@jit(nopython=True)
 def deg_rad(theta: N) -> N:
     """Convert Degrees to Radians."""
     return np.round(radians(theta), 5)
 
 
-@jit
+@jit(nopython=True)
 def cart2_polar2(x: N, y: N) -> Tuple[N, N]:
     """Convert two-dimensional Cartesian Coordinates to Polar."""
     rho = np.sqrt(x ** 2 + y ** 2)
@@ -60,7 +60,7 @@ def cart2_polar2(x: N, y: N) -> Tuple[N, N]:
     return rho, phi
 
 
-@jit
+@jit(nopython=True)
 def polar2_cart2(rho: N, phi: N) -> Tuple[N, N]:
     """Convert two-dimensional Polar Coordinates to Cartesian."""
     x = rho * np.cos(phi)
@@ -69,7 +69,7 @@ def polar2_cart2(rho: N, phi: N) -> Tuple[N, N]:
 
 
 # noinspection NonAsciiCharacters
-@jit
+@jit(nopython=True)
 def cart3_polar3(x: N, y: N, z: N) -> Tuple[N, N, N]:
     """Convert three-dimensional Cartesian Coordinates to Polar."""
     ρ = np.sqrt(x ** 2 + y ** 2 + z ** 2)
@@ -79,7 +79,7 @@ def cart3_polar3(x: N, y: N, z: N) -> Tuple[N, N, N]:
 
 
 # noinspection NonAsciiCharacters
-@jit
+@jit(nopython=True)
 def polar3_cart3(ρ: N, θ: N, φ: N) -> Tuple[N, N, N]:
     """Convert three-dimensional Polar Coordinates to Cartesian."""
     θ = np.pi / 2 - deg_rad(θ)
@@ -90,7 +90,7 @@ def polar3_cart3(ρ: N, θ: N, φ: N) -> Tuple[N, N, N]:
     return x, y, z
 
 
-@jit
+@jit(nopython=True)
 def cyl3_cart3(rho: N, theta: N, y: N) -> Tuple[N, N, N]:
     """Convert three-dimensional Cylindrical Coordinates to Cartesian."""
     # y = cyl[2]
@@ -224,7 +224,8 @@ class Coordinates:
         rot: Quat = (1, 0, 0, 0),
         *,
         domain: int = 0,
-        priv: bool = False,
+        space: Space,
+        # priv: bool = False,
     ):
         pos = (
             pos if isinstance(pos, np.ndarray) else np.array(pos)
@@ -241,25 +242,29 @@ class Coordinates:
         )  # Spin per second.
         self._id: Dict[int, int] = {}
 
-        global all_space
+        # global all_space
+        #
+        # if priv:
+        #     # This Coordinates does not represent a real physical object; Keep
+        #     #   it separated from the general population in its own Space object
+        #     self.private = True
+        #     self.space = Space()
+        #     self.domain = 0
+        # else:
+        #     self.private = False
+        #     if not all_space:
+        #         # Space has yet to be created; This will be the first object
+        #         all_space = Space()
+        #         self.space = all_space
+        #         self.domain = 0
+        #     else:
+        #         # Space exists; Register coordinates and publish returned ID
+        #         self.space = all_space
+        #         self.domain = domain
 
-        if priv:
-            # This Coordinates does not represent a real physical object; Keep
-            #   it separated from the general population in its own Space object
-            self.private = True
-            self.space = Space()
-            self.domain = 0
-        else:
-            self.private = False
-            if not all_space:
-                # Space has yet to be created; This will be the first object
-                all_space = Space()
-                self.space = all_space
-                self.domain = 0
-            else:
-                # Space exists; Register coordinates and publish returned ID
-                self.space = all_space
-                self.domain = domain
+        self.space = space
+        self.domain = domain
+
         self._id[self.domain] = self.space.register_coordinates(self, pos, vel)
 
     @property
@@ -333,17 +338,17 @@ class Coordinates:
         dir_rel = self.heading / pov.heading
         rot_rel = self.rotate / pov.heading
 
-        relative = Coordinates(pos_rel, vel_rel, dir_rel, rot_rel, priv=True)
+        relative = Coordinates(pos_rel, vel_rel, dir_rel, rot_rel, domain=self.domain, space=self.space)
         return relative
 
     def add_velocity(self, velocity):
         self.space.add_coordinates(self.domain, self.id, vel=velocity)
 
-    @jit
+    @jit(forceobj=True, nopython=False)
     def movement(self, seconds: N) -> Tuple[Vector3, Vector3]:
         return self.position, self.velocity * seconds
 
-    @jit
+    @jit(forceobj=True, nopython=False)
     def pos_after(self, seconds: N) -> Vector3:
         p, v = self.movement(seconds)
         return p + v

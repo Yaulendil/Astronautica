@@ -5,24 +5,29 @@ Uses Numba for JIT Compilation.
 
 from numba import jit
 import numpy as np
+from vectormath import Vector3
 
 
-@jit
-def find_collision(pair, end: float, start: float = 0.0):
-    """Iteratively zero in on the first time where the distance between two
-        objects is less than the sum of their radii. Return a float of seconds
-        at which the objects collide, or False if they do not.
-    """
-    contact = pair.contact
-    distance_at = pair.distance_at
-    precision: int = pair.precision
-
-    time_min: float = start
-    dist_min: float = distance_at(time_min)
-    time_max: float = end
-    dist_max: float = distance_at(time_max)
-
+@jit(looplift=True, nopython=True)
+def _find(
+    pos_a: Vector3,
+    vel_a: Vector3,
+    pos_b: Vector3,
+    vel_b: Vector3,
+    time_min: float,
+    time_max: float,
+    contact: float,
+    precision: int = 10,
+):
     result = False
+
+    def distance_at(time: float) -> float:
+        a = pos_a + vel_a * time
+        b = pos_b + vel_b * time
+        return (a - b).length
+
+    dist_min: float = distance_at(time_min)
+    dist_max: float = distance_at(time_max)
 
     # TODO: Automatically select precision such that uncertainty < object radius
     for i in range(precision):
@@ -80,21 +85,37 @@ def find_collision(pair, end: float, start: float = 0.0):
     return result
 
 
+@jit(forceobj=True, nopython=False)
+def find_collision(obj_a, obj_b, end: float, start: float = 0.0):
+    """Iteratively zero in on the first time where the distance between two
+        objects is less than the sum of their radii. Return a float of seconds
+        at which the objects collide, or False if they do not.
+    """
+    contact = obj_a.radius + obj_b.radius
+
+    pos_a = obj_a.position
+    vel_a = obj_a.velocity
+    pos_b = obj_b.position
+    vel_b = obj_b.velocity
+
+    return _find(pos_a, vel_a, pos_b, vel_b, start, end, contact)
+
+
 # Implementation by Fnord on StackOverflow
 # https://stackoverflow.com/a/18994296
 
 
-@jit
+@jit(forceobj=True, nopython=False)
 def distance_between_lines(
-    a0,
-    a1,
-    b0,
-    b1,
-    clampAll=True,
-    clampA0=False,
-    clampA1=False,
-    clampB0=False,
-    clampB1=False,
+    a0: np.ndarray,
+    a1: np.ndarray,
+    b0: np.ndarray,
+    b1: np.ndarray,
+    clampAll: bool = True,
+    clampA0: bool = False,
+    clampA1: bool = False,
+    clampB0: bool = False,
+    clampB1: bool = False,
 ):
     """ Given two lines defined by numpy.array pairs (a0,a1,b0,b1)
         Return the closest points on each segment and their distance
@@ -108,16 +129,18 @@ def distance_between_lines(
         clampB1 = True
 
     # Calculate denomitator
-    A = a1 - a0
-    B = b1 - b0
+    A = np.subtract(a1, a0)
+    B = np.subtract(b1, b0)
     magA = np.linalg.norm(A)
     magB = np.linalg.norm(B)
 
-    _A = A / magA
-    _B = B / magB
+    # with np.errstate(invalid='ignore', divide='ignore'):
+    # FIXME: RuntimeWarning: invalid value encountered in true_divide
+    _A = np.true_divide(A, magA)
+    _B = np.true_divide(B, magB)
 
     cross = np.cross(_A, _B)
-    denom = np.linalg.norm(cross) ** 2
+    denom = np.square(np.linalg.norm(cross))
 
     # If lines are parallel (denom=0) test if lines overlap.
     # If they don't overlap then there is a closest point solution.
@@ -147,7 +170,10 @@ def distance_between_lines(
         return None, None, np.linalg.norm(((d0 * _A) + a0) - b0)
 
     # Lines criss-cross: Calculate the projected closest points
-    t = b0 - a0
+    t = np.subtract(b0, a0)
+
+    # with np.errstate(invalid='ignore'):
+    # FIXME: RuntimeWarning: invalid value encountered in det
     detA = np.linalg.det([t, _B, cross])
     detB = np.linalg.det([t, _A, cross])
 
