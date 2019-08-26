@@ -3,5 +3,6 @@ numba
 numpy
 passlib
 numpy-quaternion
+scipy
 scrypt
 vectormath

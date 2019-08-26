@@ -4,31 +4,31 @@ from numba import jit
 
 from .collision import distance_between_lines, find_collision
 from .geometry import Coordinates, Space
-from .physics import ObjectInSpace
+from .physics import ObjectInSpace as Object
 
 
-__all__ = ["Coordinates", "ObjectInSpace", "Space", "Spacetime"]
+__all__ = ["Coordinates", "Object", "Space", "Spacetime"]
 
 
 class Spacetime:
     def __init__(self, space: Space = None):
         self.space: Space = space or Space()
-        self.index: List[ObjectInSpace] = []
+        self.index: List[Object] = []
 
-    def add(self, obj: ObjectInSpace):
+    def add(self, obj: Object):
         self.index.append(obj)
 
-    def new(self, cls: Type[ObjectInSpace] = ObjectInSpace, *a, **kw) -> ObjectInSpace:
+    def new(self, cls: Type[Object] = Object, *a, **kw) -> Object:
         kw["space"] = self.space
-        obj: ObjectInSpace = cls(*a, **kw)
+        obj: Object = cls(*a, **kw)
         self.add(obj)
         return obj
 
     @jit(forceobj=True, nopython=False)
     def _find_collisions(
-        self, seconds: float, list_a: List[ObjectInSpace], list_b: List[ObjectInSpace]
-    ) -> List[Tuple[float, Tuple[ObjectInSpace, ObjectInSpace]]]:
-        collisions: List[Tuple[float, Tuple[ObjectInSpace, ObjectInSpace]]] = []
+        self, seconds: float, list_a: List[Object], list_b: List[Object]
+    ) -> List[Tuple[float, Tuple[Object, Object]]]:
+        collisions: List[Tuple[float, Tuple[Object, Object]]] = []
 
         for obj_a in list_a[-1:0:-1]:
             list_b.pop(-1)
@@ -52,8 +52,8 @@ class Spacetime:
 
     def _tick(self, seconds=1.0, allow_collision=True):
         """Simulate the passing of one second"""
-        list_a: List[ObjectInSpace] = self.index.copy()
-        list_b: List[ObjectInSpace] = list_a.copy()
+        list_a: List[Object] = self.index.copy()
+        list_b: List[Object] = list_a.copy()
         collisions = (
             self._find_collisions(seconds, list_a, list_b) if allow_collision else []
         )

@@ -21,10 +21,10 @@ def _find(
 ):
     result = False
 
-    def distance_at(time: float) -> float:
+    def distance_at(time):
         a = pos_a + vel_a * time
         b = pos_b + vel_b * time
-        return (a - b).length
+        return float(np.sqrt(np.sum(np.square(a - b))))
 
     dist_min: float = distance_at(time_min)
     dist_max: float = distance_at(time_max)
@@ -93,12 +93,12 @@ def find_collision(obj_a, obj_b, end: float, start: float = 0.0):
     """
     contact = obj_a.radius + obj_b.radius
 
-    pos_a = obj_a.position
-    vel_a = obj_a.velocity
-    pos_b = obj_b.position
-    vel_b = obj_b.velocity
+    pos_a = obj_a.coords.position
+    vel_a = obj_a.coords.velocity
+    pos_b = obj_b.coords.position
+    vel_b = obj_b.coords.velocity
 
-    return _find(pos_a, vel_a, pos_b, vel_b, start, end, contact)
+    return _find(pos_a, vel_a, pos_b, vel_b, start, end, contact, 10)
 
 
 # Implementation by Fnord on StackOverflow
@@ -134,10 +134,10 @@ def distance_between_lines(
     magA = np.linalg.norm(A)
     magB = np.linalg.norm(B)
 
-    # with np.errstate(invalid='ignore', divide='ignore'):
-    # FIXME: RuntimeWarning: invalid value encountered in true_divide
-    _A = np.true_divide(A, magA)
-    _B = np.true_divide(B, magB)
+    # print(f"\n\n{A} / {magA}; {B} / {magB}")
+    _A = np.true_divide(A, magA) if magA != 0 else A
+    _B = np.true_divide(B, magB) if magB != 0 else B
+    # print(f"{_A}, {_B}")
 
     cross = np.cross(_A, _B)
     denom = np.square(np.linalg.norm(cross))
@@ -172,10 +172,10 @@ def distance_between_lines(
     # Lines criss-cross: Calculate the projected closest points
     t = np.subtract(b0, a0)
 
-    # with np.errstate(invalid='ignore'):
-    # FIXME: RuntimeWarning: invalid value encountered in det
+    # print(f"\n\ndetA = det({[t, _B, cross]}); detB = det({[t, _A, cross]})")
     detA = np.linalg.det([t, _B, cross])
     detB = np.linalg.det([t, _A, cross])
+    # print(f"{detA}, {detB}")
 
     t0 = detA / denom
     t1 = detB / denom
