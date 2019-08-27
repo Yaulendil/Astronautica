@@ -7,10 +7,9 @@ from typing import Tuple
 
 from numba import jit
 import numpy as np
-from vectormath import Vector3
 
 
-@jit(nopython=True)
+@jit
 def get_delta_v(
     e: float,
     normal: np.ndarray,
@@ -43,19 +42,18 @@ def get_delta_v(
     return J / mass_a, -J / mass_b
 
 
-@jit(looplift=True, nopython=True)
+@jit(looplift=True)
 def _find(
-    pos_a: Vector3,
-    vel_a: Vector3,
-    pos_b: Vector3,
-    vel_b: Vector3,
+    pos_a: np.ndarray,
+    vel_a: np.ndarray,
+    pos_b: np.ndarray,
+    vel_b: np.ndarray,
     time_min: float,
     time_max: float,
     contact: float,
 ):
     result = 0
     error = 0
-    # graph = {}
 
     def distance_at(time):
         a = pos_a + vel_a * time
@@ -65,8 +63,7 @@ def _find(
     dist_min: float = distance_at(time_min)
     dist_max: float = distance_at(time_max)
 
-    # graph[time_min] = dist_min
-    # graph[time_max] = dist_max
+    # graph = {time_min: dist_min, time_max: dist_max}
 
     i = 0
     while contact - error > 0.001 and i < 100:
@@ -104,15 +101,20 @@ def _find(
             half_0 = dist_mid - dist_min  # Change in distance over the first half
             half_1 = dist_max - dist_mid  # Change in distance over the second half
 
-            if dist_min < dist_mid < dist_max:
+            if half_0 == -half_1:
+                # Vergence is constant.
+                result = False
+                break
+
+            elif half_0 == -half_1:
+                # Midpoint is the closest together the objects come.
+                result = False
+                break
+
+            elif dist_min < dist_mid < dist_max:
                 # The objects seem to be diverging, but may have passed.
 
-                if half_0 == half_1:
-                    # Divergence is constant; Objects do not pass.
-                    result = False
-                    break
-
-                elif half_0 > half_1:
+                if half_0 > half_1:
                     # First half is greater change than second half;
                     # If they pass, it happens in the second half.
                     time_min = time_mid
@@ -129,12 +131,7 @@ def _find(
             ):
                 # The objects seem to be converging, or to have passed.
 
-                if half_0 == half_1:
-                    # Convergence is constant; Objects have not passed yet.
-                    result = False
-                    break
-
-                elif half_0 < half_1:
+                if half_0 < half_1:
                     # First half is smaller change than second half;
                     # If they pass, it happens in the first half.
                     time_min = time_mid
@@ -151,7 +148,7 @@ def _find(
                 result = False
                 break
 
-    # print(repr({k: graph[k] for k in sorted(graph.keys())}))
+    # print(i, repr({k: graph[k] for k in sorted(graph.keys())}))
     return result
 
 
