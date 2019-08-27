@@ -1,13 +1,16 @@
-from numba import jit
 import numpy as np
+from vectormath import Vector3
 
 from . import geometry
+from .collision import get_delta_v
 
 
 class ObjectInSpace:
     visibility: int = 5
 
-    def __init__(self, x=0, y=0, z=0, size=100, mass=100, *, domain=0, space: geometry.Space):
+    def __init__(
+        self, x=0, y=0, z=0, size=100, mass=100, *, domain=0, space: geometry.Space
+    ):
         self.radius = size  # Assume a spherical cow in a vacuum...
         self.mass = mass
         self.coords = geometry.Coordinates((x, y, z), domain=domain, space=space)
@@ -18,14 +21,20 @@ class ObjectInSpace:
         return self.mass * self.coords.velocity
 
     def impulse(self, impulse):
+        """Momentum is Mass times Velocity, so the change in Velocity is the
+            change in Momentum, or Impulse, divided by Mass.
         """
-        Momentum is mass times velocity, so the change in velocity is
-        the change in momentum, or impulse, divided by mass of object
-        """
-        d_velocity = impulse / self.mass
-        self.coords.add_velocity(d_velocity)
+        self.add_velocity(impulse / self.mass)
 
-    def collide(self, other: "ObjectInSpace"):
+    def add_velocity(self, dv: np.ndarray):
+        """Add an Array to the Velocity value of our Coordinates.
+
+        Primarily meant to allow Object Subclasses to define special behavior
+            on changes in Velocity, such as injury due to G-forces.
+        """
+        self.coords.velocity += dv
+
+    def collide_with(self, other: "ObjectInSpace"):
         """Simulate an impact between two objects, resulting in altered paths.
 
         F = ma = m(Δv/Δt) = Δp/Δt
@@ -33,28 +42,24 @@ class ObjectInSpace:
         Force is nothing more than a change in Momentum over Time, and this
             impact is happening over the course of one second, so Force is
             equivalent to Change in Momentum (Δp or Impulse).
-
-        These equations are not complete, as I have purposefully left out
-            rotation, at least for the time being.
-
-        http://www.euclideanspace.com/physics/dynamics/collision/threed/index.htm
-        |J| = (e+1) * (vai - vbi) / (1/Ma +n•([Ia]^-1(n × ra)) x ra + 1/Mb +n•([Ib]^-1(n × rb)) × rb)
         """
+        # Find the Normal Vector between the objects.
+        normal: Vector3 = other.coords.position - self.coords.position
+        normal /= normal.length
 
-        # Determine the impulse the objects impart on each other.
-        coeff_restitution = 0.6  # e  # Constant for the moment.
-        n = other.coords.position - self.coords.position
-        vai = self.coords.velocity
-        vbi = other.coords.velocity
+        # Determine the Δv the objects impart on each other.
+        dv_a, dv_b = get_delta_v(
+            0.6,  # Coefficient of Restitution is constant for now.
+            normal,
+            self.coords.velocity,
+            other.coords.velocity,
+            self.mass,
+            other.mass,
+        )
 
-        impulse = (-(1 + coeff_restitution) * np.dot((vai - vbi), n)) / (
-            (1 / self.mass) + (1 / other.mass)
-        )  # |J|
-        impulse *= n  # J
-
-        # Apply the impulses
-        self.impulse(-impulse)
-        other.impulse(impulse)
+        # Apply the Δv.
+        self.add_velocity(dv_a)
+        other.add_velocity(dv_b)
         # Now, the objects should have velocities such that on the next tick,
         #   they will not intersect. If for some reason they do still intersect,
         #   they will not interact again until they separate; This is obviously

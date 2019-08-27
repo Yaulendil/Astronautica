@@ -65,7 +65,7 @@ class Spacetime:
             self.space.progress(time - total)
             total += time
 
-            obj_a.collide(obj_b)
+            obj_a.collide_with(obj_b)
 
         # Then, simulate the rest of the time.
         self.space.progress(seconds - total)

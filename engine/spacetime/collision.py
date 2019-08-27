@@ -3,9 +3,44 @@
 Uses Numba for JIT Compilation.
 """
 
+from typing import Tuple
+
 from numba import jit
 import numpy as np
 from vectormath import Vector3
+
+
+@jit(nopython=True)
+def get_delta_v(
+    e: float,
+    normal: np.ndarray,
+    velocity_a: np.ndarray,
+    velocity_b: np.ndarray,
+    mass_a: float,
+    mass_b: float,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Given a Coefficient, a Normal, and the Velocities and Masses of two
+        Objects, return the Δv values of a collision between the Objects. The
+        first and second returned Vectors should be added to the Velocities of
+        the first and second Objects, respectively.
+
+    This equation is not complete, as I have purposefully left out rotation, at
+        least for the time being.
+
+    https://www.euclideanspace.com/physics/dynamics/collision/threed/index.htm
+        J = -(1+e) * (
+            ((vai-vbi) • n)
+            /
+            (1/ma + 1/mb)
+        )
+        vaf = vai + (J / ma)
+        vbf = vbi - (J / mb)
+    """
+    J: np.ndarray = normal * (
+        -(1 + e)
+        * (np.dot((velocity_a - velocity_b), normal) / ((1 / mass_a) + (1 / mass_b)))
+    )
+    return J / mass_a, -J / mass_b
 
 
 @jit(looplift=True, nopython=True)

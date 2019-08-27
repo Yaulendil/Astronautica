@@ -105,7 +105,7 @@ def cyl3_cart3(rho: N, theta: N, y: N) -> Tuple[N, N, N]:
 ###===---
 
 
-def get_rotor(theta: float, axis: Vector3) -> quaternion:
+def get_rotor(theta: N, axis: Vector3) -> quaternion:
     """Return a Unit Quaternion which will rotate a Heading by Theta about Axis.
     """
     q = quaternion(
@@ -114,7 +114,7 @@ def get_rotor(theta: float, axis: Vector3) -> quaternion:
     return q
 
 
-def break_rotor(q: quaternion) -> Tuple[N, N]:
+def break_rotor(q: quaternion) -> Tuple[N, Vector3]:
     """Given a Unit Quaternion, break it into an angle and a Vector3."""
     theta, v = 2 * np.arccos(q.w), []
     axis = Vector3(*v)
@@ -322,27 +322,34 @@ class Coordinates:
         return f_rho, theta, f_z
 
     @property
-    def id(self):
+    def speed(self) -> N:
+        return self.velocity.length
+
+    @property
+    def id(self) -> int:
         return self._id[self.domain]
 
     @id.setter
-    def id(self, v):
+    def id(self, v: int):
         self._id[self.domain] = v
 
     def as_seen_from(self, pov: "Coordinates") -> "Coordinates":
         """Return a new Coordinates, from the perspective a given frame of
             reference.
         """
-        pos_rel = self.position - pov.position
-        vel_rel = self.velocity - pov.velocity
-        dir_rel = self.heading / pov.heading
-        rot_rel = self.rotate / pov.heading
+        pos_relative = self.position - pov.position
+        vel_relative = self.velocity - pov.velocity
+        dir_relative = self.heading / pov.heading
+        rot_relative = self.rotate / pov.heading
 
-        relative = Coordinates(pos_rel, vel_rel, dir_rel, rot_rel, domain=self.domain, space=self.space)
-        return relative
-
-    def add_velocity(self, velocity):
-        self.space.add_coordinates(self.domain, self.id, vel=velocity)
+        return Coordinates(
+            pos_relative,
+            vel_relative,
+            dir_relative,
+            rot_relative,
+            domain=self.domain,
+            space=self.space,
+        )
 
     @jit(forceobj=True, nopython=False)
     def movement(self, seconds: N) -> Tuple[Vector3, Vector3]:
@@ -357,16 +364,14 @@ class Coordinates:
         self.increment_rotation(seconds)
         self.increment_position(seconds)
 
-    def increment_rotation(self, seconds):
+    def increment_rotation(self, seconds: N):
         theta, vec = break_rotor(self.rotate)
         theta *= seconds
         rotate = get_rotor(theta, vec)
         self.heading = rotate * self.heading
 
-    def increment_position(self, seconds, motion=None):
-        self.space.add_coordinates(
-            self.domain, self.id, motion or self.movement(seconds)[1]
-        )
+    def increment_position(self, seconds: N):
+        self.position += self.velocity * seconds
 
     def serialize(self) -> Dict[str, Union[List[N], int]]:
         flat = {
