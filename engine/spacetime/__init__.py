@@ -70,7 +70,7 @@ class Spacetime:
         # Then, simulate the rest of the time.
         self.space.progress(seconds - total)
 
-    def progress(self, time: int, granularity=10):
+    def progress(self, time: int, granularity=2):
         """Simulate the passing of time"""
         if time == 0:
             return

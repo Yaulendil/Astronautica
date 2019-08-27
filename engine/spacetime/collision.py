@@ -52,9 +52,10 @@ def _find(
     time_min: float,
     time_max: float,
     contact: float,
-    precision: int = 10,
 ):
-    result = False
+    result = 0
+    error = 0
+    # graph = {}
 
     def distance_at(time):
         a = pos_a + vel_a * time
@@ -64,25 +65,34 @@ def _find(
     dist_min: float = distance_at(time_min)
     dist_max: float = distance_at(time_max)
 
-    # TODO: Automatically select precision such that uncertainty < object radius
-    for i in range(precision):
+    # graph[time_min] = dist_min
+    # graph[time_max] = dist_max
+
+    i = 0
+    while contact - error > 0.001 and i < 100:
         # Repeat the following over an increasingly precise window of time.
         time_mid = (time_min + time_max) / 2
         dist_mid = distance_at(time_mid)
+        i += 1
+
+        # graph[time_mid] = dist_mid
 
         if dist_min < contact:
             # The objects are in contact at the start of this window.
-            return False
+            result = False
+            break
 
         elif dist_mid < contact:
             # The objects are in contact halfway through this window.
             result = time_mid
+            error = dist_mid
             time_max = time_mid
             dist_max = dist_mid
 
         elif dist_max < contact:
             # The objects are in contact at the end of this window.
             result = time_max
+            error = dist_max
             time_min = time_mid
             dist_min = dist_mid
 
@@ -91,14 +101,16 @@ def _find(
             #   may still pass through each other between points. Check the
             #   distance differences to find which half of this window would
             #   contain the pass.
-            if dist_min < dist_mid < dist_max or dist_min > dist_mid < dist_max:
+            half_0 = dist_mid - dist_min  # Change in distance over the first half
+            half_1 = dist_max - dist_mid  # Change in distance over the second half
+
+            if dist_min < dist_mid < dist_max:
                 # The objects seem to be diverging, but may have passed.
-                half_0 = dist_mid - dist_min  # Change in distance over the first half
-                half_1 = dist_max - dist_mid  # Change in distance over the second half
 
                 if half_0 == half_1:
                     # Divergence is constant; Objects do not pass.
-                    return False
+                    result = False
+                    break
 
                 elif half_0 > half_1:
                     # First half is greater change than second half;
@@ -112,11 +124,34 @@ def _find(
                     time_max = time_mid
                     dist_max = dist_mid
 
-            # elif dist_min > dist_mid < dist_max:
-            #     # The objects pass each other during this window
+            elif dist_min > dist_mid > dist_max or (
+                dist_min > dist_mid and dist_max > dist_mid
+            ):
+                # The objects seem to be converging, or to have passed.
+
+                if half_0 == half_1:
+                    # Convergence is constant; Objects have not passed yet.
+                    result = False
+                    break
+
+                elif half_0 < half_1:
+                    # First half is smaller change than second half;
+                    # If they pass, it happens in the first half.
+                    time_min = time_mid
+                    dist_min = dist_mid
+
+                else:  # half_0 > half_1
+                    # First half is greater change than second half;
+                    # If they pass, it happens in the second half.
+                    time_max = time_mid
+                    dist_max = dist_mid
+
             else:
                 # No other condition could result in an impact
-                return False
+                result = False
+                break
+
+    # print(repr({k: graph[k] for k in sorted(graph.keys())}))
     return result
 
 
@@ -133,7 +168,7 @@ def find_collision(obj_a, obj_b, end: float, start: float = 0.0):
     pos_b = obj_b.coords.position
     vel_b = obj_b.coords.velocity
 
-    return _find(pos_a, vel_a, pos_b, vel_b, start, end, contact, 10)
+    return _find(pos_a, vel_a, pos_b, vel_b, start, end, contact)
 
 
 # Implementation by Fnord on StackOverflow

@@ -105,15 +105,17 @@ def cyl3_cart3(rho: N, theta: N, y: N) -> Tuple[N, N, N]:
 ###===---
 
 
+@jit(nopython=True)
 def get_rotor(theta: N, axis: Vector3) -> quaternion:
     """Return a Unit Quaternion which will rotate a Heading by Theta about Axis.
     """
     q = quaternion(
-        np.cos(theta / 2), *[v * np.sin(theta / 2) for v in axis]
+        np.cos(theta / 2), *(v * np.sin(theta / 2) for v in axis)
     ).normalized()
     return q
 
 
+@jit(nopython=True)
 def break_rotor(q: quaternion) -> Tuple[N, Vector3]:
     """Given a Unit Quaternion, break it into an angle and a Vector3."""
     theta, v = 2 * np.arccos(q.w), []
@@ -121,6 +123,7 @@ def break_rotor(q: quaternion) -> Tuple[N, Vector3]:
     return theta, axis
 
 
+@jit(nopython=True)
 def rotate_vector(vector: Vector3, rotor: quaternion) -> Vector3:
     """
     p' = q*p*(q^-1)
@@ -132,6 +135,7 @@ def rotate_vector(vector: Vector3, rotor: quaternion) -> Vector3:
     return vector_out
 
 
+@jit(nopython=True)
 def facing(quat):
     """Given a Unit Quaternion, return the Unit Vector of its direction."""
     return rotate_vector(Vector3(0, 1, 0), quat)

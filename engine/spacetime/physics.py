@@ -1,19 +1,20 @@
+import attr
 import numpy as np
 from vectormath import Vector3
 
-from . import geometry
 from .collision import get_delta_v
+from .geometry import Coordinates, Space
 
 
 class ObjectInSpace:
     visibility: int = 5
 
     def __init__(
-        self, x=0, y=0, z=0, size=100, mass=100, *, domain=0, space: geometry.Space
+        self, x=0, y=0, z=0, size=100, mass=100, *, domain=0, space: Space
     ):
         self.radius = size  # Assume a spherical cow in a vacuum...
         self.mass = mass
-        self.coords = geometry.Coordinates((x, y, z), domain=domain, space=space)
+        self.coords = Coordinates((x, y, z), domain=domain, space=space)
 
     @property
     def momentum(self):
@@ -80,7 +81,7 @@ class ObjectInSpace:
 
     def clone(self, space) -> "ObjectInSpace":
         c = ObjectInSpace(size=self.radius, mass=self.mass, space=space)
-        c.coords = geometry.Coordinates(
+        c.coords = Coordinates(
             self.coords.position,
             self.coords.velocity,
             self.coords.heading,
@@ -117,7 +118,7 @@ def reconstruct(flat: dict, keep_scans=False):
     # Find the original class
     t = eval(flat.pop("class").split("'")[1])
     # Reconstruct the Coordinates object
-    c = geometry.Coordinates(**flat.pop("coords"))
+    c = Coordinates(**flat.pop("coords"))
     # Instantiate a new object of the original type and overwrite all its data
     new = t()
     new.__dict__.update(flat)
