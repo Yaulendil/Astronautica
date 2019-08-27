@@ -1,3 +1,5 @@
+"""Module implementing the Base Class for all Objects which reside in Space."""
+
 import attr
 import numpy as np
 from vectormath import Vector3
@@ -5,8 +7,12 @@ from vectormath import Vector3
 from .collision import get_delta_v
 from .geometry import Coordinates, Space
 
+# from pytimer import Timer
 
-class ObjectInSpace:
+__all__ = ["ObjectInSpace"]
+
+
+class ObjectInSpace(object):
     visibility: int = 5
 
     def __init__(
@@ -44,6 +50,7 @@ class ObjectInSpace:
             impact is happening over the course of one second, so Force is
             equivalent to Change in Momentum (Δp or Impulse).
         """
+        # t = Timer()
         # Find the Normal Vector between the objects.
         normal: Vector3 = other.coords.position - self.coords.position
         normal /= normal.length
@@ -57,6 +64,7 @@ class ObjectInSpace:
             self.mass,
             other.mass,
         )
+        # print("DeltaV:    ", t(), "sec")
 
         # Apply the Δv.
         self.add_velocity(dv_a)
@@ -70,6 +78,7 @@ class ObjectInSpace:
         # Run any special collision code the objects have; Projectile damage goes here
         self.on_collide(other)
         other.on_collide(self)
+        # print("Collisions:", t(), "sec")
 
     def on_collide(self, other: "ObjectInSpace"):
         """Impart any appropriate special effects on another Object.

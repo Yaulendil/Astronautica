@@ -1,3 +1,10 @@
+"""Module implementing Coordinate Systems and Geometric Operations.
+
+Uses NumPy Arrays for storage of Coordinates, by way of third-party Vector3 and
+    Quaternion subclasses.
+Uses Numba for JIT Compilation.
+"""
+
 from math import radians, degrees, isnan
 from typing import Dict, List, Tuple, Type, TypeVar, Union
 
@@ -6,8 +13,9 @@ import numpy as np
 from quaternion import quaternion
 from vectormath import Vector3
 
+__all__ = ["Coordinates", "Space"]
 
-all_space = None
+
 N = TypeVar("N", float, int)
 NumpyVector: Type = Union[np.ndarray, Tuple[N, N, N]]
 Quat: Type = Union[quaternion, Tuple[N, N, N, N]]

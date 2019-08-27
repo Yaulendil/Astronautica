@@ -1,3 +1,5 @@
+"""Spacetime Package: Contains abstract classes and handlers."""
+
 from typing import List, Tuple, Type
 
 from numba import jit
@@ -5,10 +7,54 @@ from numba import jit
 from .collision import distance_between_lines, find_collision
 from .geometry import Coordinates, Space
 from .physics import ObjectInSpace as Object
+
 # from pytimer import Timer
 
-
 __all__ = ["Coordinates", "Object", "Space", "Spacetime"]
+
+
+@jit(forceobj=True, nopython=False)
+def _find_collisions(
+    seconds: float, list_a: List[Object], list_b: List[Object]
+) -> List[Tuple[float, Tuple[Object, Object]]]:
+    # TODO: Move into Collision module.
+    #       Complication: References to Object in Type Hints.
+    collisions: List[Tuple[float, Tuple[Object, Object]]] = []
+
+    for obj_a in list_a[-1:0:-1]:
+        list_b.pop(-1)
+        start_a = obj_a.coords.position
+        end_a = obj_a.coords.pos_after(seconds)
+
+        for obj_b in list_b:
+            if obj_a.coords.domain != obj_b.coords.domain:
+                continue
+            start_b = obj_b.coords.position
+            contact = obj_a.radius + obj_b.radius
+
+            if (start_a - start_b).length < contact:
+                continue
+
+            end_b = obj_b.coords.pos_after(seconds)
+            nearest_a, nearest_b, proximity = distance_between_lines(
+                start_a, end_a, start_b, end_b
+            )
+
+            if proximity < contact:
+                # Objects look like they might collide.
+                impact = find_collision(
+                    obj_a.coords.position,
+                    obj_a.coords.velocity,
+                    obj_b.coords.position,
+                    obj_b.coords.velocity,
+                    0.0,
+                    seconds,
+                    contact,
+                )
+                if impact is not False:
+                    collisions.append((impact, (obj_a, obj_b)))
+
+    return collisions
 
 
 class Spacetime:
@@ -32,38 +78,6 @@ class Spacetime:
         self.add(obj)
         return obj
 
-    @jit(forceobj=True, nopython=False)
-    def _find_collisions(
-        self, seconds: float, list_a: List[Object], list_b: List[Object]
-    ) -> List[Tuple[float, Tuple[Object, Object]]]:
-        collisions: List[Tuple[float, Tuple[Object, Object]]] = []
-
-        for obj_a in list_a[-1:0:-1]:
-            list_b.pop(-1)
-            start_a = obj_a.coords.position
-            end_a = obj_a.coords.pos_after(seconds)
-
-            for obj_b in list_b:
-                if obj_a.coords.domain != obj_b.coords.domain:
-                    continue
-                start_b = obj_b.coords.position
-
-                if (start_a - start_b).length < obj_a.radius + obj_b.radius:
-                    continue
-
-                end_b = obj_b.coords.pos_after(seconds)
-                nearest_a, nearest_b, proximity = distance_between_lines(
-                    start_a, end_a, start_b, end_b
-                )
-
-                if proximity < obj_a.radius + obj_b.radius:
-                    # Objects look like they might collide.
-                    impact = find_collision(obj_a, obj_b, seconds)
-                    if impact is not False:
-                        collisions.append((impact, (obj_a, obj_b)))
-
-        return collisions
-
     def _tick(self, target=1.0, allow_collision=True):
         """Simulate the passing of time. The target amount should be one second
             divided by a power of two.
@@ -72,7 +86,7 @@ class Spacetime:
 
         def collisions_until(_time) -> List[Tuple[float, Tuple[Object, Object]]]:
             return (
-                self._find_collisions(_time, self.index.copy(), self.index.copy())
+                _find_collisions(_time, self.index.copy(), self.index.copy())
                 if allow_collision
                 else []
             )

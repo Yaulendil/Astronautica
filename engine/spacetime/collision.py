@@ -1,4 +1,5 @@
-"""Module dedicated to calculating Collision Detection between Objects.
+"""Module dedicated to calculating Collision Detection and Collision Response
+    between Objects.
 
 Uses Numba for JIT Compilation.
 """
@@ -7,6 +8,8 @@ from typing import Optional, Tuple
 
 from numba import jit
 import numpy as np
+
+__all__ = ["distance_between_lines", "find_collision", "get_delta_v"]
 
 
 @jit
@@ -43,7 +46,7 @@ def get_delta_v(
 
 
 @jit(looplift=True)
-def _find(
+def find_collision(
     pos_a: np.ndarray,
     vel_a: np.ndarray,
     pos_b: np.ndarray,
@@ -154,22 +157,6 @@ def _find(
 
     # print(i, repr({k: graph[k] for k in sorted(graph.keys())}))
     return result
-
-
-@jit(forceobj=True, nopython=False)
-def find_collision(obj_a, obj_b, end: float, start: float = 0.0):
-    """Iteratively zero in on the first time where the distance between two
-        objects is less than the sum of their radii. Return a float of seconds
-        at which the objects collide, or False if they do not.
-    """
-    contact = obj_a.radius + obj_b.radius
-
-    pos_a = obj_a.coords.position
-    vel_a = obj_a.coords.velocity
-    pos_b = obj_b.coords.position
-    vel_b = obj_b.coords.velocity
-
-    return _find(pos_a, vel_a, pos_b, vel_b, start, end, contact)
 
 
 # Implementation by Fnord on StackOverflow
