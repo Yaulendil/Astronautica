@@ -1,7 +1,7 @@
 import sys
 
-from cli import TerminalLogin as Console
-from util import paths
+from .cli import TerminalLogin as Console
+from .util import paths
 
 
 paths.chroot(sys.argv[0])

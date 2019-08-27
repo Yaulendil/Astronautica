@@ -3,9 +3,7 @@ from getpass import getuser
 from random import randint
 from time import sleep
 
-import shlex
-
-import config
+from astronautica import config
 
 
 def _delay(a=5, b=20):

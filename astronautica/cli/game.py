@@ -1,6 +1,6 @@
-from cli import TerminalCore, _interruptible
-from constructs import voidcraft
-from session import Game
+from astronautica.cli import TerminalCore, _interruptible
+from astronautica.constructs import voidcraft
+from astronautica.session import Game
 
 
 class TerminalHost(TerminalCore):

@@ -1,4 +1,4 @@
-from cli import TerminalCore
+from astronautica.cli import TerminalCore
 
 
 class TerminalWpn(TerminalCore):

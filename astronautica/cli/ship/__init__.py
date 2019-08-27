@@ -2,11 +2,11 @@ from getpass import getpass
 
 from passlib.handlers.pbkdf2 import pbkdf2_sha256 as pw
 
-from cli import TerminalCore, _delay
-from cli.ship import telemetry
-from cli.ship.navigation import TerminalNav
-from cli.ship.weapons import TerminalWpn
-from util import astroio
+from . import telemetry
+from .navigation import TerminalNav
+from .weapons import TerminalWpn
+from astronautica.cli import TerminalCore, _delay
+from astronautica.util import astroio
 
 
 class TerminalShip(TerminalCore):

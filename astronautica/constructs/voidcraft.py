@@ -1,5 +1,4 @@
-from constructs import interior
-from constructs.synthetic import Ship
+from astronautica.constructs.synthetic import Ship
 
 
 class Sloop(Ship):

@@ -7,8 +7,8 @@ from math import degrees
 from astropy import units as u
 from numpy import round as npr
 
-from config import Scan as Cfg
-from engine import geometry
+from astronautica.config import Scan as Cfg
+from astronautica.engine import geometry
 
 
 def get_name(obj: dict) -> str:

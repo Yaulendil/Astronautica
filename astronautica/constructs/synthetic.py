@@ -1,6 +1,6 @@
 from datetime import datetime as dt
 
-from engine import physics
+from astronautica.engine.spacetime import physics
 
 
 class Ship(physics.ObjectInSpace):

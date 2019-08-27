@@ -2,11 +2,11 @@ print("Connection established. Initiating QES 3.1 key exchange...")
 
 from pathlib import Path
 
-import config
-from cli.core import TerminalCore, _delay, _interruptible
-from cli.game import TerminalHost
-from cli.ship import TerminalShip
-from util import paths
+from .core import TerminalCore, _delay, _interruptible
+from .game import TerminalHost
+from .ship import TerminalShip
+from astronautica import config
+from astronautica.util import paths
 
 
 class TerminalLogin(TerminalCore):

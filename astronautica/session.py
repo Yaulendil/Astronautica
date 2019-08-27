@@ -2,9 +2,9 @@ from datetime import datetime as dt, timedelta as td
 from getpass import getuser
 from time import sleep
 
-import config
-from engine.spacetime import Spacetime
-from util import astroio, paths
+from astronautica import config
+from astronautica.engine.spacetime import Spacetime
+from astronautica.util import astroio, paths
 
 
 class Game:
