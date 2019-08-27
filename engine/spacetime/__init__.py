@@ -5,6 +5,7 @@ from numba import jit
 from .collision import distance_between_lines, find_collision
 from .geometry import Coordinates, Space
 from .physics import ObjectInSpace as Object
+# from pytimer import Timer
 
 
 __all__ = ["Coordinates", "Object", "Space", "Spacetime"]
@@ -16,9 +17,16 @@ class Spacetime:
         self.index: List[Object] = []
 
     def add(self, obj: Object):
+        """Add an Object to the Index of the Spacetime."""
         self.index.append(obj)
 
     def new(self, cls: Type[Object] = Object, *a, **kw) -> Object:
+        """Create a new Instance of an Object. Arguments are passed directly to
+            the Object Instantiation. This Method handles adding the new
+            Instance to the Index of the Spacetime, and provides its Space
+            object to the appropriate Keyword Argument. It then returns the new
+            Object Instance.
+        """
         kw["space"] = self.space
         obj: Object = cls(*a, **kw)
         self.add(obj)
@@ -39,8 +47,14 @@ class Spacetime:
                 if obj_a.coords.domain != obj_b.coords.domain:
                     continue
                 start_b = obj_b.coords.position
+
+                if (start_a - start_b).length < obj_a.radius + obj_b.radius:
+                    continue
+
                 end_b = obj_b.coords.pos_after(seconds)
-                proximity = distance_between_lines(start_a, end_a, start_b, end_b)[2]
+                nearest_a, nearest_b, proximity = distance_between_lines(
+                    start_a, end_a, start_b, end_b
+                )
 
                 if proximity < obj_a.radius + obj_b.radius:
                     # Objects look like they might collide.
@@ -50,25 +64,41 @@ class Spacetime:
 
         return collisions
 
-    def _tick(self, seconds=1.0, allow_collision=True):
-        """Simulate the passing of one second"""
-        list_a: List[Object] = self.index.copy()
-        list_b: List[Object] = list_a.copy()
-        collisions = (
-            self._find_collisions(seconds, list_a, list_b) if allow_collision else []
-        )
-        collisions.sort(key=lambda o: o[0])
+    def _tick(self, target=1.0, allow_collision=True):
+        """Simulate the passing of time. The target amount should be one second
+            divided by a power of two.
+        """
+        key = lambda o: o[0]
 
-        total = 0
-        for time, (obj_a, obj_b) in collisions:
-            # Simulate to the time of each collision, and then run the math
-            self.space.progress(time - total)
-            total += time
+        def collisions_until(_time) -> List[Tuple[float, Tuple[Object, Object]]]:
+            return (
+                self._find_collisions(_time, self.index.copy(), self.index.copy())
+                if allow_collision
+                else []
+            )
 
+        collisions = collisions_until(target)
+
+        passed = 0
+        while collisions:
+            # Find the soonest Collision.
+            time, (obj_a, obj_b) = min(collisions, key=key)
+
+            # Progress Time to the point of the soonest Collision.
+            self.space.progress(time - passed)
+            passed += time
+
+            # Simulate the Collision.
             obj_a.collide_with(obj_b)
+            # Objects have now had their Velocities changed. Future Collisions
+            #   may no longer be valid.
+
+            # Recalculate the Collisions which have not happened yet.
+            collisions = collisions_until(target - passed)
+        # Repeat this until there are no Collisions to be simulated.
 
         # Then, simulate the rest of the time.
-        self.space.progress(seconds - total)
+        self.space.progress(target - passed)
 
     def progress(self, time: int, granularity=2):
         """Simulate the passing of time"""

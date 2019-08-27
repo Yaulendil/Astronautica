@@ -3,7 +3,7 @@
 Uses Numba for JIT Compilation.
 """
 
-from typing import Tuple
+from typing import Optional, Tuple
 
 from numba import jit
 import numpy as np
@@ -75,19 +75,23 @@ def _find(
         # graph[time_mid] = dist_mid
 
         if dist_min < contact:
-            # The objects are in contact at the start of this window.
-            result = False
-            break
+            # The objects are in contact at the start of this window. Do not
+            #   interact.
+            return False
+            # result = False
+            # break
 
         elif dist_mid < contact:
-            # The objects are in contact halfway through this window.
+            # The objects are in contact halfway through this window, but not
+            #   the start. Slice the first half of the window.
             result = time_mid
             error = dist_mid
             time_max = time_mid
             dist_max = dist_mid
 
         elif dist_max < contact:
-            # The objects are in contact at the end of this window.
+            # The objects are in contact at the end of this window, but not at
+            #   the midpoint. Slice the second half of the window.
             result = time_max
             error = dist_max
             time_min = time_mid
@@ -183,7 +187,7 @@ def distance_between_lines(
     clampA1: bool = False,
     clampB0: bool = False,
     clampB1: bool = False,
-):
+) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], float]:
     """ Given two lines defined by numpy.array pairs (a0,a1,b0,b1)
         Return the closest points on each segment and their distance
     """
