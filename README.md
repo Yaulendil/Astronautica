@@ -21,3 +21,22 @@ Any entity in space has a local frame of reference, an object of the "Coordinate
 - **Rotation**, as a Quaternion representing the angular velocity, measuring the change in Heading over one second
 
 A frame of reference can be measured from the perspective of another. This returns a **new** Coordinates object representing the properties the entity would have, if the "viewing" frame of reference were the one defining the coordinates.
+
+Absolute Positions and Velocities are stored in NumPy Arrays as Cartesian Vectors.
+
+The following table details the system of Spherical Coordinates used to represent relative positions. From [Wikipedia](https://en.wikipedia.org/wiki/Spherical_coordinate_system#Conventions) (slightly clipped):
+
+---
+
+coordinates|corresponding local geographical directions (Z, X, Y)|right/left-handed
+---:|:---:|---
+(*r*, *θ* elevation, *φ* azimuth,right)|(U, N, E)|left
+| |`Note: easting (E), northing (N), upwardness (U). Local azimuth angle would be measured, e.g., counterclockwise from S to E in the case of (U, S, E).`
+
+---
+
+This pre-existing coordinate system has been chosen because:
+1. An angle where *φ*=0 is straight ahead.
+2. Positive values of *φ* increase clockwise.
+3. An angle where *θ*=0 is on a flat plane.
+4. UNE could be the United Nations of Earth.

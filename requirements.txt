@@ -1,8 +1,8 @@
 astropy
 numba
 numpy
-passlib
 numpy-quaternion
+passlib
 scipy
 scrypt
 vectormath
