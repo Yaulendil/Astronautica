@@ -1,4 +1,5 @@
 astropy
+attrs
 numba
 numpy
 numpy-quaternion

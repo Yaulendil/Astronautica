@@ -1,6 +1,8 @@
 """Module implementing the Base Class for all Objects which reside in Space."""
 
-import attr
+from typing import TypeVar
+
+from attr import asdict, attrs
 import numpy as np
 from vectormath import Vector3
 
@@ -12,15 +14,28 @@ from .geometry import Coordinates, Space
 __all__ = ["ObjectInSpace"]
 
 
+T = TypeVar("T")
+
+
 class ObjectInSpace(object):
-    visibility: int = 5
+    @attrs
+    class Data:
+        radius: int = 100
+        mass: int = 100
 
     def __init__(
-        self, x=0, y=0, z=0, size=100, mass=100, *, domain=0, space: Space
+        self, position = (0, 0, 0), *, data: dict = None, domain=0, space: Space
     ):
-        self.radius = size  # Assume a spherical cow in a vacuum...
-        self.mass = mass
-        self.coords = Coordinates((x, y, z), domain=domain, space=space)
+        self.data = self.Data(**data)
+        self.coords = Coordinates(position, domain=domain, space=space)
+
+    @property
+    def mass(self):
+        return self.data.mass
+
+    @property
+    def radius(self):
+        return self.data.radius
 
     @property
     def momentum(self):
@@ -88,8 +103,8 @@ class ObjectInSpace(object):
         """
         pass
 
-    def clone(self, space) -> "ObjectInSpace":
-        c = ObjectInSpace(size=self.radius, mass=self.mass, space=space)
+    def clone(self: T, space) -> T:
+        c = self.__class__(data=asdict(self.data), space=space)
         c.coords = Coordinates(
             self.coords.position,
             self.coords.velocity,
@@ -102,9 +117,8 @@ class ObjectInSpace(object):
     def serialize(self):
         flat = {
             "class": str(type(self)),
-            "radius": self.radius,
-            "mass": self.mass,
             "coords": self.coords.serialize(),
+            "data": asdict(self.data),
         }
         return flat
 
