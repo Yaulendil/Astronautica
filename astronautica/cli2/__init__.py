@@ -1,6 +1,6 @@
 from enum import auto, Enum
 from itertools import cycle
-from typing import Sequence, Tuple
+from typing import Callable, Dict, List, Sequence, Tuple, Union
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
@@ -22,8 +22,6 @@ from prompt_toolkit.widgets import HorizontalLine, VerticalLine
 
 
 STYLE = Style([("etc", ""), ("hostname", "fg:ansicyan"), ("path", "fg:ansiblue bold")])
-
-
 doc = Document("asdf@qwert~$ ")
 
 
@@ -36,66 +34,38 @@ class Prompt:
         return FormattedText([*self.prompt, ("class:etc", text)])
 
 
-prompt = Prompt(
-    [
-        ("class:hostname", "asdf@qwert"),
-        ("class:etc", ":"),
-        ("class:path", "~"),
-        ("class:etc", "$ "),
-    ]
-)
+def line(text: Union[List[Tuple[str, str]], str]) -> Window:
+    win = Window(
+        FormattedTextControl(text),
+        dont_extend_height=True,
+        ignore_content_width=True,
+        wrap_lines=True,
+    )
+    return win
 
 
 scrollback = FormattedTextControl(text=[])
-cmd_panel = Window(
-    scrollback, dont_extend_height=True, ignore_content_width=True, wrap_lines=True
-)
+cmd_panel = HSplit((line("asdf"),))
 
 
-def echo(*text: str, style: str = "class:etc"):
-    for t in text:
-        scrollback.text.append((style, f"\n{t}"))
+def echo(text: FormattedText):
+    cmd_panel.children.append(line(text))
 
 
-def echo_with_prompt(text: FormattedText):
-    echo("")
-    scrollback.text += text
+def keys(given: Dict[str, Callable] = None, *, defaults: bool = True) -> KeyBindings:
+    kb = KeyBindings()
 
+    if defaults:
 
-def enter(buffer: Buffer):
-    command: str = buffer.text
-    # buffer.reset(append_to_history=True)
-    echo_with_prompt(prompt(command))
-    return False
+        @kb.add("c-q")
+        def close(event):
+            """Ctrl-Q: Exit program."""
+            event.app.exit()
 
+    for k, v in given.items():
+        kb.add(k)(v)
 
-cmd_line = Buffer(accept_handler=enter, multiline=False)
-
-
-kb = KeyBindings()
-
-
-@kb.add("c-q")
-def close(event):
-    """Ctrl-Q: Exit program."""
-    event.app.exit()
-
-
-scope_topdown = FormattedTextControl(text="TopDown")
-scope_horizon = FormattedTextControl(text="Horizon")
-scopes = HSplit(
-    (
-        # Top-down visualization on the upper panel.
-        Window(scope_topdown, ignore_content_height=True, ignore_content_width=True),
-        HorizontalLine(),
-        # Visualization from behind on the lower panel.
-        Window(scope_horizon, ignore_content_height=True, ignore_content_width=True),
-    )
-)
-
-
-scans = FormattedTextControl(text="Scans")
-orders = FormattedTextControl(text="Orders")
+    return kb
 
 
 class Mode(Enum):
@@ -107,17 +77,58 @@ class Mode(Enum):
 
 class Client:
     def __init__(self):
+        self.kb = keys()
         # noinspection PyTypeChecker
         mode = cycle(Mode)
-        self.state: Mode
+        self.state: Mode = next(mode)
 
-        @kb.add("tab")
+        @self.kb.add("tab")
         def nextmode(*_):
             self.state = next(mode)
 
-        nextmode()
+        self.prompt = Prompt(
+            [
+                ("class:hostname", "asdf@qwert"),
+                ("class:etc", ":"),
+                ("class:path", "~"),
+                ("class:etc", "$ "),
+            ]
+        )
 
+        self.app = None
         self.bar = FormattedTextControl("asdf qwert")
+        self.cmd_line = Buffer(accept_handler=self.enter, multiline=False)
+
+        self.scope_topdown = FormattedTextControl(text="TopDown")
+        self.scope_horizon = FormattedTextControl(text="Horizon")
+        self.scopes = HSplit(
+            (
+                # Top-down visualization on the upper panel.
+                Window(
+                    self.scope_topdown,
+                    ignore_content_height=True,
+                    ignore_content_width=True,
+                ),
+                HorizontalLine(),
+                # Visualization from behind on the lower panel.
+                Window(
+                    self.scope_horizon,
+                    ignore_content_height=True,
+                    ignore_content_width=True,
+                ),
+            )
+        )
+        self.scans = FormattedTextControl(text="Scans")
+        self.orders = FormattedTextControl(text="Orders")
+
+    def enter(self, buffer: Buffer):
+        command: str = buffer.text
+        buffer.reset(append_to_history=True)
+        echo(self.prompt(command))
+
+    def __enter__(self):
+        if self.app:
+            raise RuntimeError("Client already has an Application open.")
         root = VSplit(
             (
                 # Command History on most of the left panel, Prompt at the bottom.
@@ -125,7 +136,8 @@ class Client:
                     (
                         cmd_panel,
                         Window(
-                            BufferControl(cmd_line, [prompt.processor]), wrap_lines=True
+                            BufferControl(self.cmd_line, [self.prompt.processor]),
+                            wrap_lines=True,
                         ),
                     )
                 ),
@@ -133,22 +145,21 @@ class Client:
                     VerticalLine(), Condition(lambda: self.state is not Mode.OFF)
                 ),
                 ConditionalContainer(
-                    scopes, Condition(lambda: self.state is Mode.SCOPES)
+                    self.scopes, Condition(lambda: self.state is Mode.SCOPES)
                 ),
                 ConditionalContainer(
-                    Window(scans, ignore_content_width=True),
+                    Window(self.scans, ignore_content_width=True),
                     Condition(lambda: self.state is Mode.SCANS),
                 ),
                 ConditionalContainer(
-                    Window(orders, ignore_content_width=True),
+                    Window(self.orders, ignore_content_width=True),
                     Condition(lambda: self.state is Mode.ORDERS),
                 ),
             )
         )
-
         self.app = Application(
             full_screen=True,
-            key_bindings=kb,
+            key_bindings=self.kb,
             layout=Layout(
                 HSplit(
                     (Window(self.bar, height=1, style="ansigray bold reverse"), root)
@@ -156,3 +167,8 @@ class Client:
             ),
             style=STYLE,
         )
+        return self.app
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # self.app.exit()
+        self.app = None

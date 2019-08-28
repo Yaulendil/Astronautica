@@ -2,4 +2,5 @@ from cli2 import Client
 
 
 if __name__ == "__main__":
-    Client().app.run()
+    with Client() as app:
+        app.run()
