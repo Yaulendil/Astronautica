@@ -1,10 +1,18 @@
+from enum import Enum
+
 from blessings import Terminal
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
-from prompt_toolkit.layout.containers import HSplit, VSplit, Window
+from prompt_toolkit.layout.containers import (
+    ConditionalContainer,
+    HSplit,
+    VSplit,
+    Window,
+)
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.widgets import HorizontalLine, VerticalLine
 
 
 T = Terminal()
@@ -32,36 +40,6 @@ def enter(buffer: Buffer):
 cmd_line = Buffer(accept_handler=enter, multiline=False)
 
 
-scope_topdown = FormattedTextControl(text="TopDown")
-scope_horizon = FormattedTextControl(text="Horizon")
-scopes = HSplit(
-    (
-        # Top-down visualization on the upper panel.
-        Window(
-            content=scope_topdown, ignore_content_height=True, ignore_content_width=True
-        ),
-        # Horizontal line divider.
-        Window(char="=", height=1),
-        # Visualization from behind on the lower panel.
-        Window(
-            content=scope_horizon, ignore_content_height=True, ignore_content_width=True
-        ),
-    )
-)
-
-
-panel_right = scopes #Window(content=scopes)
-root = VSplit(
-    [
-        # Command History on most of the left panel, Command Prompt at the bottom.
-        HSplit((cmd_panel, Window(content=BufferControl(buffer=cmd_line), height=1))),
-        # Vertical line divider.
-        Window(char="|", width=1),
-        # Two visualization scopes on the right.
-        panel_right,
-    ]
-)
-
 kb = KeyBindings()
 
 
@@ -71,4 +49,47 @@ def close(event):
     event.app.exit()
 
 
-Client = Application(full_screen=True, key_bindings=kb, layout=Layout(root))
+scope_topdown = FormattedTextControl(text="TopDown")
+scope_horizon = FormattedTextControl(text="Horizon")
+scopes = HSplit(
+    (
+        # Top-down visualization on the upper panel.
+        Window(
+            content=scope_topdown, ignore_content_height=True, ignore_content_width=True
+        ),
+        HorizontalLine(),
+        # Visualization from behind on the lower panel.
+        Window(
+            content=scope_horizon, ignore_content_height=True, ignore_content_width=True
+        ),
+    )
+)
+
+
+class Mode(Enum):
+    SCOPES = 0
+    SCANS = 1
+
+
+class Client:
+    def __init__(self):
+        self.state = Mode(0)
+
+        root = VSplit(
+            (
+                # Command History on most of the left panel, Prompt at the bottom.
+                HSplit(
+                    (
+                        cmd_panel,
+                        Window(content=BufferControl(buffer=cmd_line), wrap_lines=True),
+                    )
+                ),
+                VerticalLine(),
+                # Two visualization scopes on the right.
+                ConditionalContainer(
+                    scopes, True
+                )  # lambda: self.state is Mode.SCOPES),
+                # ConditionalContainer(scopes, lambda: self.state is Mode.SCANS),
+            )
+        )
+        self.app = Application(full_screen=True, key_bindings=kb, layout=Layout(root))
