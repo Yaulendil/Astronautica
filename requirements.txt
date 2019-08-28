@@ -1,9 +1,11 @@
 astropy
 attrs
+blessings
 numba
 numpy
 numpy-quaternion
 passlib
+prompt_toolkit
 scipy
 scrypt
 vectormath

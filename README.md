@@ -1,6 +1,9 @@
-[![Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
-[![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/)
-[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: GPLv3](assets/gplv3-127x51.png)](https://opensource.org/licenses/GPL-3.0)
+
+[![Codestyle: Black](https://img.shields.io/badge/Codestyle-Black-000000.svg)](https://github.com/ambv/black)
+[![Python 3.7](https://img.shields.io/badge/Python-3.7+-1f425f.svg?logoColor=white&logo=python&style=popout)](https://www.python.org/)
+
+[![Developed on Arch](https://img.shields.io/badge/Built%20and%20Tested%20on-Arch%20Linux-informational.svg?logoColor=%231793D1&logo=arch-linux&style=popout)](https://en.wikipedia.org/wiki/Arch_Linux)
 
 
 # Astronautica
