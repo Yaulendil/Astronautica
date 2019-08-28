@@ -1,4 +1,4 @@
-from .cli2 import Client
+from cli2 import Client
 
 
 if __name__ == "__main__":
