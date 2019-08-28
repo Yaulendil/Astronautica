@@ -106,7 +106,7 @@ class Prompt:
 
 
 class Client:
-    def __init__(self):
+    def __init__(self, command_handler: Callable = None):
         self.kb = keys()
         # noinspection PyTypeChecker
         mode = cycle(Mode)
@@ -127,6 +127,8 @@ class Client:
         self.scans = FormattedTextControl(text="Scans")
         self.orders = FormattedTextControl(text="Orders")
 
+        self.handler = command_handler
+
     def echo(self, *text: Union[FormattedText, str]):
         lines = [line(l) for l in text]
         self.panel.children += lines
@@ -135,7 +137,13 @@ class Client:
     def enter(self, buffer: Buffer):
         command: str = buffer.text
         buffer.reset(append_to_history=True)
+        self.execute(command)
+
+    def execute(self, command: str):
         self.echo(self.prompt(command))
+
+        if callable(self.handler):
+            self.handler(command)
 
     def __enter__(self):
         root = VSplit(

@@ -1,6 +1,8 @@
-from interface import Client
+from interface import get_client
 
 
 if __name__ == "__main__":
-    with Client() as app:
+    client, commands = get_client()
+
+    with client as app:
         app.run()
