@@ -1,8 +1,10 @@
-from enum import Enum
+from enum import auto, Enum
+from itertools import cycle
 
 from blessings import Terminal
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.filters import Condition
 from prompt_toolkit.layout.containers import (
     ConditionalContainer,
     HSplit,
@@ -19,10 +21,7 @@ T = Terminal()
 
 scrollback = FormattedTextControl(text="Command History")
 cmd_panel = Window(
-    content=scrollback,
-    dont_extend_height=True,
-    ignore_content_width=True,
-    wrap_lines=True,
+    scrollback, dont_extend_height=True, ignore_content_width=True, wrap_lines=True
 )
 
 
@@ -54,42 +53,57 @@ scope_horizon = FormattedTextControl(text="Horizon")
 scopes = HSplit(
     (
         # Top-down visualization on the upper panel.
-        Window(
-            content=scope_topdown, ignore_content_height=True, ignore_content_width=True
-        ),
+        Window(scope_topdown, ignore_content_height=True, ignore_content_width=True),
         HorizontalLine(),
         # Visualization from behind on the lower panel.
-        Window(
-            content=scope_horizon, ignore_content_height=True, ignore_content_width=True
-        ),
+        Window(scope_horizon, ignore_content_height=True, ignore_content_width=True),
     )
 )
 
 
+scans = FormattedTextControl(text="Scans")
+orders = FormattedTextControl(text="Orders")
+
+
 class Mode(Enum):
-    SCOPES = 0
-    SCANS = 1
+    SCOPES = auto()
+    SCANS = auto()
+    ORDERS = auto()
+    OFF = auto()
 
 
 class Client:
     def __init__(self):
-        self.state = Mode(0)
+        # noinspection PyTypeChecker
+        mode = cycle(Mode)
+        self.state: Mode
+
+        @kb.add("tab")
+        def nextmode(*_):
+            self.state = next(mode)
+
+        nextmode()
 
         root = VSplit(
             (
                 # Command History on most of the left panel, Prompt at the bottom.
                 HSplit(
-                    (
-                        cmd_panel,
-                        Window(content=BufferControl(buffer=cmd_line), wrap_lines=True),
-                    )
+                    (cmd_panel, Window(BufferControl(buffer=cmd_line), wrap_lines=True))
                 ),
                 VerticalLine(),
                 # Two visualization scopes on the right.
                 ConditionalContainer(
-                    scopes, True
-                )  # lambda: self.state is Mode.SCOPES),
-                # ConditionalContainer(scopes, lambda: self.state is Mode.SCANS),
+                    scopes, Condition(lambda: self.state is Mode.SCOPES)
+                ),
+                ConditionalContainer(
+                    Window(scans, ignore_content_width=True),
+                    Condition(lambda: self.state is Mode.SCANS),
+                ),
+                ConditionalContainer(
+                    Window(orders, ignore_content_width=True),
+                    Condition(lambda: self.state is Mode.ORDERS),
+                ),
             )
         )
+
         self.app = Application(full_screen=True, key_bindings=kb, layout=Layout(root))
