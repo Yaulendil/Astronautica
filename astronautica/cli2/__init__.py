@@ -1,10 +1,13 @@
 from enum import auto, Enum
 from itertools import cycle
+from typing import Sequence, Tuple
 
-from blessings import Terminal
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.document import Document
 from prompt_toolkit.filters import Condition
+from prompt_toolkit.formatted_text import FormattedText
+from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout.containers import (
     ConditionalContainer,
     HSplit,
@@ -13,27 +16,57 @@ from prompt_toolkit.layout.containers import (
 )
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
-from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.layout.processors import BeforeInput
+from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import HorizontalLine, VerticalLine
 
 
-T = Terminal()
+STYLE = Style([("etc", ""), ("hostname", "fg:ansicyan"), ("path", "fg:ansiblue bold")])
 
-scrollback = FormattedTextControl(text="Command History")
+
+doc = Document("asdf@qwert~$ ")
+
+
+class Prompt:
+    def __init__(self, text: Sequence[Tuple[str, str]]):
+        self.processor = BeforeInput(self)
+        self.prompt = list(text)
+
+    def __call__(self, text: str = ""):
+        return FormattedText([*self.prompt, ("class:etc", text)])
+
+
+prompt = Prompt(
+    [
+        ("class:hostname", "asdf@qwert"),
+        ("class:etc", ":"),
+        ("class:path", "~"),
+        ("class:etc", "$ "),
+    ]
+)
+
+
+scrollback = FormattedTextControl(text=[])
 cmd_panel = Window(
     scrollback, dont_extend_height=True, ignore_content_width=True, wrap_lines=True
 )
 
 
-def echo(text: str):
-    scrollback.text += f"\n{text}"
+def echo(*text: str, style: str = "class:etc"):
+    for t in text:
+        scrollback.text.append((style, f"\n{t}"))
+
+
+def echo_with_prompt(text: FormattedText):
+    echo("")
+    scrollback.text += text
 
 
 def enter(buffer: Buffer):
     command: str = buffer.text
-    buffer.append_to_history()
-    buffer.reset()
-    echo(command)
+    # buffer.reset(append_to_history=True)
+    echo_with_prompt(prompt(command))
+    return False
 
 
 cmd_line = Buffer(accept_handler=enter, multiline=False)
@@ -84,14 +117,21 @@ class Client:
 
         nextmode()
 
+        self.bar = FormattedTextControl("asdf qwert")
         root = VSplit(
             (
                 # Command History on most of the left panel, Prompt at the bottom.
                 HSplit(
-                    (cmd_panel, Window(BufferControl(buffer=cmd_line), wrap_lines=True))
+                    (
+                        cmd_panel,
+                        Window(
+                            BufferControl(cmd_line, [prompt.processor]), wrap_lines=True
+                        ),
+                    )
                 ),
-                VerticalLine(),
-                # Two visualization scopes on the right.
+                ConditionalContainer(
+                    VerticalLine(), Condition(lambda: self.state is not Mode.OFF)
+                ),
                 ConditionalContainer(
                     scopes, Condition(lambda: self.state is Mode.SCOPES)
                 ),
@@ -106,4 +146,13 @@ class Client:
             )
         )
 
-        self.app = Application(full_screen=True, key_bindings=kb, layout=Layout(root))
+        self.app = Application(
+            full_screen=True,
+            key_bindings=kb,
+            layout=Layout(
+                HSplit(
+                    (Window(self.bar, height=1, style="ansigray bold reverse"), root)
+                )
+            ),
+            style=STYLE,
+        )
