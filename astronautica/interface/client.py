@@ -1,6 +1,6 @@
 from enum import auto, Enum
 from itertools import cycle
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, Iterator, List, Sequence, Union
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
@@ -133,7 +133,7 @@ class Client:
         self.handler = command_handler
 
     def echo(self, *text: Union[FormattedText, str]) -> List[Window]:
-        lines = [line(l) for l in text]
+        lines = list(filter(None, (line(l) for l in text)))
         self.panel.children += lines
         return lines
 
@@ -155,7 +155,14 @@ class Client:
                     else f"Error: {type(exc).__name__}"
                 )
             else:
-                self.echo(result)
+                if result:
+                    if isinstance(result, (Iterator, Sequence)) and not isinstance(
+                        result, FormattedText
+                    ):
+                        for each in filter(None, result):
+                            self.echo(each)
+                    else:
+                        self.echo(result)
 
     def __enter__(self):
         root = VSplit(

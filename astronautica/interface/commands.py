@@ -1,3 +1,4 @@
+from functools import update_wrapper
 # from getopt import getopt
 from inspect import Parameter, Signature
 from shlex import shlex
@@ -65,7 +66,8 @@ class Command(object):
 
     def sub(self, keyword: str) -> Callable[[Callable], "Command"]:
         def make_command(func: CmdType) -> Command:
-            cmd = Command(func, keyword)
+            cmd: Command = update_wrapper(Command(func, keyword), func)
+
             self.add(cmd)
             return cmd
 
@@ -97,7 +99,7 @@ class CommandRoot(object):
         word = tokens.pop(0).lower()
 
         if word in self.commands:
-            self.commands[word](tokens)
+            return self.commands[word](tokens)
         else:
             # TODO: Custom Exceptions
             raise NameError(f"Command '{word.upper()}' not found.")

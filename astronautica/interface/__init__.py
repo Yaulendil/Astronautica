@@ -12,12 +12,11 @@ def get_client() -> Tuple[Client, CommandRoot]:
 
     @cmd_root("asdf")
     def asdf(*words):
-        for word in words:
-            interface_client.echo(word)
+        yield from words
 
     @asdf.sub("qwert")
     def qwert(*words):
         for word in words:
-            interface_client.echo("QWERT", word)
+            yield f"QWERT {word}"
 
     return interface_client, cmd_root
