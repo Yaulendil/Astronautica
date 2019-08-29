@@ -1,6 +1,6 @@
 from enum import auto, Enum
 from itertools import cycle
-from typing import Callable, Dict, Union
+from typing import Callable, Dict, List, Union
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
@@ -116,8 +116,10 @@ class Client:
         def nextmode(*_):
             self.state = next(mode)
 
+        # Create a Prompt Object with initial values.
         self.prompt = Prompt("anon", "ingress", "/login")
 
+        # Build the UI.
         self.bar = FormattedTextControl("asdf qwert")
         self.cmd = Buffer(accept_handler=self.enter, multiline=False)
         self.panel = HSplit((line("Interface ready."),))
@@ -127,9 +129,10 @@ class Client:
         self.scans = FormattedTextControl(text="Scans")
         self.orders = FormattedTextControl(text="Orders")
 
+        # Register the Command Handler.
         self.handler = command_handler
 
-    def echo(self, *text: Union[FormattedText, str]):
+    def echo(self, *text: Union[FormattedText, str]) -> List[Window]:
         lines = [line(l) for l in text]
         self.panel.children += lines
         return lines
@@ -143,7 +146,16 @@ class Client:
         self.echo(self.prompt(command))
 
         if callable(self.handler):
-            self.handler(command)
+            try:
+                result = self.handler(command)
+            except Exception as exc:
+                self.echo(
+                    f"Error: {type(exc).__name__}: {exc}"
+                    if str(exc)
+                    else f"Error: {type(exc).__name__}"
+                )
+            else:
+                self.echo(result)
 
     def __enter__(self):
         root = VSplit(

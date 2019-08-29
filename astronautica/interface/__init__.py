@@ -7,8 +7,17 @@ from .commands import CommandRoot
 
 
 def get_client() -> Tuple[Client, CommandRoot]:
-    interface_client = Client()
-    command_system = CommandRoot(interface_client)
-    interface_client.handler = command_system.run
+    cmd_root = CommandRoot()
+    interface_client = Client(command_handler=cmd_root.run)
 
-    return interface_client, command_system
+    @cmd_root("asdf")
+    def asdf(*words):
+        for word in words:
+            interface_client.echo(word)
+
+    @asdf.sub("qwert")
+    def qwert(*words):
+        for word in words:
+            interface_client.echo("QWERT", word)
+
+    return interface_client, cmd_root
