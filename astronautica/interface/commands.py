@@ -1,7 +1,7 @@
 from getopt import getopt
-from inspect import Signature
+from inspect import Parameter, Signature
 from shlex import shlex
-from typing import Callable, Dict, List, Sequence, Type
+from typing import Callable, Dict, List, Sequence, Set, Tuple, Type
 
 from .client import Client
 
@@ -13,6 +13,7 @@ class Command(object):
     """Command Object. Stores a Function and a Keyword, and provides a support
         interface for Subcommands.
     """
+
     def __init__(self, func: Callable, keyword: str):
         self._func: Callable = func
         self.keyword: str = keyword
@@ -20,17 +21,34 @@ class Command(object):
 
         self.sig: Signature = Signature.from_callable(self._func)
 
-        shorts = ""
-        longs = []
+        self.shorts: str = ""
+        self.longs: List[str] = []
+        self.bools: Set[str] = set()
 
-        # TODO: Assemble Opts from Signature
-
-        self.shorts: str = shorts
-        self.longs: List[str] = longs
+        params: List[Tuple[str, Parameter]] = self.sig.parameters.items()
+        for k, p in params:
+            if p.kind is p.KEYWORD_ONLY:
+                if len(k) > 1:
+                    # Long Opt.
+                    if p.annotation is not bool and type(p.default) is not bool:
+                        self.longs.append(f"{k}=")
+                    else:
+                        self.longs.append(k)
+                        self.bools.add(k)
+                else:
+                    # Short Opt.
+                    self.shorts += k
+                    if p.annotation is not bool and type(p.default) is not bool:
+                        self.shorts += ":"
+                    else:
+                        self.bools.add(k)
+            else:
+                pass
 
     def __call__(self, tokens: Sequence[str]):
         """Execute the Command. Takes a Sequence of Strings."""
         opts, args = getopt(tokens, self.shorts, self.longs)
+        opts = {k: (True if k in self.bools else v) for k, v in opts}
         return self._func(*args, **opts)
 
     def add(self, command: "Command"):
