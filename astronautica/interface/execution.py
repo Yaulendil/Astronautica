@@ -21,16 +21,25 @@ def handle_return(echo, result):
 
 
 async def handle_async(echo, result):
-    while isinstance(result, Coroutine):
-        result = await result
+    try:
+        while isinstance(result, Coroutine):
+            result = await result
 
-    if isinstance(result, AsyncIterator):
-        async for each in result:
-            if each is not None:
-                echo(each)
+    except Exception as exc:
+        echo(
+            f"Error: {type(exc).__name__}: {exc}"
+            if str(exc)
+            else f"Error: {type(exc).__name__}"
+        )
 
     else:
-        handle_return(echo, result)
+        if isinstance(result, AsyncIterator):
+            async for each in result:
+                if each is not None:
+                    echo(each)
+
+        else:
+            handle_return(echo, result)
 
 
 def execute_function(
