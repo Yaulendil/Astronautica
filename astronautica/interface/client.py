@@ -1,13 +1,12 @@
 from asyncio import AbstractEventLoop, Task
 from enum import auto, Enum
 from itertools import chain, cycle
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Callable, List, Optional, Union
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import FormattedText
-from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout.containers import (
     ConditionalContainer,
     HSplit,
@@ -17,53 +16,10 @@ from prompt_toolkit.layout.containers import (
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.layout.processors import BeforeInput
-from prompt_toolkit.styles import Style
-from prompt_toolkit.utils import Event
 from prompt_toolkit.widgets import HorizontalLine, VerticalLine
 
+from .etc import fmt, keys, N, STYLE
 from .execution import execute_function
-
-
-STYLE = Style([("etc", ""), ("hostname", "fg:ansicyan"), ("path", "fg:ansiblue bold")])
-
-
-def fmt(text: Union[FormattedText, str], style: str = "class:etc") -> FormattedText:
-    if isinstance(text, FormattedText):
-        return text
-    else:
-        return FormattedText([(style, text)])
-
-
-N = fmt("\n")
-
-
-def line(text: Union[FormattedText, str]) -> Window:
-    win = Window(
-        FormattedTextControl(text),
-        dont_extend_height=True,
-        ignore_content_width=True,
-        wrap_lines=True,
-    )
-    return win
-
-
-def keys(
-    given: Dict[str, Callable[[Event], Any]] = None, *, bind_defaults: bool = True
-) -> KeyBindings:
-    kb = KeyBindings()
-
-    if bind_defaults:
-
-        @kb.add("c-q")
-        def close(event):
-            """Ctrl-Q: Exit program."""
-            event.app.exit()
-
-    if given:
-        for k, v in given.items():
-            kb.add(k)(v)
-
-    return kb
 
 
 class Mode(Enum):
