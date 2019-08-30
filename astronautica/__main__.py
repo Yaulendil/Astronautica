@@ -10,7 +10,7 @@ use_asyncio_event_loop(loop)
 
 
 if __name__ == "__main__":
-    client, commands = get_client()
+    client, commands = get_client(loop)
 
     try:
         with client as app:

@@ -1,7 +1,7 @@
-from asyncio import Task
+from asyncio import AbstractEventLoop, Task
 from enum import auto, Enum
 from itertools import cycle
-from typing import Callable, Dict, Iterator, List, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
@@ -18,7 +18,10 @@ from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.layout.processors import BeforeInput
 from prompt_toolkit.styles import Style
+from prompt_toolkit.utils import Event
 from prompt_toolkit.widgets import HorizontalLine, VerticalLine
+
+from .execution import execute_function
 
 
 STYLE = Style([("etc", ""), ("hostname", "fg:ansicyan"), ("path", "fg:ansiblue bold")])
@@ -34,10 +37,12 @@ def line(text: Union[FormattedText, str]) -> Window:
     return win
 
 
-def keys(given: Dict[str, Callable] = None, *, defaults: bool = True) -> KeyBindings:
+def keys(
+    given: Dict[str, Callable[[Event], Any]] = None, *, bind_defaults: bool = True
+) -> KeyBindings:
     kb = KeyBindings()
 
-    if defaults:
+    if bind_defaults:
 
         @kb.add("c-q")
         def close(event):
@@ -97,17 +102,22 @@ class Prompt:
             ]
         )
 
-    def __call__(self, text: str = None) -> FormattedText:
+    def __call__(
+        self, text: Union[FormattedText, str] = None, style="class:etc"
+    ) -> FormattedText:
         if text is None:
             return self.prompt
+        elif isinstance(text, FormattedText):
+            return self.prompt + text
         else:
             p = self.prompt
-            p.append(("class:etc", text))
+            p.append((style, text))
             return p
 
 
 class Client:
-    def __init__(self, command_handler: Callable = None):
+    def __init__(self, loop: AbstractEventLoop, command_handler: Callable = None):
+        self.LOOP: AbstractEventLoop = loop
         self.TASKS: List[Task] = []
         self.kb = keys()
         # noinspection PyTypeChecker
@@ -115,7 +125,7 @@ class Client:
         self.state: Mode = next(mode)
 
         @self.kb.add("tab")
-        def nextmode(*_):
+        def nextmode(*_) -> None:
             self.state = next(mode)
 
         # Create a Prompt Object with initial values.
@@ -133,40 +143,30 @@ class Client:
 
         # Register the Command Handler.
         self.handler = command_handler
+        self._app: Optional[Application] = None
 
     def echo(self, *text: Union[FormattedText, str]) -> List[Window]:
         lines = list(filter(None, (line(l) for l in text)))
         self.panel.children += lines
+        self.redraw()
         return lines
 
-    def enter(self, buffer: Buffer):
+    def enter(self, buffer: Buffer) -> None:
         command: str = buffer.text
         buffer.reset(append_to_history=True)
         self.execute(command)
 
-    def execute(self, command: str):
+    def execute(self, command: str) -> None:
         self.echo(self.prompt(command))
 
         if callable(self.handler):
-            try:
-                result = self.handler(command)
-            except Exception as exc:
-                self.echo(
-                    f"Error: {type(exc).__name__}: {exc}"
-                    if str(exc)
-                    else f"Error: {type(exc).__name__}"
-                )
-            else:
-                if result:
-                    if isinstance(result, (Iterator, Sequence)) and not isinstance(
-                        result, FormattedText
-                    ):
-                        for each in filter(None, result):
-                            self.echo(each)
-                    else:
-                        self.echo(result)
+            self.TASKS.append(self.LOOP.create_task(
+            execute_function(self.handler, self.echo, command)))
 
-    def __enter__(self):
+    def redraw(self) -> None:
+        self._app.renderer.render(self._app, self._app.layout)
+
+    def __enter__(self) -> Application:
         root = VSplit(
             (
                 # Command History on most of the left panel, Prompt at the bottom.
@@ -212,18 +212,19 @@ class Client:
                 ),
             )
         )
-        return Application(
-            full_screen=True,
-            key_bindings=self.kb,
-            layout=Layout(
+        self._app = Application(
+            Layout(
                 HSplit(
                     (Window(self.bar, height=1, style="ansigray bold reverse"), root)
                 )
             ),
-            style=STYLE,
+            STYLE,
+            full_screen=True,
+            key_bindings=self.kb,
         )
+        return self._app
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        pass
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        # pass
         # self.app.exit()
-        # self.app = None
+        self._app = None

@@ -2,10 +2,10 @@ from functools import update_wrapper
 # from getopt import getopt
 from inspect import Parameter, Signature
 from shlex import shlex
-from typing import Callable, Dict, List, Sequence, Set, Tuple, Type
+from typing import Any, Callable, Dict, List, Sequence, Set, Tuple, Type
 
 
-CmdType: Type[Callable] = Callable
+CmdType: Type[Callable] = Callable[..., Any]
 
 
 class Command(object):
@@ -13,8 +13,8 @@ class Command(object):
         interface for Subcommands.
     """
 
-    def __init__(self, func: Callable, keyword: str):
-        self._func: Callable = func
+    def __init__(self, func: CmdType, keyword: str):
+        self._func: CmdType = func
         self.keyword: str = keyword.lower()
         self.KEYWORD: str = keyword.upper()
         self.subcommands: Dict[str, Command] = {}
@@ -52,19 +52,19 @@ class Command(object):
         # opts = {k: (True if k in self.bools else v) for k, v in opts}
         # return self._func(*args, **opts)
 
-        kw = tokens[0].lower()
-        if kw in self.subcommands:
-            return self.subcommands[kw](tokens[1:])
+        func = self.subcommands.get(tokens[0].lower())
+        if func:
+            return func(tokens[1:])
         else:
             return self._func(*tokens)
 
-    def add(self, command: "Command"):
+    def add(self, command: "Command") -> None:
         if command.keyword in self.subcommands:
             raise FileExistsError(f"Subcommand '{command.KEYWORD}' already exists.")
         else:
             self.subcommands[command.keyword] = command
 
-    def sub(self, keyword: str) -> Callable[[Callable], "Command"]:
+    def sub(self, keyword: str) -> Callable[[CmdType], "Command"]:
         def make_command(func: CmdType) -> Command:
             cmd: Command = update_wrapper(Command(func, keyword), func)
 
@@ -78,7 +78,7 @@ class CommandRoot(object):
     def __init__(self):
         self.commands: Dict[str, Command] = {}
 
-    def __call__(self, keyword: str) -> Callable[[Callable], Command]:
+    def __call__(self, keyword: str) -> Callable[[CmdType], Command]:
         def make_command(func: CmdType) -> Command:
             cmd = Command(func, keyword)
             self.add(cmd)
@@ -86,7 +86,7 @@ class CommandRoot(object):
 
         return make_command
 
-    def add(self, command: Command):
+    def add(self, command: Command) -> None:
         if command.keyword in self.commands:
             raise FileExistsError(f"Command '{command.KEYWORD}' already exists.")
         else:
