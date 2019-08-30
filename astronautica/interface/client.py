@@ -187,14 +187,11 @@ class Client(object):
         self.echo(self.prompt(command))
 
         if callable(self.handler):
-            self.TASKS.append(
-                self.LOOP.create_task(
-                    execute_function(self.handler, self.echo, command)
-                )
-            )
+            execute_function(command, self.echo, self.handler, self.LOOP, self.TASKS)
 
     def redraw(self) -> None:
-        self._app.renderer.render(self._app, self._app.layout)
+        if self._app:
+            self._app.renderer.render(self._app, self._app.layout)
 
     def __enter__(self) -> Application:
         root = VSplit(
