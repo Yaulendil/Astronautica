@@ -13,6 +13,7 @@ class Scan:
 
 from pathlib import Path
 from sys import argv
+from typing import Any, Sequence
 
 import yaml
 
@@ -36,6 +37,9 @@ def getpath(filename: str = "config.yml"):
 class ConfigError(Exception):
     """Required value not found in Configuration File."""
 
+    def __init__(self, route: Sequence[str]):
+        super().__init__(f"Missing Configuration option: {'.'.join(route)}")
+
 
 class Config(object):
     def __init__(self, path: Path = getpath()):
@@ -43,7 +47,14 @@ class Config(object):
         with self.path.open("r") as file:
             self.data = yaml.safe_load(file)
 
-    def get(self, route: str, default = None, *, required: bool = False):
+    def get(
+        self,
+        route: str,
+        default: Any = None,
+        *,
+        enforce: type = None,
+        required: bool = False,
+    ):
         if DELIM in route:
             route = route.split(DELIM)
         else:
@@ -53,13 +64,19 @@ class Config(object):
         try:
             for jump in filter(None, route):
                 here = here[jump]
-        except Exception as e:
+        except BaseException as e:
             if required:
-                raise ConfigError(".".join(route)) from e
+                raise ConfigError(route) from e
             else:
                 return default
         else:
-            return here
+            if enforce is None or isinstance(here, enforce):
+                return here
+            else:
+                raise TypeError(
+                    f"Config option '{'.'.join(route)}' is of incorrect type:"
+                    f" Wanted '{enforce}', got '{type(here)}'"
+                )
 
 
 cfg = Config()
