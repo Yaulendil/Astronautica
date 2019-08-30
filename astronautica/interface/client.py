@@ -1,6 +1,6 @@
 from asyncio import AbstractEventLoop, Task
 from enum import auto, Enum
-from itertools import cycle
+from itertools import chain, cycle
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from prompt_toolkit import Application
@@ -25,6 +25,16 @@ from .execution import execute_function
 
 
 STYLE = Style([("etc", ""), ("hostname", "fg:ansicyan"), ("path", "fg:ansiblue bold")])
+
+
+def fmt(text: Union[FormattedText, str], style: str = "class:etc") -> FormattedText:
+    if isinstance(text, FormattedText):
+        return text
+    else:
+        return FormattedText([(style, text)])
+
+
+N = fmt("\n")
 
 
 def line(text: Union[FormattedText, str]) -> Window:
@@ -63,7 +73,7 @@ class Mode(Enum):
     OFF = auto()
 
 
-class Prompt:
+class Prompt(object):
     def __init__(
         self,
         username: str,
@@ -115,7 +125,24 @@ class Prompt:
             return p
 
 
-class Client:
+class Panel(object):
+    def __init__(self):
+        self.text = FormattedText([("class:etc", "Ready")])
+        self.ftc = FormattedTextControl(self.text)
+        self.window = Window(
+            self.ftc,
+            dont_extend_height=True,
+            ignore_content_width=True,
+            wrap_lines=True,
+        )
+
+    def write(self, *text, newline: bool = True):
+        self.text.extend(
+            chain(*((N + fmt(t) for t in text) if newline else map(fmt, text)))
+        )
+
+
+class Client(object):
     def __init__(self, loop: AbstractEventLoop, command_handler: Callable = None):
         self.LOOP: AbstractEventLoop = loop
         self.TASKS: List[Task] = []
@@ -134,7 +161,7 @@ class Client:
         # Build the UI.
         self.bar = FormattedTextControl("asdf qwert")
         self.cmd = Buffer(accept_handler=self.enter, multiline=False)
-        self.panel = HSplit((line("Interface ready."),))
+        self.panel = Panel()  # HSplit((line("Interface ready."),))
 
         self.scope_topdown = FormattedTextControl(text="TopDown")
         self.scope_horizon = FormattedTextControl(text="Horizon")
@@ -145,11 +172,11 @@ class Client:
         self.handler = command_handler
         self._app: Optional[Application] = None
 
-    def echo(self, *text: Union[FormattedText, str]) -> List[Window]:
-        lines = list(filter(None, (line(l) for l in text)))
-        self.panel.children += lines
+    def echo(self, *text: Union[FormattedText, str]):  # -> List[Window]:
+        # lines = list(filter(None, (line(l) for l in text)))
+        self.panel.write(*map(fmt, text))
         self.redraw()
-        return lines
+        # return lines
 
     def enter(self, buffer: Buffer) -> None:
         command: str = buffer.text
@@ -160,8 +187,11 @@ class Client:
         self.echo(self.prompt(command))
 
         if callable(self.handler):
-            self.TASKS.append(self.LOOP.create_task(
-            execute_function(self.handler, self.echo, command)))
+            self.TASKS.append(
+                self.LOOP.create_task(
+                    execute_function(self.handler, self.echo, command)
+                )
+            )
 
     def redraw(self) -> None:
         self._app.renderer.render(self._app, self._app.layout)
@@ -172,7 +202,7 @@ class Client:
                 # Command History on most of the left panel, Prompt at the bottom.
                 HSplit(
                     (
-                        self.panel,
+                        self.panel.window,
                         Window(
                             BufferControl(self.cmd, [self.prompt.processor]),
                             wrap_lines=True,
