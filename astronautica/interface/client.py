@@ -1,3 +1,4 @@
+from asyncio import Task
 from enum import auto, Enum
 from itertools import cycle
 from typing import Callable, Dict, Iterator, List, Sequence, Union
@@ -107,6 +108,7 @@ class Prompt:
 
 class Client:
     def __init__(self, command_handler: Callable = None):
+        self.TASKS: List[Task] = []
         self.kb = keys()
         # noinspection PyTypeChecker
         mode = cycle(Mode)
