@@ -1,8 +1,9 @@
-from functools import update_wrapper
+from functools import partial, update_wrapper
+
 # from getopt import getopt
 from inspect import Parameter, Signature
 from shlex import shlex
-from typing import Any, Callable, Dict, List, Sequence, Set, Tuple, Type
+from typing import Any, Callable, Dict, List, Sequence, Set, Tuple, Type, Union
 
 
 CmdType: Type[Callable] = Callable[..., Any]
@@ -52,11 +53,14 @@ class Command(object):
         # opts = {k: (True if k in self.bools else v) for k, v in opts}
         # return self._func(*args, **opts)
 
-        func = self.subcommands.get(tokens[0].lower())
-        if func:
-            return func(tokens[1:])
+        if tokens:
+            func = self.subcommands.get(tokens[0].lower())
+            if func:
+                return func(tokens[1:])
+            else:
+                return self._func(*tokens)
         else:
-            return self._func(*tokens)
+            return self._func()
 
     def add(self, command: "Command") -> None:
         if command.keyword in self.subcommands:
@@ -64,27 +68,38 @@ class Command(object):
         else:
             self.subcommands[command.keyword] = command
 
-    def sub(self, keyword: str) -> Callable[[CmdType], "Command"]:
-        def make_command(func: CmdType) -> Command:
-            cmd: Command = update_wrapper(Command(func, keyword), func)
-
+    def sub(
+        self, arg: Union[Callable, str]
+    ) -> Union[Callable[[CmdType], "Command"], "Command"]:
+        def make_command(func: CmdType, name: str) -> Command:
+            cmd: Command = update_wrapper(Command(func, name), func)
             self.add(cmd)
             return cmd
 
-        return make_command
+        if isinstance(arg, Callable):
+            return make_command(arg, arg.__name__)
+
+        else:
+            return partial(make_command, name=arg)
 
 
 class CommandRoot(object):
     def __init__(self):
         self.commands: Dict[str, Command] = {}
 
-    def __call__(self, keyword: str) -> Callable[[CmdType], Command]:
-        def make_command(func: CmdType) -> Command:
-            cmd = Command(func, keyword)
+    def __call__(
+        self, arg: Union[Callable, str]
+    ) -> Union[Callable[[CmdType], Command], Command]:
+        def make_command(func: CmdType, name: str) -> Command:
+            cmd: Command = update_wrapper(Command(func, name), func)
             self.add(cmd)
             return cmd
 
-        return make_command
+        if isinstance(arg, Callable):
+            return make_command(arg, arg.__name__)
+
+        else:
+            return partial(make_command, name=arg)
 
     def add(self, command: Command) -> None:
         if command.keyword in self.commands:
@@ -93,13 +108,14 @@ class CommandRoot(object):
             self.commands[command.keyword] = command
 
     def run(self, line: str):
-        sh = shlex(line)
+        if line:
+            sh = shlex(line)
 
-        tokens: List[str] = list(sh)
-        word = tokens.pop(0).lower()
+            tokens: List[str] = list(sh)
+            word = tokens.pop(0).lower()
 
-        if word in self.commands:
-            return self.commands[word](tokens)
-        else:
-            # TODO: Custom Exceptions
-            raise NameError(f"Command '{word.upper()}' not found.")
+            if word in self.commands:
+                return self.commands[word](tokens)
+            else:
+                # TODO: Custom Exceptions
+                raise NameError(f"Command '{word.upper()}' not found.")

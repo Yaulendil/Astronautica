@@ -12,12 +12,12 @@ def get_client(loop) -> Tuple[Client, CommandRoot]:
     cmd_root = CommandRoot()
     interface_client = Client(loop, command_handler=cmd_root.run)
 
-    @cmd_root("asdf")
+    @cmd_root
     def asdf(*words):
         sleep2(3)
         yield from words
 
-    @asdf.sub("qwert")
+    @asdf.sub
     async def qwert(*words):
         for word in words:
             await sleep(1)
