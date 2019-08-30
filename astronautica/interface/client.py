@@ -146,6 +146,8 @@ class Client(object):
     def __init__(self, loop: AbstractEventLoop, command_handler: Callable = None):
         self.LOOP: AbstractEventLoop = loop
         self.TASKS: List[Task] = []
+
+        self.read_only = False
         self.kb = keys()
         # noinspection PyTypeChecker
         mode = cycle(Mode)
@@ -160,8 +162,14 @@ class Client(object):
 
         # Build the UI.
         self.bar = FormattedTextControl("asdf qwert")
-        self.cmd = Buffer(accept_handler=self.enter, multiline=False)
+        self.cmd = Buffer(
+            accept_handler=self.enter,
+            multiline=False,
+            read_only=Condition(lambda: self.read_only),
+        )
         self.panel = Panel()  # HSplit((line("Interface ready."),))
+        self.procs = [self.prompt.processor]
+        self._procs = self.procs.copy()
 
         self.scope_topdown = FormattedTextControl(text="TopDown")
         self.scope_horizon = FormattedTextControl(text="Horizon")
@@ -172,6 +180,14 @@ class Client(object):
         self.handler = command_handler
         self._app: Optional[Application] = None
 
+    def cmd_hide(self):
+        self.read_only = True
+        self._procs.clear()
+
+    def cmd_show(self):
+        self.read_only = False
+        self._procs[:] = self.procs
+
     def echo(self, *text: Union[FormattedText, str]):  # -> List[Window]:
         # lines = list(filter(None, (line(l) for l in text)))
         self.panel.write(*map(fmt, text))
@@ -179,9 +195,14 @@ class Client(object):
         # return lines
 
     def enter(self, buffer: Buffer) -> None:
-        command: str = buffer.text
-        buffer.reset(append_to_history=True)
-        self.execute(command)
+        try:
+            self.cmd_hide()
+            command: str = buffer.text
+            buffer.reset(append_to_history=True)
+
+            self.execute(command)
+        finally:
+            self.cmd_show()
 
     def execute(self, command: str) -> None:
         self.echo(self.prompt(command))
@@ -200,10 +221,7 @@ class Client(object):
                 HSplit(
                     (
                         self.panel.window,
-                        Window(
-                            BufferControl(self.cmd, [self.prompt.processor]),
-                            wrap_lines=True,
-                        ),
+                        Window(BufferControl(self.cmd, self._procs), wrap_lines=True),
                     )
                 ),
                 ConditionalContainer(  # Vertical Line.

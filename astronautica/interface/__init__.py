@@ -1,6 +1,7 @@
 """Interface Package: Command line Client and all integrations with Engine."""
 
 from asyncio import sleep
+from time import sleep as sleep2
 from typing import Tuple
 
 from .client import Client
@@ -13,6 +14,7 @@ def get_client(loop) -> Tuple[Client, CommandRoot]:
 
     @cmd_root("asdf")
     def asdf(*words):
+        sleep2(3)
         yield from words
 
     @asdf.sub("qwert")
