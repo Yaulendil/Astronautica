@@ -1,3 +1,9 @@
-asdf:
-  qwert: zxcv
-  aaaa: also
+interface:
+  style:
+    etc: ""
+    hostname: fg:ansicyan
+    path: fg:ansiblue bold
+
+connection:
+  address: 127.0.0.1
+#  port: 1729

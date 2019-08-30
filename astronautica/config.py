@@ -23,14 +23,18 @@ DELIM = "/"
 def getpath(filename: str = "config.yml"):
     p = Path(argv[0])
 
-    if p.is_file():
-        p = p.parent / filename
+    if p.name == filename:
+        return p
+    elif p.is_file():
+        return p.parent / filename
     elif p.is_dir():
-        p /= filename
+        return p / filename
     else:
         raise FileNotFoundError(p)
 
-    return p
+
+class ConfigError(Exception):
+    """Required value not found in Configuration File."""
 
 
 class Config(object):
@@ -39,7 +43,7 @@ class Config(object):
         with self.path.open("r") as file:
             self.data = yaml.safe_load(file)
 
-    def get(self, route: str, default = None):
+    def get(self, route: str, default = None, *, required: bool = False):
         if DELIM in route:
             route = route.split(DELIM)
         else:
@@ -49,8 +53,11 @@ class Config(object):
         try:
             for jump in filter(None, route):
                 here = here[jump]
-        except:
-            return default
+        except Exception as e:
+            if required:
+                raise ConfigError(".".join(route)) from e
+            else:
+                return default
         else:
             return here
 

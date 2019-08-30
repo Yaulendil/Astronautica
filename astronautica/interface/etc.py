@@ -5,9 +5,11 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
 from prompt_toolkit.utils import Event
 
+from config import cfg
+
 
 N = FormattedText([("class:etc", "\n")])
-STYLE = Style([("etc", ""), ("hostname", "fg:ansicyan"), ("path", "fg:ansiblue bold")])
+STYLE = Style(list(cfg.get("interface/style").items()))
 
 
 def fmt(text: Union[FormattedText, str], style: str = "class:etc") -> FormattedText:
