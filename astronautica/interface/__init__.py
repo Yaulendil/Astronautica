@@ -1,18 +1,20 @@
 """Interface Package: Command line Client and all integrations with Engine."""
 
-from asyncio import sleep
+from asyncio import AbstractEventLoop, create_task, sleep
 from time import sleep as sleep2
 from typing import Tuple
+
+from ezipc.util import P
 
 from .client import Client
 from .commands import CommandRoot
 
 
 def get_client(loop) -> Tuple[Client, CommandRoot]:
-    cmd_root = CommandRoot()
-    interface_client = Client(loop, command_handler=cmd_root.run)
+    cmd = CommandRoot()
+    interface_client = Client(loop, command_handler=cmd.run)
 
-    @cmd_root
+    @cmd
     def asdf(*words):
         sleep2(3)
         yield from words
@@ -23,4 +25,22 @@ def get_client(loop) -> Tuple[Client, CommandRoot]:
             await sleep(1)
             yield f"QWERT {word}"
 
-    return interface_client, cmd_root
+    return interface_client, cmd
+
+
+def setup(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop, host: bool):
+    P.output_line = cli.echo
+
+    if host:
+        from ezipc.server import Server
+
+        ...
+    else:
+        from ezipc.client import Client as ClientIPC
+
+        @cmd
+        async def connect(addr_port: str):
+            addr, port = addr_port.split(":")
+            ipc = ClientIPC(addr, int(port))
+
+            ...
