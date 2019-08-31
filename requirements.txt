@@ -6,6 +6,7 @@ numpy
 numpy-quaternion
 passlib
 prompt_toolkit
+pynacl
 PyYAML
 scipy
 scrypt

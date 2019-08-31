@@ -6,4 +6,5 @@ interface:
 
 connection:
   address: 127.0.0.1
-#  port: 1729
+  port: 1729
+  deny_custom_server: true
