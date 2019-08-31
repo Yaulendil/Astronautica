@@ -20,19 +20,11 @@ def handle_return(echo, result):
         echo(result)
 
 
-async def handle_async(echo, result):
+async def handle_async(command, echo, result):
     try:
         while isinstance(result, Coroutine):
             result = await result
 
-    except Exception as exc:
-        echo(
-            f"Error: {type(exc).__name__}: {exc}"
-            if str(exc)
-            else f"Error: {type(exc).__name__}"
-        )
-
-    else:
         if isinstance(result, AsyncIterator):
             async for each in result:
                 if each is not None:
@@ -40,6 +32,13 @@ async def handle_async(echo, result):
 
         else:
             handle_return(echo, result)
+
+    except Exception as exc:
+        echo(
+            f"Error: {command}: {type(exc).__name__}: {exc}"
+            if str(exc)
+            else f"Error: {command}: {type(exc).__name__}"
+        )
 
 
 def execute_function(
@@ -52,16 +51,15 @@ def execute_function(
     try:
         result = handler(command)
 
-    except Exception as exc:
-        echo(
-            f"Error: {type(exc).__name__}: {exc}"
-            if str(exc)
-            else f"Error: {type(exc).__name__}"
-        )
-
-    else:
         if result:
             if isinstance(result, (AsyncIterator, Coroutine)):
-                tasks.append(loop.create_task(handle_async(echo, result)))
+                tasks.append(loop.create_task(handle_async(command, echo, result)))
             else:
                 handle_return(echo, result)
+
+    except Exception as exc:
+        echo(
+            f"Error: {command}: {type(exc).__name__}: {exc}"
+            if str(exc)
+            else f"Error: {command}: {type(exc).__name__}"
+        )
