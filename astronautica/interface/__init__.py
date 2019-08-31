@@ -1,6 +1,6 @@
 """Interface Package: Command line Client and all integrations with Engine."""
 
-from asyncio import AbstractEventLoop, create_task, sleep
+from asyncio import AbstractEventLoop, create_task, sleep, CancelledError
 from re import compile
 from time import sleep as sleep2
 from typing import Tuple
@@ -52,11 +52,21 @@ def setup(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop, host: bool):
 
             @cmd
             def close():
-                run.cancel()
+                server.server.close()
+
+            del cmd.commands["open"]
+
+            try:
+                await run
+            except CancelledError:
+                cli.echo("Server closed.")
+            finally:
+                for remote in server.remotes:
+                    await remote.terminate()
+
                 cmd.add(host)
                 del cmd.commands["close"]
 
-            del cmd.commands["open"]
 
     else:
         from ezipc.client import Client as ClientIPC
@@ -80,10 +90,15 @@ def setup(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop, host: bool):
             ipc = ClientIPC(addr, int(port))
             await ipc.connect(loop)
 
-            @cmd
-            def disconnect():
-                ipc.disconnect()
+            cmd(ipc.disconnect)
+            del cmd.commands["connect"]
+
+            try:
+                await ipc.listening
+            except CancelledError:
+                cli.echo("Connection closed.")
+            finally:
+                await ipc.disconnect()
+
                 cmd.add(connect)
                 del cmd.commands["disconnect"]
-
-            del cmd.commands["connect"]
