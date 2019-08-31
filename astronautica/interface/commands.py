@@ -9,6 +9,18 @@ from typing import Any, Callable, Dict, List, Sequence, Set, Tuple, Type, Union
 CmdType: Type[Callable] = Callable[..., Any]
 
 
+class CommandError(Exception):
+    """Base Class for problems with Commands."""
+
+
+class CommandNotFound(CommandError):
+    """Command cannot be located."""
+
+
+class CommandExists(CommandError):
+    """Command cannot be added."""
+
+
 class Command(object):
     """Command Object. Stores a Function and a Keyword, and provides a support
         interface for Subcommands.
@@ -64,7 +76,7 @@ class Command(object):
 
     def add(self, command: "Command") -> None:
         if command.keyword in self.subcommands:
-            raise FileExistsError(f"Subcommand '{command.KEYWORD}' already exists.")
+            raise CommandExists(f"Subcommand '{command.KEYWORD}' already exists.")
         else:
             self.subcommands[command.keyword] = command
 
@@ -103,7 +115,7 @@ class CommandRoot(object):
 
     def add(self, command: Command) -> None:
         if command.keyword in self.commands:
-            raise FileExistsError(f"Command '{command.KEYWORD}' already exists.")
+            raise CommandExists(f"Command '{command.KEYWORD}' already exists.")
         else:
             self.commands[command.keyword] = command
 
@@ -117,5 +129,4 @@ class CommandRoot(object):
             if word in self.commands:
                 return self.commands[word](tokens)
             else:
-                # TODO: Custom Exceptions
-                raise NameError(f"Command '{word.upper()}' not found.")
+                raise CommandNotFound(f"Command '{word.upper()}' not found.")
