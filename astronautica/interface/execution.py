@@ -30,7 +30,7 @@ async def handle_async(command, echo, result):
                 if each is not None:
                     echo(each)
 
-        else:
+        elif result is not None:
             handle_return(echo, result)
 
     except Exception as exc:

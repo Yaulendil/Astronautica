@@ -1,3 +1,4 @@
+from itertools import repeat
 from typing import Any, Callable, Dict, Union
 
 from prompt_toolkit.formatted_text import FormattedText
@@ -9,6 +10,7 @@ from config import cfg
 
 
 N = FormattedText([("class:etc", "\n")])
+NNN = repeat(("class:etc", "\n"))
 STYLE = Style(list(cfg.get("interface/style").items()))
 
 
@@ -25,6 +27,16 @@ def keys(
     kb = KeyBindings()
 
     if bind_defaults:
+
+        # @kb.add("c-c")
+        # def interrupt(event):
+        #     """Ctrl-Q: Exit program."""
+        #     event.app.exit(exception=KeyboardInterrupt)
+
+        @kb.add("c-d")
+        def eof(event):
+            """Ctrl-Q: Exit program."""
+            event.app.exit(exception=EOFError)
 
         @kb.add("c-q")
         def close(event):

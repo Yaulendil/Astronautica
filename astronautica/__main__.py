@@ -33,6 +33,8 @@ if __name__ == "__main__":
     try:
         with client as app:
             loop.run_until_complete(app.run_async().to_asyncio_future())
+    except (EOFError, KeyboardInterrupt):
+        pass
     finally:
         loop.run_until_complete(
             asyncio.wait_for(

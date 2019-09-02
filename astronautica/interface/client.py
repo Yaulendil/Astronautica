@@ -1,12 +1,12 @@
 from asyncio import AbstractEventLoop, Task
 from enum import auto, Enum
 from itertools import chain, cycle
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Union, Iterable, Tuple
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.filters import Condition
-from prompt_toolkit.formatted_text import FormattedText
+from prompt_toolkit.formatted_text import FormattedText, split_lines
 from prompt_toolkit.layout.containers import (
     ConditionalContainer,
     HSplit,
@@ -81,21 +81,64 @@ class Prompt(object):
             return p
 
 
+def wrap(text: Iterable[Tuple[str, str]], width: int) -> int:
+    plain = "".join(line[1] for line in text)
+    # run_in_terminal(partial(print, width, text, plain, sep="\n"))
+    return int(len(plain) / width) + 1
+
+
 class Panel(object):
     def __init__(self):
-        self.text = FormattedText([("class:etc", "Ready")])
-        self.ftc = FormattedTextControl(self.text)
+        self._text = [[("class:etc", "Ready")]] # deque(
+            # [[("class:etc", "Ready")]], maxlen=200
+        # )  # [[("class:etc", "Ready")]]
+        self.text = FormattedText(self._text[0].copy())
+        self.ftc = FormattedTextControl(
+            self.text,
+            # get_cursor_position=(lambda: Point(5, 0)),
+        )
+        # self.ftc = TextArea("asdf", focusable=False)
         self.window = Window(
             self.ftc,
             dont_extend_height=True,
             ignore_content_width=True,
+            # scroll_offsets=ScrollOffsets(bottom=90000000),
             wrap_lines=True,
         )
+        # self.ftc.get_cursor_position = lambda: Point(5, (self.window.height or 1) - 1)
 
-    def write(self, *text, newline: bool = True):
-        self.text.extend(
-            chain(*((N + fmt(t) for t in text) if newline else map(fmt, text)))
-        )
+    def resize(self):
+        # Chain the last X lines and set the "effective" text to that.
+        h = self.window.height or 17
+        w = self.window.width or 59
+
+        buffer = []
+        rows_to_render = 0
+        text = filter(None, reversed(self._text))
+
+        while rows_to_render < h:
+            try:
+                line = next(text)
+            except:
+                break
+
+            rows_to_render += wrap(line, w)
+            buffer.append(line)
+
+        buffer = list(reversed(buffer))
+        while len(buffer) < rows_to_render:
+            buffer.append([])
+        # run_in_terminal(partial(print, [(l, wrap(l, w), w) for l in buffer]))
+
+        self.text[:] = tuple(
+            chain(*(N + list(l) for l in (buffer[max(len(buffer) - h, 0):])))
+        )[1:]
+
+    def write(self, *text):
+        for line in text:
+            # Extend the internal text with each line from a split_lines() call.
+            self._text.extend(split_lines(line))
+        self.resize()
 
 
 class Client(object):
@@ -123,7 +166,9 @@ class Client(object):
             multiline=False,
             read_only=Condition(lambda: self.read_only),
         )
-        self.panel = Panel()  # HSplit((line("Interface ready."),))
+        self.panel = Panel()
+        # sys.stdout = self.panel
+
         self.procs = [self.prompt.processor]
         self._procs = self.procs.copy()
 
