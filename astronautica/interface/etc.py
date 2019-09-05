@@ -1,6 +1,7 @@
 from itertools import repeat
 from typing import Any, Callable, Dict, Union
 
+from blessings import Terminal
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
@@ -13,12 +14,65 @@ N = FormattedText([("class:etc", "\n")])
 NNN = repeat(("class:etc", "\n"))
 STYLE = Style(list(cfg.get("interface/style").items()))
 
+T = Terminal()
+
+
+noact = lambda x: x
+unstyle = {
+    "class:etc": noact,
+    "class:hostname": T.cyan,
+    "class:path": T.bold_bright_blue,
+}
+
 
 def fmt(text: Union[FormattedText, str], style: str = "class:etc") -> FormattedText:
     if isinstance(text, FormattedText):
         return text
     else:
         return FormattedText([(style, str(text))])
+
+
+attrs = ("bold", "italic", "reverse")
+
+
+def resolve(style: str):
+    fg = ""
+    fg_attr = set()
+    bg = ""
+    bg_attr = set()
+    terms = style.split()
+
+    for term in terms:
+        if term in attrs:
+            if fg:
+                bg_attr.add(term)
+            else:
+                fg_attr.add(term)
+
+        elif ":" in term:
+            g, color = term.split(":")
+
+            if color.startswith("ansi"):
+                color = color[4:]
+
+            if g == "fg":
+                fg = color
+            elif g == "bg":
+                bg = color
+
+    try:
+        return getattr(
+            T,
+            "_".join(
+                filter(None, (*fg_attr, fg, *(("on", *bg_attr, bg) if bg else ())))
+            ),
+        )
+    except:
+        return noact
+
+
+def unformat(text: FormattedText) -> str:
+    return "".join((unstyle.get(style) or resolve(style))(line) for style, line in text)
 
 
 def keys(
