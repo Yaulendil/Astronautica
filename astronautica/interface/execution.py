@@ -54,7 +54,7 @@ def execute_function(
         if result:
             if isinstance(result, (AsyncIterator, Coroutine)):
                 tasks.append(loop.create_task(handle_async(command, echo, result)))
-                echo("Asynchronous Task dispatched.")
+                # echo("Asynchronous Task dispatched.")
             else:
                 handle_return(echo, result)
 

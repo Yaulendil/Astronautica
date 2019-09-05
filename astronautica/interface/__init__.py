@@ -1,18 +1,16 @@
 """Interface Package: Command line Client and all integrations with Engine."""
 
-from asyncio import AbstractEventLoop, create_task, sleep, CancelledError
+from asyncio import AbstractEventLoop, sleep, CancelledError
 from re import compile
 from time import sleep as sleep2
 from typing import Tuple
 
-from ezipc.util import P, set_colors
+from ezipc.util import P
 
 from .client import Client
 from .commands import CommandRoot
 from config import cfg
 
-
-set_colors(False)
 
 pattern_address = compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?")
 
@@ -48,7 +46,7 @@ def setup(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop, host: bool):
                 cfg.get("connection/port", required=True),
             )
 
-            run = create_task(server.run(loop))
+            run = loop.create_task(server.run(loop))
 
             @cmd
             def close():
@@ -66,7 +64,6 @@ def setup(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop, host: bool):
 
                 cmd.add(host)
                 del cmd.commands["close"]
-
 
     else:
         from ezipc.client import Client as ClientIPC
