@@ -5,22 +5,22 @@
 from asyncio import AbstractEventLoop, Task
 from typing import AsyncIterator, Callable, Coroutine, Iterator, List, Sequence
 
-from prompt_toolkit.formatted_text import FormattedText
+from .etc import EchoType
 
 
-def handle_return(echo, result):
+def handle_return(echo: EchoType, result):
     if isinstance(result, (Iterator, Sequence)) and not isinstance(
-        result, FormattedText
+        result, str
     ):
         for each in result:
             if each is not None:
-                echo(each)
+                echo(str(each))
 
     else:
-        echo(result)
+        echo(str(result))
 
 
-async def handle_async(command, echo, result):
+async def handle_async(command, echo: EchoType, result):
     try:
         while isinstance(result, Coroutine):
             result = await result
@@ -43,7 +43,7 @@ async def handle_async(command, echo, result):
 
 def execute_function(
     command: Sequence[str],
-    echo: Callable,
+    echo: EchoType,
     handler: Callable,
     loop: AbstractEventLoop,
     tasks: List[Task],

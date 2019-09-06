@@ -1,5 +1,5 @@
 from itertools import repeat
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, Type, Union
 
 from blessings import Terminal
 from prompt_toolkit.formatted_text import FormattedText
@@ -23,6 +23,9 @@ unstyle = {
     "class:hostname": T.cyan,
     "class:path": T.bold_bright_blue,
 }
+
+
+EchoType: Type[Callable] = Callable[[Union[FormattedText, str]], None]
 
 
 def fmt(text: Union[FormattedText, str], style: str = "class:etc") -> FormattedText:

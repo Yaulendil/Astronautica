@@ -138,7 +138,7 @@ class Client(object):
             if isinstance(line, FormattedText):
                 line = fragment_list_to_text(line)
 
-            self.console.write_text("\r\n" + str(line))
+            self.console.write_text("\r\n" + line)
         self.redraw()
 
     def enter(self, buffer: Buffer) -> None:

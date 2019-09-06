@@ -26,7 +26,7 @@ class ObjectInSpace(object):
     def __init__(
         self, position = (0, 0, 0), *, data: dict = None, domain=0, space: Space
     ):
-        self.data = self.Data(**data)
+        self.data = self.Data(**(data or {}))
         self.coords = Coordinates(position, domain=domain, space=space)
 
     @property

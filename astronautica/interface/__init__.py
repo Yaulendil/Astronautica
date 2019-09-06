@@ -8,8 +8,9 @@ from typing import Tuple
 from ezipc.util import P
 
 from .client import Client
-from .commands import CommandRoot
+from .commands import CommandRoot, no_dispatch
 from config import cfg
+from engine import Object, run_world, Spacetime
 
 
 pattern_address = compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?")
@@ -39,6 +40,9 @@ def setup(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop, host: bool):
     if host:
         from ezipc.server import Server
 
+        st = Spacetime()
+        space = st.space
+
         @cmd("open")
         async def host():
             server = Server(
@@ -46,7 +50,8 @@ def setup(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop, host: bool):
                 cfg.get("connection/port", required=True),
             )
 
-            run = loop.create_task(server.run(loop))
+            run = loop.create_task(server.run(loop))  # Start the Server.
+            world = loop.create_task(run_world(st))  # Start the World.
 
             @cmd
             def close():
@@ -56,14 +61,30 @@ def setup(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop, host: bool):
 
             try:
                 await run
+
             except CancelledError:
                 cli.echo("Server closed.")
+
             finally:
+                world.cancel()
                 for remote in server.remotes:
                     await remote.terminate()
 
                 cmd.add(host)
                 del cmd.commands["close"]
+
+        @cmd
+        def spawn(x="0", y="0", z="0"):
+            try:
+                new = Object((int(x), int(y), int(z)), space=space)
+            except ValueError:
+                return "Cannot make arguments into ints."
+            else:
+                return new
+
+        @cmd
+        def ls():
+            yield from iter(st.index)
 
     else:
         from ezipc.client import Client as ClientIPC
