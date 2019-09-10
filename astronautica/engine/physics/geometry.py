@@ -8,6 +8,7 @@ Uses Numba for JIT Compilation.
 from math import radians, degrees, isnan
 from typing import Dict, List, Tuple, Type, TypeVar, Union
 
+from astropy import units as u
 from numba import jit
 import numpy as np
 from quaternion import quaternion
@@ -237,6 +238,7 @@ class Coordinates:
         *,
         domain: int = 0,
         space: Space,
+        unit: u.Unit = u.meter,
         # priv: bool = False,
     ):
         pos = (
@@ -276,6 +278,7 @@ class Coordinates:
 
         self.space = space
         self.domain = domain
+        self.unit = unit
 
         self._id[self.domain] = self.space.register_coordinates(self, pos, vel)
 

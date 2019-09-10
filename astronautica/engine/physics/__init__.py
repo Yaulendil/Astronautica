@@ -1,72 +1,26 @@
-"""Spacetime Package: Contains abstract classes and handlers."""
+"""Physics Package: Contains Functions to calculate physical interactions."""
 
-from typing import List, Tuple, Type
+from typing import List, Tuple, Type, TypeVar
 
-from numba import jit
-
-from .collision import distance_between_lines, find_collision
+from .collision import distance_between_lines, find_collisions
 from .geometry import Coordinates, Space
-from .physics import ObjectInSpace as Object
 
-# from pytimer import Timer
-
-__all__ = ["Coordinates", "Object", "Space", "Spacetime"]
+__all__ = ["Coordinates", "Space", "Spacetime"]
 
 
-@jit(forceobj=True, nopython=False)
-def _find_collisions(
-    seconds: float, list_a: List[Object], list_b: List[Object]
-) -> List[Tuple[float, Tuple[Object, Object]]]:
-    # TODO: Move into Collision module.
-    #       Complication: References to Object in Type Hints.
-    collisions: List[Tuple[float, Tuple[Object, Object]]] = []
-
-    for obj_a in list_a[-1:0:-1]:
-        list_b.pop(-1)
-        start_a = obj_a.coords.position
-        end_a = obj_a.coords.pos_after(seconds)
-
-        for obj_b in list_b:
-            if obj_a.coords.domain != obj_b.coords.domain:
-                continue
-            start_b = obj_b.coords.position
-            contact = obj_a.radius + obj_b.radius
-
-            if (start_a - start_b).length < contact:
-                continue
-
-            end_b = obj_b.coords.pos_after(seconds)
-            nearest_a, nearest_b, proximity = distance_between_lines(
-                start_a, end_a, start_b, end_b
-            )
-
-            if proximity < contact:
-                # Objects look like they might collide.
-                impact = find_collision(
-                    obj_a.coords.position,
-                    obj_a.coords.velocity,
-                    obj_b.coords.position,
-                    obj_b.coords.velocity,
-                    0.0,
-                    seconds,
-                    contact,
-                )
-                if impact is not False:
-                    collisions.append((impact, (obj_a, obj_b)))
-
-    return collisions
+O: Type = TypeVar("O")
 
 
 class Spacetime:
     def __init__(self, space: Space = None):
         self.space: Space = space or Space()
-        self.index: List[Object] = []
+        self.index: List[O] = []
 
-    def add(self, obj: Object):
+    def add(self, obj: O):
         """Add an Object to the Index of the Spacetime."""
         self.index.append(obj)
 
-    def new(self, cls: Type[Object] = Object, *a, **kw) -> Object:
+    def new(self, cls: Type[O] = O, *a, **kw) -> O:
         """Create a new Instance of an Object. Arguments are passed directly to
             the Object Instantiation. This Method handles adding the new
             Instance to the Index of the Spacetime, and provides its Space
@@ -74,7 +28,7 @@ class Spacetime:
             Object Instance.
         """
         kw["space"] = self.space
-        obj: Object = cls(*a, **kw)
+        obj: O = cls(*a, **kw)
         self.add(obj)
         return obj
 
@@ -84,9 +38,9 @@ class Spacetime:
         """
         key = lambda o: o[0]
 
-        def collisions_until(_time) -> List[Tuple[float, Tuple[Object, Object]]]:
+        def collisions_until(_time) -> List[Tuple[float, Tuple[O, O]]]:
             return (
-                _find_collisions(_time, self.index.copy(), self.index.copy())
+                find_collisions(_time, self.index.copy(), self.index.copy())
                 if allow_collision
                 else []
             )

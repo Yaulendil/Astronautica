@@ -6,18 +6,18 @@ from attr import asdict, attrs
 import numpy as np
 from vectormath import Vector3
 
-from .collision import get_delta_v
-from .geometry import Coordinates, Space
+from .physics.collision import get_delta_v
+from .physics.geometry import Coordinates, Space
 
 # from pytimer import Timer
 
-__all__ = ["ObjectInSpace"]
+__all__ = ["Object"]
 
 
 T = TypeVar("T")
 
 
-class ObjectInSpace(object):
+class Object(object):
     @attrs
     class Data:
         radius: int = 100
@@ -56,7 +56,7 @@ class ObjectInSpace(object):
         """
         self.coords.velocity += dv
 
-    def collide_with(self, other: "ObjectInSpace"):
+    def collide_with(self, other: "Object"):
         """Simulate an impact between two objects, resulting in altered paths.
 
         F = ma = m(Δv/Δt) = Δp/Δt
@@ -95,7 +95,7 @@ class ObjectInSpace(object):
         other.on_collide(self)
         # print("Collisions:", t(), "sec")
 
-    def on_collide(self, other: "ObjectInSpace"):
+    def on_collide(self, other: "Object"):
         """Impart any appropriate special effects on another Object.
 
         This Method is called AFTER effects of the impact on velocity have been

@@ -8,7 +8,8 @@ The Spacetime Package contains abstract classes and handlers that expose
 from asyncio import CancelledError, sleep
 from datetime import datetime as dt, timedelta as td
 
-from .spacetime import Coordinates, Object, Space, Spacetime
+from .objects import Object
+from .physics import Coordinates, Space, Spacetime
 
 
 async def run_world(st: Spacetime, turn_length: int = 300, echo=print):

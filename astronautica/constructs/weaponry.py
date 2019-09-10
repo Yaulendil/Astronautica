@@ -1,7 +1,7 @@
-from astronautica.engine.spacetime import physics
+from engine import objects
 
 
-class Slug(physics.ObjectInSpace):
+class Slug(objects.Object):
     """A simple Tungsten slug. Fired at high velocities to rip through an enemy vessel."""
 
     def on_collide(self, other):
@@ -14,7 +14,7 @@ class Slug(physics.ObjectInSpace):
         # - Damage the other object, if applicable
 
 
-class Missile(physics.ObjectInSpace):
+class Missile(objects.Object):
     """An explosive device attached to a thruster and a guidance system. Very deadly."""
 
     visibility = 12
@@ -23,7 +23,7 @@ class Missile(physics.ObjectInSpace):
     # TODO: Make it aim towards a target
 
 
-class Torpedo(physics.ObjectInSpace):
+class Torpedo(objects.Object):
     """A powerful explosive attached to a thruster. Terribly dangerous, but hard to use."""
 
     visibility = 8
@@ -31,7 +31,7 @@ class Torpedo(physics.ObjectInSpace):
     # TODO: Make it accelerate
 
 
-class Mine(physics.ObjectInSpace):
+class Mine(objects.Object):
     """An enormous explosive device left adrift, in the hopes that an enemy will hit it."""
 
     visibility = 3

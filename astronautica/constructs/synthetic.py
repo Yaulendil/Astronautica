@@ -1,9 +1,9 @@
 from datetime import datetime as dt
 
-from astronautica.engine.spacetime import physics
+from engine import objects
 
 
-class Ship(physics.ObjectInSpace):
+class Ship(objects.Object):
     """A pressurized vessel allowing living creatures to brave the void"""
 
     def __init__(self, name, *a, **kw):
