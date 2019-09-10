@@ -2,12 +2,15 @@
 
 from typing import TypeVar
 
+from astropy import units as u
 from attr import asdict, attrs
 import numpy as np
 from vectormath import Vector3
 
+from .abc import Node
 from .physics.collision import get_delta_v
 from .physics.geometry import Coordinates, Space
+from .physics.units import UNITS_LOCAL
 
 # from pytimer import Timer
 
@@ -17,7 +20,7 @@ __all__ = ["Object"]
 T = TypeVar("T")
 
 
-class Object(object):
+class Object(Node):
     @attrs
     class Data:
         radius: int = 100
@@ -31,7 +34,11 @@ class Object(object):
 
     @property
     def mass(self):
-        return self.data.mass
+        return self.data.mass * self.units.mass
+
+    @property
+    def units(self):
+        return UNITS_LOCAL
 
     @property
     def radius(self):
@@ -40,13 +47,13 @@ class Object(object):
     @property
     def momentum(self):
         """p = mv"""
-        return self.mass * self.coords.velocity
+        return self.mass.to_value(u.kg) * self.coords.velocity
 
     def impulse(self, impulse):
         """Momentum is Mass times Velocity, so the change in Velocity is the
             change in Momentum, or Impulse, divided by Mass.
         """
-        self.add_velocity(impulse / self.mass)
+        self.add_velocity(impulse / self.mass.to_value(u.kg))
 
     def add_velocity(self, dv: np.ndarray):
         """Add an Array to the Velocity value of our Coordinates.
@@ -76,8 +83,8 @@ class Object(object):
             normal,
             self.coords.velocity,
             other.coords.velocity,
-            self.mass,
-            other.mass,
+            self.mass.to_value(u.kg),
+            other.mass.to_value(u.kg),
         )
         # print("DeltaV:    ", t(), "sec")
 
