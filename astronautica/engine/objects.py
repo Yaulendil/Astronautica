@@ -25,20 +25,17 @@ class Object(Node):
     class Data:
         radius: int = 100
         mass: int = 100
+        units = UNITS_LOCAL
 
     def __init__(
-        self, position = (0, 0, 0), *, data: dict = None, domain=0, space: Space
+        self, position=(0, 0, 0), *, data: dict = None, domain=0, space: Space = None
     ):
         self.data = self.Data(**(data or {}))
         self.coords = Coordinates(position, domain=domain, space=space)
 
     @property
     def mass(self):
-        return self.data.mass * self.units.mass
-
-    @property
-    def units(self):
-        return UNITS_LOCAL
+        return self.data.mass * self.data.units.mass
 
     @property
     def radius(self):
@@ -123,34 +120,12 @@ class Object(Node):
 
     def serialize(self):
         flat = {
-            "class": str(type(self)),
-            "coords": self.coords.serialize(),
+            "type": str(type(self)),
             "data": asdict(self.data),
+            "subs": dict(coords=self.coords.serialize()),
         }
         return flat
 
-
-def reconstruct(flat: dict, keep_scans=False):
-    """
-    Reconstruct an object of unknown type from serialized data
-    This is NOT best practices...but for now it will do
-    TODO: Make this not terrible
-    """
-    if keep_scans:
-        # # Keep saved telemetry
-        # for i in range(len(flat.get("scans", []))):
-        #     # Construct a model of each scanned object
-        #     flat["scans"][i] = reconstruct(flat["scans"][i])
-        pass
-    elif "scans" in flat:
-        # Throw away any saved telemetry
-        del flat["scans"]
-    # Find the original class
-    t = eval(flat.pop("class").split("'")[1])
-    # Reconstruct the Coordinates object
-    c = Coordinates(**flat.pop("coords"))
-    # Instantiate a new object of the original type and overwrite all its data
-    new = t()
-    new.__dict__.update(flat)
-    new.coords = c
-    return new
+    @classmethod
+    def from_serial(cls, data, subs):
+        return cls(subs["coords"], data=data)

@@ -1,15 +1,21 @@
 from astropy import units as u
 
-from ..abc import Node
+from ..abc import Domain, Node
 from ..physics.units import *
 
 
-class MultiSystem(set, Node):
+class Orbit(object):
+    def __init__(self, master: Domain, slave: Node):
+        self.master: Domain = master
+        self.slave: Node = slave
+
+
+class MultiSystem(set, Domain):
     """Representation of a Gravitational System without any clear "Master".
         Typically the case for Stars near each other.
     """
 
-    def __init__(self, *bodies: Node):
+    def __init__(self, *bodies: Domain):
         if len(bodies) < 2:
             raise ValueError("A Multi System must have at least two Objects.")
 
@@ -18,30 +24,37 @@ class MultiSystem(set, Node):
 
     @property
     def mass(self):
-        return sum(self, u.kg * 0)
+        return sum((o.mass for o in self), u.kg * 0)
 
     @property
     def units(self):
         return tuple(self)[0].units
 
     def serialize(self):
-        return dict(type=type(self).__name__, content=[o.serialize() for o in self])
+        return dict(
+            type=type(self).__name__,
+            subs=dict(bodies=list(filter(None, (o.serialize() for o in self)))),
+        )
+
+    @classmethod
+    def from_serial(cls, data, subs):
+        return cls(*subs["bodies"])
 
 
-class System(set, Node):
+class System(set, Domain):
     """Representation of a Gravitational System with a clear "Master". Typically
         the case for Planetary Systems orbiting a single Star.
     """
 
-    def __init__(self, master: Node, *slaves: Node):
-        self.master: Node = master
+    def __init__(self, master: Domain, *slaves: Domain):
+        self.master: Domain = master
 
         super().__init__(slaves)
         # self.slaves: Set[Node] = {*slaves}
 
     @property
     def mass(self):
-        return sum(self, self.master.mass)
+        return sum((o.mass for o in self), self.master.mass)
 
     @property
     def units(self):
@@ -50,9 +63,15 @@ class System(set, Node):
     def serialize(self):
         return dict(
             type=type(self).__name__,
-            master=self.master.serialize(),
-            content=[o.serialize() for o in self],
+            subs=dict(
+                master=self.master.serialize(),
+                slaves=list(filter(None, (o.serialize() for o in self))),
+            ),
         )
+
+    @classmethod
+    def from_serial(cls, data, subs):
+        return cls(subs["master"], *subs["slaves"])
 
 
 class Galaxy(System):

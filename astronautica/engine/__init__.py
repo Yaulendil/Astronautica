@@ -7,9 +7,34 @@ The Spacetime Package contains abstract classes and handlers that expose
 
 from asyncio import CancelledError, sleep
 from datetime import datetime as dt, timedelta as td
+from typing import List, Union
 
+from .abc import Serial
 from .objects import Object
 from .physics import Coordinates, Space, Spacetime
+from .world.gravity import Galaxy, MultiSystem, System
+
+
+# This List MUST contain every Type which can be Serialized. It serves as the
+#   seed from which the Deserialization Map is built. Only Objects whose Types
+#   are in this List are able to be reconstructed.
+SERIALS = [Coordinates, Galaxy, MultiSystem, Object, System]
+MAP = lambda: {t.__name__: t for t in SERIALS}
+
+
+def deserialize(obj: Union[List[Serial], Serial]):
+    if isinstance(obj, list):
+        return list(map(deserialize, obj))
+
+    classname: str = obj.get("class")
+    cls = MAP().get(classname)
+
+    if cls is not None:
+        data = obj.get("data")
+        subs = {k: deserialize(v) for k, v in obj.get("subs", {}).items()}
+        return cls.from_serial(data, subs)
+    else:
+        return None
 
 
 async def run_world(st: Spacetime, turn_length: int = 300, echo=print):
