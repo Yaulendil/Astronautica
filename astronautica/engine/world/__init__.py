@@ -6,11 +6,8 @@ import numpy as np
 from yaml import safe_load
 
 from ..abc import Domain
+from .generation import generate_galaxy
 from .gravity import MultiSystem, System
-
-
-def _generate_galaxy() -> np.ndarray:
-    ...
 
 
 class Galaxy(object):
@@ -21,13 +18,16 @@ class Galaxy(object):
         if path.is_file():
             p_dir = path.parent
             p_data = path
-            p_stars = path / "stars"
+            p_stars = p_dir / "stars"
         elif path.is_dir():
             p_dir = path
             p_data = path / "meta.yml"
             p_stars = path / "stars"
         else:
             raise FileNotFoundError(path)
+
+        with p_data.open("r") as f:
+            data = safe_load(f)
 
         def stream():
             with p_stars.open("r") as file:
@@ -38,23 +38,25 @@ class Galaxy(object):
 
         stars = np.array(stream())
 
-        with p_data.open("r") as f:
-            data = safe_load(f)
-
         return cls(stars, p_dir, data["uuid"])
 
     @classmethod
     def generate(cls) -> "Galaxy":
         hex_ = uuid4().get_hex()
-        return cls(_generate_galaxy(), Path("data", hex_), hex_)
+        return cls(generate_galaxy((1.4, 1, 0.2), 40), Path("data", hex_), hex_)
 
     def __init__(self, stars: np.ndarray, gdir: Path, gid: str):
         self.stars = stars
         self.gdir = gdir
         self.gid = gid
 
-    def system_at_coordinate(self, pos: np.ndarray) -> Optional[Domain]:
-        ...
+    def systems_at_coordinate(self, pos: np.ndarray) -> Optional[Domain]:
+        t = tuple(x for x in self.stars if x[:3] == pos)
+        return t[0] if t else None
 
-    def system_by_uuid(self, uuid: str) -> Optional[Domain]:
-        ...
+    def systems_by_uuid(self, uuid: UUID) -> Optional[Domain]:
+        t = tuple(x for x in self.stars if x[3] == uuid.int)
+        return t[0] if t else None
+
+    def system_random(self) -> Domain:
+        return np.random.choice(self.stars)
