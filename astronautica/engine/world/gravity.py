@@ -1,7 +1,6 @@
 from astropy import units as u
 
 from ..abc import Domain, Node
-from ..physics.units import *
 
 
 class Orbit(object):
@@ -72,7 +71,3 @@ class System(set, Domain):
     @classmethod
     def from_serial(cls, data, subs):
         return cls(subs["master"], *subs["slaves"])
-
-
-class Galaxy(System):
-    units = UNITS_GALACTIC

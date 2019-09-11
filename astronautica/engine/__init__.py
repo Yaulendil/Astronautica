@@ -12,13 +12,13 @@ from typing import List, Union
 from .abc import Serial
 from .objects import Object
 from .physics import Coordinates, Space, Spacetime
-from .world.gravity import Galaxy, MultiSystem, System
+from .world import MultiSystem, System
 
 
 # This List MUST contain every Type which can be Serialized. It serves as the
 #   seed from which the Deserialization Map is built. Only Objects whose Types
 #   are in this List are able to be reconstructed.
-SERIALS = [Coordinates, Galaxy, MultiSystem, Object, System]
+SERIALS = [Coordinates, MultiSystem, Object, System]
 MAP = lambda: {t.__name__: t for t in SERIALS}
 
 
