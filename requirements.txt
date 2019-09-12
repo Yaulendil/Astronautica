@@ -1,6 +1,7 @@
 astropy
 attrs
 blessings
+matplotlib
 numba
 numpy
 numpy-quaternion

@@ -6,6 +6,7 @@ import numpy as np
 from yaml import safe_load
 
 from ..abc import Domain
+from ..visualizer import render
 from .generation import generate_galaxy
 from .gravity import MultiSystem, System
 
@@ -42,13 +43,24 @@ class Galaxy(object):
 
     @classmethod
     def generate(cls) -> "Galaxy":
-        hex_ = uuid4().get_hex()
-        return cls(generate_galaxy((1.4, 1, 0.2), 40), Path("data", hex_), hex_)
+        hex_ = uuid4().hex
+
+        galaxy = generate_galaxy((1.4, 1, 0.2), arms=3)
+        print(*(x.shape for x in galaxy))
+        stars = np.concatenate(galaxy)
+
+        system_ids = [[uuid4().int] for _ in stars]
+        stars = np.concatenate((stars, system_ids), 1)
+
+        return cls(stars, Path("data", hex_), hex_)
 
     def __init__(self, stars: np.ndarray, gdir: Path, gid: str):
         self.stars = stars
         self.gdir = gdir
         self.gid = gid
+
+    def render(self, *a, **kw):
+        render(self.stars[..., :3], *a, **kw)
 
     def systems_at_coordinate(self, pos: np.ndarray) -> Optional[Domain]:
         t = tuple(x for x in self.stars if x[:3] == pos)
