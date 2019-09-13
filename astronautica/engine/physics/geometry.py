@@ -6,7 +6,7 @@ Uses Numba for JIT Compilation.
 """
 
 from math import radians, degrees, isnan
-from typing import Dict, List, Tuple, Type, TypeVar, Union
+from typing import Dict, List, Tuple, Type, Union
 
 from astropy import units as u
 from numba import jit
@@ -14,12 +14,11 @@ import numpy as np
 from quaternion import quaternion
 from vectormath import Vector3
 
-__all__ = ["Coordinates", "Space"]
+__all__ = ["cart3_polar3", "polar3_cart3", "Coordinates", "Space"]
 
 
-N = TypeVar("N", float, int)
-NumpyVector: Type = Union[np.ndarray, Tuple[N, N, N]]
-Quat: Type = Union[quaternion, Tuple[N, N, N, N]]
+NumpyVector: Type = Union[np.ndarray, Tuple[float, float, float]]
+Quat: Type = Union[quaternion, Tuple[float, float, float, float]]
 
 
 ###===---
@@ -27,9 +26,8 @@ Quat: Type = Union[quaternion, Tuple[N, N, N, N]]
 ###===---
 
 
-# noinspection NonAsciiCharacters
 @jit(nopython=True)
-def polar_convert(ρ: N, θ: N, φ: N) -> Tuple[N, N, N]:
+def to_navigational(rho: float, theta: float, phi: float) -> Tuple[float, float, float]:
     """Given polar coordinates in the conventions of Physics, convert to
         conventions of Navigation.
     """
@@ -42,27 +40,54 @@ def polar_convert(ρ: N, θ: N, φ: N) -> Tuple[N, N, N]:
     #   # South: θ = -180° OR 180°
     #   # Zenith: φ = 90°
 
-    θ = 180 - ((90 + θ) % 360)
-    φ = 90 - φ
-    if φ == 90 or φ == -90:
-        θ = 0
-    return ρ, θ, φ
+    theta = 180 - ((90 + theta) % 360)
+    phi = 90 - phi
+    if phi == 90 or phi == -90:
+        theta = 0
+    return rho, theta, phi
 
 
 @jit(nopython=True)
-def rad_deg(theta: N) -> N:
+def from_navigational(rho: float, theta: float, phi: float) -> Tuple[float, float, float]:
+    """Given polar coordinates in the conventions of Navigation, convert to
+        conventions of Physics.
+    """
+    theta = -(theta - 90) % 360
+    #     90 -> 0
+    #     0  -> 90
+    #    -90 -> 180
+    # (-)180 -> 270
+
+    phi = -(phi - 90) % 360
+    #     90 -> 0
+    #     45 -> 45
+    #      0 -> 90
+    #    -45 -> 135
+    #    -90 -> 180
+
+    if phi == 0 or phi == 180:  # Up or Down.
+        theta = 0
+    return rho, theta, phi
+
+
+# for trio in [[1, 0, 0], [1, 90, 0], [1, 0, 45], [1, 90, 45], ]:
+#     print(to_navigational(*from_navigational(*trio)))
+
+
+@jit(nopython=True)
+def rad_deg(theta: float) -> float:
     """Convert Radians to Degrees."""
     return np.round(degrees(theta), 5)
 
 
 @jit(nopython=True)
-def deg_rad(theta: N) -> N:
+def deg_rad(theta: float) -> float:
     """Convert Degrees to Radians."""
     return np.round(radians(theta), 5)
 
 
 @jit(nopython=True)
-def cart2_polar2(x: N, y: N) -> Tuple[N, N]:
+def cart2_polar2(x: float, y: float) -> Tuple[float, float]:
     """Convert two-dimensional Cartesian Coordinates to Polar."""
     rho = np.sqrt(x ** 2 + y ** 2)
     phi = np.pi / 2 - np.arctan2(y, x)
@@ -70,7 +95,7 @@ def cart2_polar2(x: N, y: N) -> Tuple[N, N]:
 
 
 @jit(nopython=True)
-def polar2_cart2(rho: N, phi: N) -> Tuple[N, N]:
+def polar2_cart2(rho: float, phi: float) -> Tuple[float, float]:
     """Convert two-dimensional Polar Coordinates to Cartesian."""
     x = rho * np.cos(phi)
     y = rho * np.sin(phi)
@@ -79,28 +104,29 @@ def polar2_cart2(rho: N, phi: N) -> Tuple[N, N]:
 
 # noinspection NonAsciiCharacters
 @jit(nopython=True)
-def cart3_polar3(x: N, y: N, z: N) -> Tuple[N, N, N]:
+def cart3_polar3(x: float, y: float, z: float) -> Tuple[float, float, float]:
     """Convert three-dimensional Cartesian Coordinates to Polar."""
     ρ = np.sqrt(x ** 2 + y ** 2 + z ** 2)
-    φ = rad_deg(np.arccos(z / ρ))
-    θ = rad_deg(np.arctan2(y, x))
-    return polar_convert(ρ, θ, φ)
+    θ = rad_deg(np.arccos(z / ρ))
+    φ = rad_deg(np.arctan2(y, x))
+    return to_navigational(ρ, θ, φ)
 
 
 # noinspection NonAsciiCharacters
 @jit(nopython=True)
-def polar3_cart3(ρ: N, θ: N, φ: N) -> Tuple[N, N, N]:
+def polar3_cart3(ρ: float, θ: float, φ: float) -> Tuple[float, float, float]:
     """Convert three-dimensional Polar Coordinates to Cartesian."""
+    # ρ, θ, φ = from_navigational(ρ, θ, φ)
     θ = np.pi / 2 - deg_rad(θ)
     φ = deg_rad(φ)
-    z = ρ * np.cos(φ) * np.sin(θ)
-    x = ρ * np.sin(φ) * np.sin(θ)
-    y = ρ * np.cos(θ)
+    x = ρ * np.cos(φ) * np.sin(θ)
+    y = ρ * np.sin(φ) * np.sin(θ)
+    z = ρ * np.cos(θ)
     return x, y, z
 
 
 @jit(nopython=True)
-def cyl3_cart3(rho: N, theta: N, y: N) -> Tuple[N, N, N]:
+def cyl3_cart3(rho: float, theta: float, y: float) -> Tuple[float, float, float]:
     """Convert three-dimensional Cylindrical Coordinates to Cartesian."""
     # y = cyl[2]
     z, x = polar2_cart2(rho, deg_rad(theta))
@@ -115,7 +141,7 @@ def cyl3_cart3(rho: N, theta: N, y: N) -> Tuple[N, N, N]:
 
 
 @jit(nopython=True)
-def get_rotor(theta: N, axis: Vector3) -> quaternion:
+def get_rotor(theta: float, axis: Vector3) -> quaternion:
     """Return a Unit Quaternion which will rotate a Heading by Theta about Axis.
     """
     q = quaternion(
@@ -125,7 +151,7 @@ def get_rotor(theta: N, axis: Vector3) -> quaternion:
 
 
 @jit(nopython=True)
-def break_rotor(q: quaternion) -> Tuple[N, Vector3]:
+def break_rotor(q: quaternion) -> Tuple[float, Vector3]:
     """Given a Unit Quaternion, break it into an angle and a Vector3."""
     theta, v = 2 * np.arccos(q.w), []
     axis = Vector3(*v)
@@ -145,7 +171,7 @@ def rotate_vector(vector: Vector3, rotor: quaternion) -> Vector3:
 
 
 @jit(nopython=True)
-def facing(quat):
+def facing(quat) -> Vector3:
     """Given a Unit Quaternion, return the Unit Vector of its direction."""
     return rotate_vector(Vector3(0, 1, 0), quat)
 
@@ -308,17 +334,17 @@ class Coordinates:
         self.space.array_velocity[self.domain][self.id] = v
 
     @property
-    def position_pol(self) -> Tuple[N, N, N]:
+    def position_pol(self) -> Tuple[float, float, float]:
         # Convert cartesian position from a vector to a tuple of Rho, Theta, Phi
         return cart3_polar3(*self.position)
 
     @property
-    def velocity_pol(self) -> Tuple[N, N, N]:
+    def velocity_pol(self) -> Tuple[float, float, float]:
         # See position_pol
         return cart3_polar3(*self.velocity)
 
     @property
-    def position_cyl(self) -> Tuple[N, N, N]:
+    def position_cyl(self) -> Tuple[float, float, float]:
         """Return the position of this FoR in Cylindrical Coordinates."""
         # First, get the initial Rho, Theta, and Phi as normal
         i_rho, theta, i_phi = self.position_pol
@@ -330,14 +356,14 @@ class Coordinates:
         return f_rho, theta, f_z
 
     @property
-    def velocity_cyl(self) -> Tuple[N, N, N]:
+    def velocity_cyl(self) -> Tuple[float, float, float]:
         # See position_cyl
         i_rho, theta, i_phi = self.velocity_pol
         f_rho, f_z = polar2_cart2(i_rho, i_phi)
         return f_rho, theta, f_z
 
     @property
-    def speed(self) -> N:
+    def speed(self) -> float:
         return self.velocity.length
 
     @property
@@ -367,28 +393,28 @@ class Coordinates:
         )
 
     @jit(forceobj=True, nopython=False)
-    def movement(self, seconds: N) -> Tuple[Vector3, Vector3]:
+    def movement(self, seconds: float) -> Tuple[Vector3, Vector3]:
         return self.position, self.velocity * seconds
 
     @jit(forceobj=True, nopython=False)
-    def pos_after(self, seconds: N) -> Vector3:
+    def pos_after(self, seconds: float) -> Vector3:
         p, v = self.movement(seconds)
         return p + v
 
-    def increment(self, seconds: N):
+    def increment(self, seconds: float):
         self.increment_rotation(seconds)
         self.increment_position(seconds)
 
-    def increment_rotation(self, seconds: N):
+    def increment_rotation(self, seconds: float):
         theta, vec = break_rotor(self.rotate)
         theta *= seconds
         rotate = get_rotor(theta, vec)
         self.heading = rotate * self.heading
 
-    def increment_position(self, seconds: N):
+    def increment_position(self, seconds: float):
         self.position += self.velocity * seconds
 
-    def serialize(self) -> Dict[str, Union[List[N], int]]:
+    def serialize(self) -> Dict[str, Union[List[float], int]]:
         flat = {
             "pos": list(self.position),
             "vel": list(self.velocity),
