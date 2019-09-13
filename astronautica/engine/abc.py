@@ -5,7 +5,7 @@ from astropy.units import Quantity
 
 from .physics.units import Units
 
-__all__ = ["Domain", "Node", "Serial"]
+__all__ = ["Domain", "Node", "Serial", "Serializable"]
 
 
 Primitive = Union[Dict["Primitive", "Primitive"], float, int, List["Primitive"], str]

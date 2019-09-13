@@ -171,7 +171,7 @@ def find_collisions(
     for obj_a in list_a[-1:0:-1]:
         list_b.pop(-1)
         start_a = obj_a.coords.position
-        end_a = obj_a.coords.pos_after(seconds)
+        end_a = obj_a.coords.position + obj_a.coords.velocity * seconds
 
         for obj_b in list_b:
             if obj_a.coords.domain != obj_b.coords.domain:
@@ -182,7 +182,7 @@ def find_collisions(
             if (start_a - start_b).length < contact:
                 continue
 
-            end_b = obj_b.coords.pos_after(seconds)
+            end_b = obj_b.coords.position + obj_b.coords.velocity * seconds
             nearest_a, nearest_b, proximity = distance_between_lines(
                 start_a, end_a, start_b, end_b
             )

@@ -11,10 +11,7 @@ from matplotlib import pyplot
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
-from .physics.geometry import (
-    cart3_polar3,
-    polar3_cart3,
-)  # , cartesian_to_spherical, spherical_to_cartesian
+from .physics.geometry import to_spherical, from_spherical
 
 
 T = Terminal()
@@ -47,7 +44,7 @@ def make_test(x: float = 0.8, y: float = 0.6, z: float = 0.7, *, filename="axes.
     fig = pyplot.figure(figsize=(4, 4))
     ax = axes(fig)  # , 0, 1)
 
-    rho, theta, phi = cart3_polar3(x, y, z)
+    rho, theta, phi = to_spherical(x, y, z)
 
     color_rho = "red"
     color_theta = "green"
@@ -67,10 +64,10 @@ def make_test(x: float = 0.8, y: float = 0.6, z: float = 0.7, *, filename="axes.
     plot((0, rho, 0), (0, 0, 0), c=grey)
 
     arc_theta = lambda d=1: starmap(
-        polar3_cart3, ((rho * d, (theta / seg * i), phi) for i in range(seg + 1))
+        from_spherical, ((rho * d, (theta / seg * i), phi) for i in range(seg + 1))
     )
     arc_phi = lambda d=1: starmap(
-        polar3_cart3, ((rho * d, 0, (phi / seg * i)) for i in range(seg + 1))
+        from_spherical, ((rho * d, 0, (phi / seg * i)) for i in range(seg + 1))
     )
 
     # # SECONDARY Labels.
@@ -100,7 +97,9 @@ def make_test(x: float = 0.8, y: float = 0.6, z: float = 0.7, *, filename="axes.
 
     # COLORED Labels.
     ax.text(
-        x, y, z,
+        x,
+        y,
+        z,
         f"ρ ({np.round(rho, 2)})",
         c=color_rho,
         fontsize=12,
@@ -108,14 +107,14 @@ def make_test(x: float = 0.8, y: float = 0.6, z: float = 0.7, *, filename="axes.
         verticalalignment="bottom",
     )
     ax.text(
-        *polar3_cart3(rho, (theta / 2), phi),
+        *from_spherical(rho, (theta / 2), phi),
         f"θ ({np.round(theta, 2)}°)",
         c=color_theta,
         fontsize=12,
         horizontalalignment="left",
     )
     ax.text(
-        *polar3_cart3(rho, 0, (phi / 2)),
+        *from_spherical(rho, 0, (phi / 2)),
         f"φ ({np.round(phi, 2)}°)",
         c=color_phi,
         fontsize=12,
@@ -144,7 +143,7 @@ def test(
                 for angle in range(1, 361):
                     if scan:
                         ax, fig = make_test(
-                            *polar3_cart3(1, angle / 2 - 90, angle - 1),
+                            *from_spherical(1, angle / 2 - 90, angle - 1),
                             filename=f"img/gif/frame-{angle:0>3}.png",
                         )
                         pyplot.close(fig)

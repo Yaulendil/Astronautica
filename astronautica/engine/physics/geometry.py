@@ -5,8 +5,8 @@ Uses NumPy Arrays for storage of Coordinates, by way of third-party Vector3 and
 Uses Numba for JIT Compilation.
 """
 
-from math import radians, degrees, isnan
-from typing import Dict, List, Tuple, Type, Union
+from math import radians, degrees
+from typing import Dict, Tuple, Type, Union
 
 from astropy import units as u
 from numba import jit
@@ -14,7 +14,14 @@ import numpy as np
 from quaternion import quaternion
 from vectormath import Vector3
 
-__all__ = ["cart3_polar3", "polar3_cart3", "Coordinates", "Space"]
+__all__ = [
+    "to_spherical",
+    "from_spherical",
+    "to_cylindrical",
+    "from_cylindrical",
+    "Coordinates",
+    "Space",
+]
 
 
 NumpyVector: Type = Union[np.ndarray, Tuple[float, float, float]]
@@ -38,24 +45,8 @@ Quat: Type = Union[quaternion, Tuple[float, float, float, float]]
 
 
 @jit(nopython=True)
-def cart2_polar2(x: float, y: float) -> Tuple[float, float]:
-    """Convert two-dimensional Cartesian Coordinates to Polar."""
-    rho = np.sqrt(x ** 2 + y ** 2)
-    phi = np.pi / 2 - np.arctan2(y, x)
-    return rho, phi
-
-
-@jit(nopython=True)
-def polar2_cart2(rho: float, phi: float) -> Tuple[float, float]:
-    """Convert two-dimensional Polar Coordinates to Cartesian."""
-    x = rho * np.cos(phi)
-    y = rho * np.sin(phi)
-    return x, y
-
-
-@jit(nopython=True)
-def cart3_polar3(x: float, y: float, z: float) -> Tuple[float, float, float]:
-    """Convert three-dimensional Cartesian Coordinates to Polar."""
+def to_spherical(x: float, y: float, z: float) -> Tuple[float, float, float]:
+    """Convert three-dimensional Cartesian Coordinates to Spherical."""
     rho = np.sqrt(np.sum(np.square(np.array((x, y, z)))))
     theta = 90 - degrees(np.arccos(z / rho)) if rho else 0
     phi = (
@@ -67,21 +58,30 @@ def cart3_polar3(x: float, y: float, z: float) -> Tuple[float, float, float]:
 
 
 @jit(nopython=True)
-def polar3_cart3(rho: float, theta: float, phi: float) -> Tuple[float, float, float]:
-    """Convert three-dimensional Polar Coordinates to Cartesian."""
+def from_spherical(rho: float, theta: float, phi: float) -> Tuple[float, float, float]:
+    """Convert three-dimensional Spherical Coordinates to Cartesian."""
     theta = np.pi / 2 - radians(theta)
-    phi = radians(phi)
-    y = rho * np.cos(phi) * np.sin(theta)
-    x = rho * np.sin(phi) * np.sin(theta)
+    phi_ = radians(phi)
+    y = rho * np.cos(phi_) * np.sin(theta)
+    x = rho * np.sin(phi_) * np.sin(theta)
     z = rho * np.cos(theta)
     return x, y, z
 
 
 @jit(nopython=True)
-def cyl3_cart3(rho: float, theta: float, y: float) -> Tuple[float, float, float]:
+def to_cylindrical(x: float, y: float, z: float) -> Tuple[float, float, float]:
+    """Convert three-dimensional Cartesian Coordinates to Cylindrical."""
+    rho = np.sqrt(np.sum(np.square(np.array((x, y)))))
+    phi = np.arctan2(y, x)
+    return rho, phi, z
+
+
+@jit(nopython=True)
+def from_cylindrical(rho: float, phi: float, z: float) -> Tuple[float, float, float]:
     """Convert three-dimensional Cylindrical Coordinates to Cartesian."""
-    # y = cyl[2]
-    z, x = polar2_cart2(rho, radians(theta))
+    phi_ = radians(phi)
+    x = rho * np.cos(phi_)
+    y = rho * np.sin(phi_)
     return x, y, z
 
 
@@ -143,9 +143,7 @@ class Space:
         """
         self.array_position = np.ndarray((1, 1, 3))
         self.array_velocity = np.ndarray((1, 1, 3))
-        self.next_id: Dict[int, int] = {
-            0: 0
-        }  # Keep track of values assigned per domain here
+        self.next_id: Dict[int, int] = {0: 0}
 
     def register_coordinates(self, coords, newpos, newvel) -> int:
         # Register coordinates and return ID number with which to retrieve them
@@ -217,7 +215,6 @@ class Coordinates:
         domain: int = 0,
         space: Space,
         unit: u.Unit = u.meter,
-        # priv: bool = False,
     ):
         pos = (
             pos if isinstance(pos, np.ndarray) else np.array(pos)
@@ -234,26 +231,6 @@ class Coordinates:
         )  # Spin per second.
         self._id: Dict[int, int] = {}
 
-        # global all_space
-        #
-        # if priv:
-        #     # This Coordinates does not represent a real physical object; Keep
-        #     #   it separated from the general population in its own Space object
-        #     self.private = True
-        #     self.space = Space()
-        #     self.domain = 0
-        # else:
-        #     self.private = False
-        #     if not all_space:
-        #         # Space has yet to be created; This will be the first object
-        #         all_space = Space()
-        #         self.space = all_space
-        #         self.domain = 0
-        #     else:
-        #         # Space exists; Register coordinates and publish returned ID
-        #         self.space = all_space
-        #         self.domain = domain
-
         self.space = space
         self.domain = domain
         self.unit = unit
@@ -262,57 +239,53 @@ class Coordinates:
 
     @property
     def position(self) -> Vector3:
-        """Go into the relevant Space structure and retrieve the position that
+        """Go into the relevant Space structure and retrieve the Position that
             is assigned to this FoR, and wrap it in a Vector3.
         """
         return Vector3(self.space.array_position[self.domain][self.id])
 
     @position.setter
     def position(self, v: np.ndarray):
-        """Transparently change the value of the position assigned to this FoR.
+        """Transparently change the value of the Position assigned to this FoR.
 
-        NOTE: If a scalar is given, all values of the array will be that value.
+        If a Scalar is given, all values of the Array will be that value.
         """
         self.space.array_position[self.domain][self.id] = v
 
     @property
     def velocity(self) -> Vector3:
-        # See position
+        """Go into the relevant Space structure and retrieve the Velocity that
+            is assigned to this FoR, and wrap it in a Vector3.
+        """
         return Vector3(self.space.array_velocity[self.domain][self.id])
 
     @velocity.setter
     def velocity(self, v: np.ndarray):
-        # See position.setter
+        """Transparently change the value of the Velocity assigned to this FoR.
+
+        If a Scalar is given, all values of the Array will be that value.
+        """
         self.space.array_velocity[self.domain][self.id] = v
 
     @property
     def position_pol(self) -> Tuple[float, float, float]:
-        # Convert cartesian position from a vector to a tuple of Rho, Theta, Phi
-        return cart3_polar3(*self.position)
+        """Return the Position of this FoR in Spherical Coordinates."""
+        return to_spherical(*self.position)
 
     @property
     def velocity_pol(self) -> Tuple[float, float, float]:
-        # See position_pol
-        return cart3_polar3(*self.velocity)
+        """Return the Velocity of this FoR in Spherical Coordinates."""
+        return to_spherical(*self.velocity)
 
     @property
     def position_cyl(self) -> Tuple[float, float, float]:
-        """Return the position of this FoR in Cylindrical Coordinates."""
-        # First, get the initial Rho, Theta, and Phi as normal
-        i_rho, theta, i_phi = self.position_pol
-        # Theta is going to be the same, but final Rho and Z are going to be the
-        #   lengths of component vectors making up a 2D vector whose angle of
-        #   inclination is equal to Phi and whose length is equal to initial Rho
-        f_rho, f_z = polar2_cart2(i_rho, i_phi)
-        # Return the new Cylindrical Coordinates
-        return f_rho, theta, f_z
+        """Return the Position of this FoR in Cylindrical Coordinates."""
+        return to_cylindrical(*self.position)
 
     @property
     def velocity_cyl(self) -> Tuple[float, float, float]:
-        # See position_cyl
-        i_rho, theta, i_phi = self.velocity_pol
-        f_rho, f_z = polar2_cart2(i_rho, i_phi)
-        return f_rho, theta, f_z
+        """Return the Velocity of this FoR in Cylindrical Coordinates."""
+        return to_cylindrical(*self.velocity)
 
     @property
     def speed(self) -> float:
@@ -330,28 +303,14 @@ class Coordinates:
         """Return a new Coordinates, from the perspective a given frame of
             reference.
         """
-        pos_relative = self.position - pov.position
-        vel_relative = self.velocity - pov.velocity
-        dir_relative = self.heading / pov.heading
-        rot_relative = self.rotate / pov.heading
-
         return Coordinates(
-            pos_relative,
-            vel_relative,
-            dir_relative,
-            rot_relative,
+            self.position - pov.position,
+            self.velocity - pov.velocity,
+            self.heading / pov.heading,
+            self.rotate / pov.heading,
             domain=self.domain,
             space=self.space,
         )
-
-    @jit(forceobj=True, nopython=False)
-    def movement(self, seconds: float) -> Tuple[Vector3, Vector3]:
-        return self.position, self.velocity * seconds
-
-    @jit(forceobj=True, nopython=False)
-    def pos_after(self, seconds: float) -> Vector3:
-        p, v = self.movement(seconds)
-        return p + v
 
     def increment(self, seconds: float):
         self.increment_rotation(seconds)
@@ -366,61 +325,15 @@ class Coordinates:
     def increment_position(self, seconds: float):
         self.position += self.velocity * seconds
 
-    def serialize(self) -> Dict[str, Union[List[float], int]]:
+    def serialize(self):
         flat = {
-            "pos": list(self.position),
-            "vel": list(self.velocity),
-            "hea": [self.heading.w, *self.heading.vec],
-            "rot": [self.rotate.w, *self.rotate.vec],
-            "domain": self.domain,
+            "type": type(self).__name__,
+            "data": {
+                "pos": list(self.position),
+                "vel": list(self.velocity),
+                "hea": [self.heading.w, *self.heading.vec],
+                "rot": [self.rotate.w, *self.rotate.vec],
+                "domain": self.domain,
+            },
         }
         return flat
-
-
-###===---
-# COORDINATE OPERATIONS
-###===---
-
-
-def get_bearing(a, b):
-    """Return SPHERICAL position of B, from the perspective of A."""
-    # TODO: Rewrite or remove in accordance with new Quaternion math
-    ap = a.c_pol  # Polar of A
-    ac = a.c_car  # Cartesian of A
-    bp = b.c_pol  # Polar of B
-    bc = b.c_car  # Cartesian of B
-
-    ab_r = np.sqrt(
-        (ac[0] - bc[0]) ** 2 + (ac[1] - bc[1]) ** 2 + (ac[2] - bc[2]) ** 2
-    )  # Rho of output
-
-    ab_t, ab_p = ap[1] - bp[1], ap[2] - bp[2]  # Theta and Phi of output
-    ab_p = 0 if isnan(ab_p) else ab_p
-
-    ab = [ab_r, ab_t, ab_p]
-    return ab
-
-
-def bearing_wrt_heading(bearing, heading):
-    """Given an absolute bearing and a heading, rotate the bearing relative to
-        the heading.
-    """
-    # bearing: rho, theta, phi --- distance, elevation, turn
-    # heading: pitch, yaw, roll --- elevation, turn, tilt
-    # TODO: Rewrite or remove in accordance with new Quaternion math
-    new = np.array((0, 0, 0))  # init: rho, theta, phi --- distance, elevation, turn
-    new[0] = bearing[0]
-    new[1] = bearing[1] - heading[0]  # bearing elevation minus heading elevation
-    new[2] = bearing[2] - heading[1]  # bearing turn minus heading turn
-    print(bearing, heading)
-    print(new)
-    return new
-
-
-def get_cylindrical(a, b):
-    """Return CYLINDRICAL position of B, from the perspective of A."""
-    # TODO: Rewrite or remove in accordance with new Quaternion math
-    bearing = get_bearing(a, b)  # Get the direction from A to B
-    heading = a.data[1]  # Heading of A
-    bearing_wr = bearing_wrt_heading(bearing, heading)  # Adjust for heading
-    return cyl3_cart3(*bearing_wr)  # Convert to cartesian

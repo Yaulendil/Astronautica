@@ -5,7 +5,7 @@ from numba import jit
 import numpy as np
 from numpy import random as npr
 
-from ..physics.geometry import cart3_polar3, polar3_cart3
+from ..physics.geometry import to_spherical, from_spherical
 
 # from math import radians, degrees
 #
@@ -74,8 +74,8 @@ from ..physics.geometry import cart3_polar3, polar3_cart3
 # @jit(nopython=True)
 def apply_swirl(stars: np.ndarray, deg: float, factor: float) -> None:
     for star in stars:
-        rho, theta, phi = cart3_polar3(*star)
-        new = polar3_cart3(rho, theta, phi - deg - (deg * factor * rho))
+        rho, theta, phi = to_spherical(*star)
+        new = from_spherical(rho, theta, phi - deg - (deg * factor * rho))
         star[:] = new
 
 
@@ -123,7 +123,7 @@ def generate_galaxy(
             generate_stars(
                 stars_per_cluster,
                 size / 2,
-                polar3_cart3(npr.normal(0, size / 2), 0, randbelow(360)),
+                from_spherical(npr.normal(0, size / 2), 0, randbelow(360)),
             )
         )
     cluster_arrays = np.concatenate(cluster_arrays) if cluster_arrays else np.array([])
@@ -143,7 +143,7 @@ def generate_galaxy(
                         radius / (2 + cluster_num),
                         size[2] / 3,
                     ),
-                    polar3_cart3(0.35 * cluster_num, 0, (360 / arms) * arm_num),
+                    from_spherical(0.35 * cluster_num, 0, (360 / arms) * arm_num),
                 )
             )
 
