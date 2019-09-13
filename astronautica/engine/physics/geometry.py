@@ -21,69 +21,20 @@ NumpyVector: Type = Union[np.ndarray, Tuple[float, float, float]]
 Quat: Type = Union[quaternion, Tuple[float, float, float, float]]
 
 
+# Spherical Coordinates:
+# Physics conventions: +θ = North of East from 0° to 360°, +φ = Down from Zenith
+#   # North: θ = 90°
+#   # South: θ = 270°
+#   # Zenith: φ = 0°
+# Navigational format: +θ = West of South from -180° to 180°, +φ = Up from Horizon
+#   # North: θ = 0°
+#   # South: θ = -180° OR 180°
+#   # Zenith: φ = 90°
+
+
 ###===---
 # COORDINATE TRANSFORMATIONS
 ###===---
-
-
-@jit(nopython=True)
-def to_navigational(rho: float, theta: float, phi: float) -> Tuple[float, float, float]:
-    """Given polar coordinates in the conventions of Physics, convert to
-        conventions of Navigation.
-    """
-    # Physics conventions: +θ = North of East from 0° to 360°, +φ = Down from Zenith
-    #   # North: θ = 90°
-    #   # South: θ = 270°
-    #   # Zenith: φ = 0°
-    # Navigational format: +θ = West of South from -180° to 180°, +φ = Up from Horizon
-    #   # North: θ = 0°
-    #   # South: θ = -180° OR 180°
-    #   # Zenith: φ = 90°
-
-    theta = 180 - ((90 + theta) % 360)
-    phi = 90 - phi
-    if phi == 90 or phi == -90:
-        theta = 0
-    return rho, theta, phi
-
-
-@jit(nopython=True)
-def from_navigational(rho: float, theta: float, phi: float) -> Tuple[float, float, float]:
-    """Given polar coordinates in the conventions of Navigation, convert to
-        conventions of Physics.
-    """
-    theta = -(theta - 90) % 360
-    #     90 -> 0
-    #     0  -> 90
-    #    -90 -> 180
-    # (-)180 -> 270
-
-    phi = -(phi - 90) % 360
-    #     90 -> 0
-    #     45 -> 45
-    #      0 -> 90
-    #    -45 -> 135
-    #    -90 -> 180
-
-    if phi == 0 or phi == 180:  # Up or Down.
-        theta = 0
-    return rho, theta, phi
-
-
-# for trio in [[1, 0, 0], [1, 90, 0], [1, 0, 45], [1, 90, 45], ]:
-#     print(to_navigational(*from_navigational(*trio)))
-
-
-@jit(nopython=True)
-def rad_deg(theta: float) -> float:
-    """Convert Radians to Degrees."""
-    return np.round(degrees(theta), 5)
-
-
-@jit(nopython=True)
-def deg_rad(theta: float) -> float:
-    """Convert Degrees to Radians."""
-    return np.round(radians(theta), 5)
 
 
 @jit(nopython=True)
@@ -102,26 +53,27 @@ def polar2_cart2(rho: float, phi: float) -> Tuple[float, float]:
     return x, y
 
 
-# noinspection NonAsciiCharacters
 @jit(nopython=True)
 def cart3_polar3(x: float, y: float, z: float) -> Tuple[float, float, float]:
     """Convert three-dimensional Cartesian Coordinates to Polar."""
-    ρ = np.sqrt(x ** 2 + y ** 2 + z ** 2)
-    θ = rad_deg(np.arccos(z / ρ))
-    φ = rad_deg(np.arctan2(y, x))
-    return to_navigational(ρ, θ, φ)
+    rho = np.sqrt(np.sum(np.square(np.array((x, y, z)))))
+    theta = 90 - degrees(np.arccos(z / rho)) if rho else 0
+    phi = (
+        0
+        if theta == 90 or theta == -90
+        else (270 - degrees(np.arctan2(y, x))) % 360 - 180
+    )
+    return rho, theta, phi
 
 
-# noinspection NonAsciiCharacters
 @jit(nopython=True)
-def polar3_cart3(ρ: float, θ: float, φ: float) -> Tuple[float, float, float]:
+def polar3_cart3(rho: float, theta: float, phi: float) -> Tuple[float, float, float]:
     """Convert three-dimensional Polar Coordinates to Cartesian."""
-    # ρ, θ, φ = from_navigational(ρ, θ, φ)
-    θ = np.pi / 2 - deg_rad(θ)
-    φ = deg_rad(φ)
-    x = ρ * np.cos(φ) * np.sin(θ)
-    y = ρ * np.sin(φ) * np.sin(θ)
-    z = ρ * np.cos(θ)
+    theta = np.pi / 2 - radians(theta)
+    phi = radians(phi)
+    y = rho * np.cos(phi) * np.sin(theta)
+    x = rho * np.sin(phi) * np.sin(theta)
+    z = rho * np.cos(theta)
     return x, y, z
 
 
@@ -129,7 +81,7 @@ def polar3_cart3(ρ: float, θ: float, φ: float) -> Tuple[float, float, float]:
 def cyl3_cart3(rho: float, theta: float, y: float) -> Tuple[float, float, float]:
     """Convert three-dimensional Cylindrical Coordinates to Cartesian."""
     # y = cyl[2]
-    z, x = polar2_cart2(rho, deg_rad(theta))
+    z, x = polar2_cart2(rho, radians(theta))
     return x, y, z
 
 
