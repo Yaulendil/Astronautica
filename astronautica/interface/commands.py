@@ -37,12 +37,12 @@ class Command(object):
         interface for Subcommands.
     """
 
-    def __init__(self, func: CmdType, keyword: str, client, no_dispatch: bool = False):
+    def __init__(self, func: CmdType, keyword: str, client, task: bool = False):
         self._func: CmdType = func
         self.keyword: str = keyword.lower()
         self.KEYWORD: str = keyword.upper()
         self.client = client
-        self.no_dispatch: bool = no_dispatch
+        self.dispatch_task: bool = task
 
         self.subcommands: Dict[str, Command] = {}
 
@@ -103,18 +103,18 @@ class Command(object):
         self,
         func: Union[Callable, str] = None,
         name: str = None,
-        no_dispatch: bool = False,
+        task: bool = False,
     ) -> Union[Callable[[CmdType], "Command"], "Command"]:
         if func is None:
-            return partial(self.sub, name=name, no_dispatch=no_dispatch)
+            return partial(self.sub, name=name, task=task)
 
         elif isinstance(func, str):
-            return partial(self.sub, name=func, no_dispatch=no_dispatch)
+            return partial(self.sub, name=func, task=task)
 
         elif isinstance(func, Callable):
             cmd: Command = update_wrapper(
                 Command(
-                    func, name or func.__name__, self.client, no_dispatch=no_dispatch
+                    func, name or func.__name__, self.client, task=task
                 ),
                 func,
             )
@@ -134,18 +134,18 @@ class CommandRoot(object):
         self,
         func: Union[Callable, str] = None,
         name: str = None,
-        no_dispatch: bool = False,
+        task: bool = False,
     ) -> Union[Callable[[CmdType], Command], Command]:
         if func is None:
-            return partial(self, name=name, no_dispatch=no_dispatch)
+            return partial(self, name=name, task=task)
 
         elif isinstance(func, str):
-            return partial(self, name=func, no_dispatch=no_dispatch)
+            return partial(self, name=func, task=task)
 
         elif isinstance(func, Callable):
             cmd: Command = update_wrapper(
                 Command(
-                    func, name or func.__name__, self.client, no_dispatch=no_dispatch
+                    func, name or func.__name__, self.client, task=task
                 ),
                 func,
             )

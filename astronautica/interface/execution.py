@@ -61,13 +61,13 @@ def execute_function(
             if isinstance(result, (AsyncIterator, Coroutine)):
                 task = loop.create_task(handle_async(tokens, echo, result))
 
-                if command.no_dispatch:
-                    task.add_done_callback(handler.client.cmd_show)
-                else:
+                if command.dispatch_task:
                     handler.client.cmd_show()
+                else:
+                    task.add_done_callback(handler.client.cmd_show)
 
                 tasks.append(task)
-                echo("Asynchronous Task dispatched.")
+                # echo("Asynchronous Task dispatched.")
             else:
                 handle_return(echo, result)
                 handler.client.cmd_show()

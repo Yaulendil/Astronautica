@@ -26,13 +26,13 @@ def get_client(loop) -> Tuple[Client, CommandRoot]:
         sleep2(3)
         yield from words
 
-    @asdf.sub
+    @asdf.sub(task=True)
     async def qwert(*words):
         for word in words:
             await sleep(1)
             yield f"QWERT {word}"
 
-    @asdf.sub(no_dispatch=True)
+    @asdf.sub
     async def qwertz(*words):
         for word in words:
             await sleep(1)
