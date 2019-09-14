@@ -3,8 +3,9 @@
 """
 
 from asyncio import AbstractEventLoop, Task
-from typing import AsyncIterator, Callable, Coroutine, Iterator, List, Sequence
+from typing import AsyncIterator, Coroutine, Iterator, List, Sequence
 
+from .commands import CommandNotFound, CommandRoot
 from .etc import EchoType
 
 
@@ -20,7 +21,7 @@ def handle_return(echo: EchoType, result):
         echo(str(result))
 
 
-async def handle_async(command, echo: EchoType, result):
+async def handle_async(tokens: Sequence[str], echo: EchoType, result):
     try:
         while isinstance(result, Coroutine):
             result = await result
@@ -35,32 +36,46 @@ async def handle_async(command, echo: EchoType, result):
 
     except Exception as exc:
         echo(
-            f"Error: {command}: {type(exc).__name__}: {exc}"
+            f"Error: {' '.join(tokens)}: {type(exc).__name__}: {exc}"
             if str(exc)
-            else f"Error: {command}: {type(exc).__name__}"
+            else f"Error: {' '.join(tokens)}: {type(exc).__name__}"
         )
 
 
 def execute_function(
-    command: Sequence[str],
+    line: str,
     echo: EchoType,
-    handler: Callable,
+    handler: CommandRoot,
     loop: AbstractEventLoop,
     tasks: List[Task],
 ) -> None:
+    command, tokens = handler.get_command(line)
     try:
-        result = handler(command)
+        if command is None:
+            raise CommandNotFound(f"Command '{tokens[0].upper()}' not found.")
+
+        handler.client.cmd_hide()
+        result = command(tokens)
 
         if result:
             if isinstance(result, (AsyncIterator, Coroutine)):
-                tasks.append(loop.create_task(handle_async(command, echo, result)))
-                # echo("Asynchronous Task dispatched.")
+                task = loop.create_task(handle_async(tokens, echo, result))
+
+                if command.no_dispatch:
+                    task.add_done_callback(handler.client.cmd_show)
+                else:
+                    handler.client.cmd_show()
+
+                tasks.append(task)
+                echo("Asynchronous Task dispatched.")
             else:
                 handle_return(echo, result)
+                handler.client.cmd_show()
 
     except Exception as exc:
         echo(
-            f"Error: {command}: {type(exc).__name__}: {exc}"
+            f"Error: {' '.join(tokens)}: {type(exc).__name__}: {exc}"
             if str(exc)
-            else f"Error: {command}: {type(exc).__name__}"
+            else f"Error: {' '.join(tokens)}: {type(exc).__name__}"
         )
+        handler.client.cmd_show()

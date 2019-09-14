@@ -3,7 +3,18 @@ from functools import partial, update_wrapper
 # from getopt import getopt
 from inspect import Parameter, Signature
 from shlex import shlex
-from typing import Any, Callable, Dict, List, Sequence, Set, Tuple, Type, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Sequence,
+    Set,
+    Tuple,
+    Type,
+    Union,
+    Optional,
+)
 
 
 CmdType: Type[Callable] = Callable[..., Any]
@@ -26,10 +37,13 @@ class Command(object):
         interface for Subcommands.
     """
 
-    def __init__(self, func: CmdType, keyword: str):
+    def __init__(self, func: CmdType, keyword: str, client, no_dispatch: bool = False):
         self._func: CmdType = func
         self.keyword: str = keyword.lower()
         self.KEYWORD: str = keyword.upper()
+        self.client = client
+        self.no_dispatch: bool = no_dispatch
+
         self.subcommands: Dict[str, Command] = {}
 
         self.sig: Signature = Signature.from_callable(self._func)
@@ -80,38 +94,63 @@ class Command(object):
         else:
             self.subcommands[command.keyword] = command
 
+    def set_client(self, client):
+        self.client = client
+        for cmd in self.subcommands.values():
+            cmd.set_client(client)
+
     def sub(
-        self, arg: Union[Callable, str]
+        self,
+        func: Union[Callable, str] = None,
+        name: str = None,
+        no_dispatch: bool = False,
     ) -> Union[Callable[[CmdType], "Command"], "Command"]:
-        def make_command(func: CmdType, name: str) -> Command:
-            cmd: Command = update_wrapper(Command(func, name), func)
+        if func is None:
+            return partial(self.sub, name=name, no_dispatch=no_dispatch)
+
+        elif isinstance(func, str):
+            return partial(self.sub, name=func, no_dispatch=no_dispatch)
+
+        elif isinstance(func, Callable):
+            cmd: Command = update_wrapper(
+                Command(
+                    func, name or func.__name__, self.client, no_dispatch=no_dispatch
+                ),
+                func,
+            )
             self.add(cmd)
             return cmd
 
-        if isinstance(arg, Callable):
-            return make_command(arg, arg.__name__)
-
-        else:
-            return partial(make_command, name=arg)
+    def __str__(self):
+        return f"Command with Keyword {self.KEYWORD!r} which calls: {self._func}"
 
 
 class CommandRoot(object):
-    def __init__(self):
+    def __init__(self, client=None):
+        self.client = client
         self.commands: Dict[str, Command] = {}
 
     def __call__(
-        self, arg: Union[Callable, str]
+        self,
+        func: Union[Callable, str] = None,
+        name: str = None,
+        no_dispatch: bool = False,
     ) -> Union[Callable[[CmdType], Command], Command]:
-        def make_command(func: CmdType, name: str) -> Command:
-            cmd: Command = update_wrapper(Command(func, name), func)
+        if func is None:
+            return partial(self, name=name, no_dispatch=no_dispatch)
+
+        elif isinstance(func, str):
+            return partial(self, name=func, no_dispatch=no_dispatch)
+
+        elif isinstance(func, Callable):
+            cmd: Command = update_wrapper(
+                Command(
+                    func, name or func.__name__, self.client, no_dispatch=no_dispatch
+                ),
+                func,
+            )
             self.add(cmd)
             return cmd
-
-        if isinstance(arg, Callable):
-            return make_command(arg, arg.__name__)
-
-        else:
-            return partial(make_command, name=arg)
 
     def add(self, command: Command) -> None:
         if command.keyword in self.commands:
@@ -119,14 +158,24 @@ class CommandRoot(object):
         else:
             self.commands[command.keyword] = command
 
-    def run(self, line: str):
+    def get_command(self, line: str) -> Tuple[Optional[Command], List[str]]:
         if line:
             sh = shlex(line)
-
             tokens: List[str] = list(sh)
-            word = tokens.pop(0).lower()
 
-            if word in self.commands:
-                return self.commands[word](tokens)
-            else:
-                raise CommandNotFound(f"Command '{word.upper()}' not found.")
+            cmd_dict, here = self.commands, None
+
+            while tokens and tokens[0] in cmd_dict:
+                here = cmd_dict[tokens[0]]
+                cmd_dict = here.subcommands
+                tokens = tokens[1:]
+
+            return here, tokens
+
+        else:
+            return None, []
+
+    def set_client(self, client):
+        self.client = client
+        for cmd in self.commands.values():
+            cmd.set_client(client)

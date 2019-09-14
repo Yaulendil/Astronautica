@@ -8,7 +8,7 @@ from typing import Tuple
 from ezipc.util import P
 
 from .client import Client
-from .commands import CommandRoot, no_dispatch
+from .commands import CommandRoot
 from config import cfg
 from engine import Object, run_world, Spacetime
 
@@ -18,7 +18,8 @@ pattern_address = compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?")
 
 def get_client(loop) -> Tuple[Client, CommandRoot]:
     cmd = CommandRoot()
-    interface_client = Client(loop, command_handler=cmd.run)
+    interface_client = Client(loop, command_handler=cmd)
+    cmd.set_client(interface_client)
 
     @cmd
     def asdf(*words):
@@ -27,6 +28,12 @@ def get_client(loop) -> Tuple[Client, CommandRoot]:
 
     @asdf.sub
     async def qwert(*words):
+        for word in words:
+            await sleep(1)
+            yield f"QWERT {word}"
+
+    @asdf.sub(no_dispatch=True)
+    async def qwertz(*words):
         for word in words:
             await sleep(1)
             yield f"QWERT {word}"

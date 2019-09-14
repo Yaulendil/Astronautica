@@ -1,7 +1,7 @@
 from asyncio import AbstractEventLoop, Task
 from enum import auto, Enum
 from itertools import cycle
-from typing import Callable, List, Optional, Union
+from typing import List, Optional, Union
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
@@ -19,7 +19,8 @@ from prompt_toolkit.layout.processors import BeforeInput
 from prompt_toolkit.widgets import HorizontalLine, VerticalLine
 from ptterm import Terminal
 
-from .etc import keys, STYLE, T, unformat
+from .commands import CommandRoot
+from .etc import keys, STYLE, unformat
 from .execution import execute_function
 
 
@@ -83,7 +84,7 @@ class Prompt(object):
 
 
 class Client(object):
-    def __init__(self, loop: AbstractEventLoop, command_handler: Callable = None):
+    def __init__(self, loop: AbstractEventLoop, command_handler: CommandRoot = None):
         self.LOOP: AbstractEventLoop = loop
         self.TASKS: List[Task] = []
 
@@ -129,34 +130,38 @@ class Client(object):
         self.read_only = True
         self._procs.clear()
 
-    def cmd_show(self):
+    def cmd_show(self, *_):
         self.read_only = False
         self._procs[:] = self.procs
 
-    def echo(self, *text: Union[FormattedText, str]):
-        for line in text:
-            if isinstance(line, FormattedText):
-                line = fragment_list_to_text(line)
-
-            self.console.write_text("\r\n" + line)
+    def echo(self, *text, sep: str = "\r\n", start: str = "\r\n"):
+        self.console.write_text(
+            start
+            + sep.join(
+                fragment_list_to_text(line) if isinstance(line, FormattedText) else str(line)
+                for line in text
+            )
+        )
         self.redraw()
 
     def enter(self, buffer: Buffer) -> None:
-        try:
+        # try:
             self.cmd_hide()
             command: str = buffer.text
             buffer.reset(append_to_history=True)
 
             self.execute(command)
-        finally:
-            self.cmd_show()
+        # finally:
+        #     self.cmd_show()
 
-    def execute(self, command: str) -> None:
-        self.echo(unformat(self.prompt(command)))
+    def execute(self, line: str) -> None:
+        self.echo(unformat(self.prompt(line)))
         self.redraw()
 
-        if callable(self.handler):
-            execute_function(command, self.echo, self.handler, self.LOOP, self.TASKS)
+        if self.handler:
+            execute_function(line, self.echo, self.handler, self.LOOP, self.TASKS)
+        else:
+            self.echo("No handler.")
 
     def redraw(self) -> None:
         self.console.ready()
