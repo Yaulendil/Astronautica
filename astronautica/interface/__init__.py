@@ -9,6 +9,7 @@ from ezipc.util import P
 
 from .client import Client
 from .commands import CommandRoot
+from .etc import T
 from config import cfg
 from engine import Object, run_world, Spacetime
 
@@ -38,92 +39,98 @@ def get_client(loop) -> Tuple[Client, CommandRoot]:
             await sleep(1)
             yield f"QWERT {word}"
 
+    @cmd
+    def test(*text):
+        yield from map(repr, text)
+
     return interface_client, cmd
 
 
-def setup(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop, host: bool):
+def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
+    from ezipc.server import Server
+
     P.output_line = cli.echo
 
-    if host:
-        from ezipc.server import Server
+    st = Spacetime()
+    space = st.space
 
-        st = Spacetime()
-        space = st.space
+    @cmd("open", task=True)
+    async def host():
+        server = Server(
+            cfg.get("connection/address", "127.0.0.1"),
+            cfg.get("connection/port", required=True),
+        )
 
-        @cmd("open")
-        async def host():
-            server = Server(
-                cfg.get("connection/address", "127.0.0.1"),
-                cfg.get("connection/port", required=True),
+        run = loop.create_task(server.run(loop))  # Start the Server.
+        world = loop.create_task(run_world(st))  # Start the World.
+
+        @cmd
+        def close():
+            server.server.close()
+
+        del cmd.commands["open"]
+
+        try:
+            await run
+
+        except CancelledError:
+            cli.echo("Server closed.")
+
+        finally:
+            world.cancel()
+            for remote in server.remotes:
+                await remote.terminate()
+
+            cmd.add(host)
+            del cmd.commands["close"]
+
+    @cmd
+    def spawn(x="0", y="0", z="0"):
+        try:
+            new = Object((int(x), int(y), int(z)), space=space)
+        except ValueError:
+            return "Cannot make arguments into ints."
+        else:
+            return new
+
+    @cmd
+    def ls():
+        yield from iter(st.index)
+
+
+def setup_client(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
+    from ezipc.client import Client as ClientIPC
+
+    P.output_line = cli.echo
+
+    @cmd(task=True)
+    async def connect(addr_port: str = cfg.get("connection/address", "127.0.0.1")):
+        if cfg.get("connection/deny_custom_server", False):
+            addr_port = (
+                f'{cfg.get("connection/address", "127.0.0.1")}'
+                f':{cfg.get("connection/port", required=True)}'
             )
 
-            run = loop.create_task(server.run(loop))  # Start the Server.
-            world = loop.create_task(run_world(st))  # Start the World.
+        if not pattern_address.fullmatch(addr_port):
+            raise ValueError(f"Invalid IPv4 Address: {addr_port}")
+        elif ":" in addr_port:
+            addr, port = addr_port.split(":")
+        else:
+            addr = addr_port
+            port = cfg.get("connection/port", required=True)
 
-            @cmd
-            def close():
-                server.server.close()
+        ipc = ClientIPC(addr, int(port))
+        await ipc.connect(loop)
 
-            del cmd.commands["open"]
+        cmd(ipc.disconnect)
+        del cmd.commands["connect"]
 
-            try:
-                await run
+        try:
+            await ipc.listening
+        except CancelledError:
+            cli.echo("Connection closed.")
+        finally:
+            await ipc.disconnect()
 
-            except CancelledError:
-                cli.echo("Server closed.")
-
-            finally:
-                world.cancel()
-                for remote in server.remotes:
-                    await remote.terminate()
-
-                cmd.add(host)
-                del cmd.commands["close"]
-
-        @cmd
-        def spawn(x="0", y="0", z="0"):
-            try:
-                new = Object((int(x), int(y), int(z)), space=space)
-            except ValueError:
-                return "Cannot make arguments into ints."
-            else:
-                return new
-
-        @cmd
-        def ls():
-            yield from iter(st.index)
-
-    else:
-        from ezipc.client import Client as ClientIPC
-
-        @cmd
-        async def connect(addr_port: str = cfg.get("connection/address", "127.0.0.1")):
-            if cfg.get("connection/deny_custom_server", False):
-                addr_port = (
-                    f'{cfg.get("connection/address", "127.0.0.1")}'
-                    f':{cfg.get("connection/port", required=True)}'
-                )
-
-            if not pattern_address.fullmatch(addr_port):
-                raise ValueError(f"Invalid IPv4 Address: {addr_port}")
-            elif ":" in addr_port:
-                addr, port = addr_port.split(":")
-            else:
-                addr = addr_port
-                port = cfg.get("connection/port", required=True)
-
-            ipc = ClientIPC(addr, int(port))
-            await ipc.connect(loop)
-
-            cmd(ipc.disconnect)
-            del cmd.commands["connect"]
-
-            try:
-                await ipc.listening
-            except CancelledError:
-                cli.echo("Connection closed.")
-            finally:
-                await ipc.disconnect()
-
-                cmd.add(connect)
-                del cmd.commands["disconnect"]
+            cmd.add(connect)
+            del cmd.commands["disconnect"]

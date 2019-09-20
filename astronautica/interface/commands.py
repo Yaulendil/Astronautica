@@ -100,10 +100,7 @@ class Command(object):
             cmd.set_client(client)
 
     def sub(
-        self,
-        func: Union[Callable, str] = None,
-        name: str = None,
-        task: bool = False,
+        self, func: Union[Callable, str] = None, name: str = None, task: bool = False
     ) -> Union[Callable[[CmdType], "Command"], "Command"]:
         if func is None:
             return partial(self.sub, name=name, task=task)
@@ -113,10 +110,7 @@ class Command(object):
 
         elif isinstance(func, Callable):
             cmd: Command = update_wrapper(
-                Command(
-                    func, name or func.__name__, self.client, task=task
-                ),
-                func,
+                Command(func, name or func.__name__, self.client, task=task), func
             )
             self.add(cmd)
             return cmd
@@ -131,10 +125,7 @@ class CommandRoot(object):
         self.commands: Dict[str, Command] = {}
 
     def __call__(
-        self,
-        func: Union[Callable, str] = None,
-        name: str = None,
-        task: bool = False,
+        self, func: Union[Callable, str] = None, name: str = None, task: bool = False
     ) -> Union[Callable[[CmdType], Command], Command]:
         if func is None:
             return partial(self, name=name, task=task)
@@ -144,10 +135,7 @@ class CommandRoot(object):
 
         elif isinstance(func, Callable):
             cmd: Command = update_wrapper(
-                Command(
-                    func, name or func.__name__, self.client, task=task
-                ),
-                func,
+                Command(func, name or func.__name__, self.client, task=task), func
             )
             self.add(cmd)
             return cmd
@@ -160,7 +148,8 @@ class CommandRoot(object):
 
     def get_command(self, line: str) -> Tuple[Optional[Command], List[str]]:
         if line:
-            sh = shlex(line)
+            sh = shlex(line, posix=True, punctuation_chars=True)
+            sh.wordchars += ":+"
             tokens: List[str] = list(sh)
 
             cmd_dict, here = self.commands, None

@@ -133,12 +133,15 @@ class Client(object):
     def cmd_show(self, *_):
         self.read_only = False
         self._procs[:] = self.procs
+        self.redraw()
 
     def echo(self, *text, sep: str = "\r\n", start: str = "\r\n"):
         self.console.write_text(
             start
             + sep.join(
-                fragment_list_to_text(line) if isinstance(line, FormattedText) else str(line)
+                fragment_list_to_text(line)
+                if isinstance(line, FormattedText)
+                else str(line)
                 for line in text
             )
         )
@@ -146,13 +149,14 @@ class Client(object):
 
     def enter(self, buffer: Buffer) -> None:
         # try:
-            self.cmd_hide()
-            command: str = buffer.text
-            buffer.reset(append_to_history=True)
+        self.cmd_hide()
+        command: str = buffer.text
+        buffer.reset(append_to_history=True)
 
-            self.execute(command)
-        # finally:
-        #     self.cmd_show()
+        self.execute(command)
+
+    # finally:
+    #     self.cmd_show()
 
     def execute(self, line: str) -> None:
         self.echo(unformat(self.prompt(line)))

@@ -6,7 +6,7 @@ from sys import argv, exit
 
 from prompt_toolkit.eventloop import use_asyncio_event_loop
 
-from interface import get_client, setup
+from interface import get_client, setup_client, setup_host
 
 
 loop = asyncio.get_event_loop()
@@ -28,7 +28,10 @@ for k, v in opts:
 
 if __name__ == "__main__":
     client, commands = get_client(loop)
-    setup(client, commands, loop, HOST)
+    if HOST:
+        setup_host(client, commands, loop)
+    else:
+        setup_client(client, commands, loop)
 
     try:
         with client as app:
