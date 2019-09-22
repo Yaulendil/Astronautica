@@ -20,7 +20,7 @@ from prompt_toolkit.widgets import HorizontalLine, VerticalLine
 from ptterm import Terminal
 
 from .commands import CommandRoot
-from .etc import keys, STYLE, unformat
+from .etc import keys, STYLE, unstyle
 from .execution import execute_function
 
 
@@ -70,6 +70,15 @@ class Prompt(object):
             ]
         )
 
+    def raw(self, append: str = "") -> str:
+        return "{}{}:{}{}{}".format(
+            self.prefix,
+            unstyle["class:hostname"](f"{self.username}@{self.hostname}"),
+            unstyle["class:path"](self.path),
+            self.char,
+            append,
+        )
+
     def __call__(
         self, text: Union[FormattedText, str] = None, style="class:etc"
     ) -> FormattedText:
@@ -78,9 +87,7 @@ class Prompt(object):
         elif isinstance(text, FormattedText):
             return self.prompt + text
         else:
-            p = self.prompt
-            p.append((style, text))
-            return p
+            return self.prompt + [(style, str(text))]
 
 
 class Client(object):
@@ -99,7 +106,7 @@ class Client(object):
             self.state = next(mode)
 
         # Create a Prompt Object with initial values.
-        self.prompt = Prompt("anon", "ingress", "/login")
+        self.prompt = Prompt("nobody", "ingress", "/login")
 
         # Build the UI.
         self.bar = FormattedTextControl("asdf qwert")
@@ -123,8 +130,7 @@ class Client(object):
         self.handler = command_handler
         self._app: Optional[Application] = None
 
-        self.console.write_text("Ready.")
-        self.console.ready()
+        self.echo("Ready.", start="")
 
     def cmd_hide(self):
         self.read_only = True
@@ -148,19 +154,15 @@ class Client(object):
         self.redraw()
 
     def enter(self, buffer: Buffer) -> None:
-        # try:
-        self.cmd_hide()
         command: str = buffer.text
         buffer.reset(append_to_history=True)
 
         self.execute(command)
 
-    # finally:
-    #     self.cmd_show()
-
-    def execute(self, line: str) -> None:
-        self.echo(unformat(self.prompt(line)))
-        self.redraw()
+    def execute(self, line: str, no_hide: bool = False) -> None:
+        self.echo(self.prompt.raw(line))
+        if not no_hide:
+            self.cmd_hide()
 
         if self.handler:
             execute_function(line, self.echo, self.handler, self.LOOP, self.TASKS)
