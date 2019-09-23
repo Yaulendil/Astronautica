@@ -15,7 +15,7 @@ from prompt_toolkit.layout.containers import (
 )
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
-from prompt_toolkit.layout.processors import BeforeInput
+from prompt_toolkit.layout.processors import BeforeInput, Processor
 from prompt_toolkit.widgets import HorizontalLine, VerticalLine
 from ptterm import Terminal
 
@@ -118,8 +118,7 @@ class Client(object):
         self.term = Terminal(sim_prompt=True)
         self.console = self.term.terminal_control.process.terminal
 
-        self.procs = [self.prompt.processor]
-        self._procs = self.procs.copy()
+        self.procs: List[Processor] = [self.prompt.processor]
 
         self.scope_topdown = FormattedTextControl(text="TopDown")
         self.scope_horizon = FormattedTextControl(text="Horizon")
@@ -134,11 +133,10 @@ class Client(object):
 
     def cmd_hide(self):
         self.read_only = True
-        self._procs.clear()
+        self.redraw()
 
     def cmd_show(self, *_):
         self.read_only = False
-        self._procs[:] = self.procs
         self.redraw()
 
     def echo(self, *text, sep: str = "\r\n", start: str = "\r\n"):
@@ -159,15 +157,16 @@ class Client(object):
 
         self.execute(command)
 
-    def execute(self, line: str, no_hide: bool = False) -> None:
+    def execute(self, line: str, hide: bool = True) -> None:
         self.echo(self.prompt.raw(line))
-        if not no_hide:
-            self.cmd_hide()
 
-        if self.handler:
-            execute_function(line, self.echo, self.handler, self.LOOP, self.TASKS)
-        else:
-            self.echo("No handler.")
+        if line:
+            if self.handler:
+                if hide:
+                    self.read_only = True
+                execute_function(line, self.echo, self.handler, self.LOOP, self.TASKS)
+            else:
+                self.echo("No handler.")
 
     def redraw(self) -> None:
         self.console.ready()
@@ -185,10 +184,13 @@ class Client(object):
                             HSplit(
                                 (
                                     self.term,
-                                    Window(
-                                        BufferControl(self.cmd, self._procs),
-                                        wrap_lines=True,
-                                        height=1,
+                                    ConditionalContainer(
+                                        Window(
+                                            BufferControl(self.cmd, self.procs),
+                                            wrap_lines=True,
+                                            height=1,
+                                        ),
+                                        Condition(lambda: not self.read_only),
                                     ),
                                 )
                             ),
