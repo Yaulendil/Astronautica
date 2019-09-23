@@ -57,6 +57,9 @@ class Prompt(object):
 
     @property
     def prompt(self) -> FormattedText:
+        """Generate the Command Prompt as a FormattedText. This format is mostly
+            only useful for things in PTK.
+        """
         return FormattedText(
             [
                 ("class:etc", self.prefix),
@@ -71,6 +74,10 @@ class Prompt(object):
         )
 
     def raw(self, append: str = "") -> str:
+        """Generate the Command Prompt as a String with coloring sequences
+            suited to a regular Terminal. This format works for the console, but
+            is unlikely to be useful with PTK.
+        """
         return "{}{}:{}{}{}".format(
             self.prefix,
             unstyle["class:hostname"](f"{self.username}@{self.hostname}"),
@@ -82,6 +89,10 @@ class Prompt(object):
     def __call__(
         self, text: Union[FormattedText, str] = None, style="class:etc"
     ) -> FormattedText:
+        """Return the Prompt alongside the given text input, if any. This allows
+            use of the Object as an Input Preprocessor to put the Prompt
+            directly into the PTK Buffer Object.
+        """
         if text is None:
             return self.prompt
         elif isinstance(text, FormattedText):
@@ -132,14 +143,22 @@ class Client(object):
         self.echo("Ready.", start="")
 
     def cmd_hide(self):
+        """Make the Command Prompt invisible, and then update the display."""
         self.read_only = True
         self.redraw()
 
     def cmd_show(self, *_):
+        """Make the Command Prompt visible, and then update the display.
+
+        This must take an Argument, because it may be used as a Callback from a
+            Task. However, we do not need to do anything with it, because no
+            matter what, the Prompt MUST be reenabled after a Command completes.
+        """
         self.read_only = False
         self.redraw()
 
     def echo(self, *text, sep: str = "\r\n", start: str = "\r\n"):
+        """Print Text to the Console Output, and then update the display."""
         self.console.write_text(
             start
             + sep.join(
@@ -152,12 +171,17 @@ class Client(object):
         self.redraw()
 
     def enter(self, buffer: Buffer) -> None:
+        """The User has Accepted the LineBuffer. Read the Buffer, reset the
+            line, and then forward the text to the Execute Function.
+        """
         command: str = buffer.text
         buffer.reset(append_to_history=True)
-
         self.execute(command)
 
     def execute(self, line: str, hide: bool = True) -> None:
+        """A Command is being run. Print it alongside the Prompt, and then pass
+            it to the Handler.
+        """
         self.echo(self.prompt.raw(line))
 
         if line:
@@ -169,11 +193,15 @@ class Client(object):
                 self.echo("No handler.")
 
     def redraw(self) -> None:
+        """Signal the Console to run its Callbacks, and then rerun the Renderer
+            of the Application, if we have one.
+        """
         self.console.ready()
         if self._app:
             self._app.renderer.render(self._app, self._app.layout)
 
     def __enter__(self) -> Application:
+        """Build a Layout and instantiate an Application around it."""
         root = Layout(
             HSplit(
                 (

@@ -10,6 +10,10 @@ from .etc import EchoType
 
 
 def handle_return(echo: EchoType, result):
+    """We have received either an Iterator or the result of a Command Function.
+        If it is an Iterator or a Sequence, loop through it and Echo each
+        element to the Output. Otherwise, simply Echo a String of it.
+    """
     if isinstance(result, (Iterator, Sequence)) and not isinstance(
         result, str
     ):
@@ -22,6 +26,11 @@ def handle_return(echo: EchoType, result):
 
 
 async def handle_async(tokens: Sequence[str], echo: EchoType, result):
+    """We have received...something. So long as it is a Coroutine, replace it
+        with the result of awaiting it. If it is an Asynchronous Iterator,
+        loop through it and Echo each element. If it is anything else, simply
+        forward it to the Synchronous Return Handler.
+    """
     try:
         while isinstance(result, Coroutine):
             result = await result
@@ -49,6 +58,10 @@ def execute_function(
     loop: AbstractEventLoop,
     tasks: List[Task],
 ) -> None:
+    """Find the Command Object and Tokens represented by the input line, and
+        handle the process of either retrieving its output, or dispatching a
+        Task to do so.
+    """
     command, tokens = handler.get_command(line)
     try:
         if command is None:
@@ -59,16 +72,26 @@ def execute_function(
 
         if result:
             if isinstance(result, (AsyncIterator, Coroutine)):
+                # This Command Function is Asynchronous. Dispatch a Task to run
+                #   and manage it.
                 task = loop.create_task(handle_async(tokens, echo, result))
 
                 if command.dispatch_task:
+                    # This Command is meant to run in the background. Return
+                    #   control to the User now.
                     handler.client.cmd_show()
                 else:
+                    # This Command, while Asynchronous, is meant to block
+                    #   further User Input. Register a Callback to return
+                    #   control after it is done.
                     task.add_done_callback(handler.client.cmd_show)
 
                 tasks.append(task)
                 # echo("Asynchronous Task dispatched.")
             else:
+                # This Command Function is Synchronous. We have no choice but to
+                #   accept the blocking (and in fact, if the Function is not a
+                #   Generator, it has already done its blocking anyway).
                 handle_return(echo, result)
                 handler.client.cmd_show()
 
