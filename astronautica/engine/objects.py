@@ -8,8 +8,9 @@ import numpy as np
 from vectormath import Vector3
 
 from .abc import Node
+from .physics.abc import FrameOfReference
 from .physics.collision import get_delta_v
-from .physics.geometry import Coordinates, Space
+from .physics.geometry import Coordinates
 from .physics.units import UNITS_LOCAL
 
 # from pytimer import Timer
@@ -28,10 +29,10 @@ class Object(Node):
         units = UNITS_LOCAL
 
     def __init__(
-        self, position=(0, 0, 0), *, data: dict = None, domain=0, space: Space = None
+        self, data: dict = None, frame: FrameOfReference = None
     ):
         self.data = self.Data(**(data or {}))
-        self.coords = Coordinates(position, domain=domain, space=space)
+        self.frame = frame
 
     @property
     def mass(self):
@@ -44,7 +45,7 @@ class Object(Node):
     @property
     def momentum(self):
         """p = mv"""
-        return self.mass.to_value(u.kg) * self.coords.velocity
+        return self.mass.to_value(u.kg) * self.frame.velocity
 
     def impulse(self, impulse):
         """Momentum is Mass times Velocity, so the change in Velocity is the
@@ -58,7 +59,7 @@ class Object(Node):
         Primarily meant to allow Object Subclasses to define special behavior
             on changes in Velocity, such as injury due to G-forces.
         """
-        self.coords.velocity += dv
+        self.frame.velocity += dv
 
     def collide_with(self, other: "Object"):
         """Simulate an impact between two objects, resulting in altered paths.
@@ -71,15 +72,15 @@ class Object(Node):
         """
         # t = Timer()
         # Find the Normal Vector between the objects.
-        normal: Vector3 = other.coords.position - self.coords.position
+        normal: Vector3 = other.frame.position - self.frame.position
         normal /= normal.length
 
         # Determine the Δv the objects impart on each other.
         dv_a, dv_b = get_delta_v(
             0.6,  # Coefficient of Restitution is constant for now.
             normal,
-            self.coords.velocity,
-            other.coords.velocity,
+            self.frame.velocity,
+            other.frame.velocity,
             self.mass.to_value(u.kg),
             other.mass.to_value(u.kg),
         )
@@ -122,7 +123,7 @@ class Object(Node):
         flat = {
             "type": str(type(self)),
             "data": asdict(self.data),
-            "subs": dict(coords=self.coords.serialize()),
+            "subs": dict(coords=self.frame.serialize()),
         }
         return flat
 

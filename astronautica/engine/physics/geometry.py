@@ -3,6 +3,17 @@
 Uses NumPy Arrays for storage of Coordinates, by way of third-party Vector3 and
     Quaternion subclasses.
 Uses Numba for JIT Compilation.
+
+
+Spherical Coordinates:
+    Physics conventions: +θ = North of East from 0° to 360°, +φ = Down from Zenith
+      North: θ = 90°
+      South: θ = 270°
+      Zenith: φ = 0°
+    Navigational format: +θ = West of South from -180° to 180°, +φ = Up from Horizon
+      North: θ = 0°
+      South: θ = -180° OR 180°
+      Zenith: φ = 90°
 """
 
 from math import radians, degrees
@@ -14,29 +25,22 @@ import numpy as np
 from quaternion import quaternion
 from vectormath import Vector3
 
+from .abc import Clock, FrameOfReference
+
+
 __all__ = [
     "to_spherical",
     "from_spherical",
     "to_cylindrical",
     "from_cylindrical",
     "Coordinates",
+    "FrameOfReference",
     "Space",
 ]
 
 
 NumpyVector: Type = Union[np.ndarray, Tuple[float, float, float]]
 Quat: Type = Union[quaternion, Tuple[float, float, float, float]]
-
-
-# Spherical Coordinates:
-# Physics conventions: +θ = North of East from 0° to 360°, +φ = Down from Zenith
-#   # North: θ = 90°
-#   # South: θ = 270°
-#   # Zenith: φ = 0°
-# Navigational format: +θ = West of South from -180° to 180°, +φ = Up from Horizon
-#   # North: θ = 0°
-#   # South: θ = -180° OR 180°
-#   # Zenith: φ = 90°
 
 
 ###===---
@@ -200,7 +204,7 @@ class Space:
         self.array_position += self.array_velocity * time
 
 
-class Coordinates:
+class Coordinates(FrameOfReference):
     """Coordinates object: Store information as Vector3 and Quaternions and
         return transformations as requested.
     """
@@ -337,3 +341,112 @@ class Coordinates:
             },
         }
         return flat
+
+
+class Orbit(FrameOfReference):
+    """A Relative Frame of Reference which is based on a Primary, whose real
+        position is a function of Time.
+    """
+
+    # TODO
+
+    def __init__(
+        self,
+        primary: FrameOfReference,
+        radius: float,
+        time: Clock,
+        unit: u.Unit = u.meter,
+        *,
+        offset: float = 0,
+    ):
+        self.primary = primary
+        self.radius = radius
+        self.time = time
+
+        self.offset = offset
+
+        self.domain = self.primary.domain
+        self.space = self.primary.space
+        self.unit = unit
+
+    @property
+    def position(self) -> Vector3:
+        pass
+
+    @property
+    def velocity(self) -> Vector3:
+        pass
+
+    @property
+    def position_pol(self) -> Tuple[float, float, float]:
+        pass
+
+    @property
+    def velocity_pol(self) -> Tuple[float, float, float]:
+        pass
+
+    @property
+    def position_cyl(self) -> Tuple[float, float, float]:
+        pass
+
+    @property
+    def velocity_cyl(self) -> Tuple[float, float, float]:
+        pass
+
+    @property
+    def id(self) -> int:
+        pass
+
+    def as_seen_from(self, pov: "FrameOfReference") -> "FrameOfReference":
+        pass
+
+
+class Lagrangian(FrameOfReference):
+    """A Relative Frame of Reference which is based on an Orbit; The five
+        Lagrangian Points are the points relative to an Orbiting Body at which
+        a Body can maintain a stable secondary Orbit.
+    """
+
+    # TODO: Return Real values relative to Leader as appropriate for Point.
+
+    def __init__(self, leader: Orbit, point: int):
+        self.leader: Orbit = leader
+        self.point: int = point
+        self.real: Orbit = Orbit(
+            self.leader.primary,
+            self.leader.radius,
+            self.leader.time,
+            self.leader.unit,
+            offset=self.leader.offset,
+        )
+
+    @property
+    def position(self) -> Vector3:
+        return self.real.position
+
+    @property
+    def velocity(self) -> Vector3:
+        return self.real.velocity
+
+    @property
+    def position_pol(self) -> Tuple[float, float, float]:
+        return self.real.position_pol
+
+    @property
+    def velocity_pol(self) -> Tuple[float, float, float]:
+        return self.real.velocity_pol
+
+    @property
+    def position_cyl(self) -> Tuple[float, float, float]:
+        return self.real.position_cyl
+
+    @property
+    def velocity_cyl(self) -> Tuple[float, float, float]:
+        return self.real.velocity_cyl
+
+    @property
+    def id(self) -> int:
+        return self.real.id
+
+    def as_seen_from(self, pov: "FrameOfReference") -> "FrameOfReference":
+        return self.real.as_seen_from(pov)

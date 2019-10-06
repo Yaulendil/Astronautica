@@ -3,7 +3,7 @@
 from asyncio import AbstractEventLoop, sleep, CancelledError
 from re import compile
 from time import sleep as sleep2
-from typing import Tuple
+from typing import Tuple, Union
 
 from ezipc.util import P
 
@@ -11,7 +11,7 @@ from .client import Client
 from .commands import CommandRoot
 from .etc import T
 from config import cfg
-from engine import Object, run_world, Spacetime
+from engine import Coordinates, Object, run_world, Spacetime
 
 
 pattern_address = compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?")
@@ -85,11 +85,11 @@ def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
             del cmd.commands["close"]
 
     @cmd
-    def spawn(x="0", y="0", z="0"):
+    def spawn(x="0", y="0", z="0") -> Union[Object, str]:
         try:
-            new = Object((int(x), int(y), int(z)), space=space)
+            new = Object(frame=Coordinates((float(x), float(y), float(z)), space=space))
         except ValueError:
-            return "Cannot make arguments into ints."
+            return "Cannot make arguments into numbers."
         else:
             return new
 
