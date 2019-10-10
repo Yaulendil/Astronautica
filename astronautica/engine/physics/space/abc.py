@@ -45,7 +45,3 @@ class FrameOfReference(ABC):
     @abstractmethod
     def id(self) -> int:
         ...
-
-    @abstractmethod
-    def as_seen_from(self, pov: "FrameOfReference") -> "FrameOfReference":
-        ...

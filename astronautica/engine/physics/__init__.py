@@ -3,7 +3,8 @@
 from typing import List, Tuple, Type, TypeVar
 
 from .collision import distance_between_lines, find_collisions
-from .geometry import Coordinates, Space
+from .space import Coordinates, Space
+
 
 __all__ = ["Coordinates", "Space", "Spacetime"]
 
@@ -67,6 +68,9 @@ class Spacetime:
 
         # Then, simulate the rest of the time.
         self.space.progress(target - passed)
+
+        for obj in self.index:
+            obj.frame.increment_rotation(target)
 
     def progress(self, time: int, granularity=2):
         """Simulate the passing of time"""

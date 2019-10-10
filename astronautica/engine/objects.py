@@ -8,9 +8,8 @@ import numpy as np
 from vectormath import Vector3
 
 from .abc import Node
-from .physics.abc import FrameOfReference
 from .physics.collision import get_delta_v
-from .physics.geometry import Coordinates
+from .physics.space import Coordinates
 from .physics.units import UNITS_LOCAL
 
 # from pytimer import Timer
@@ -29,7 +28,7 @@ class Object(Node):
         units = UNITS_LOCAL
 
     def __init__(
-        self, data: dict = None, frame: FrameOfReference = None
+        self, data: dict = None, frame: Coordinates = None
     ):
         self.data = self.Data(**(data or {}))
         self.frame = frame

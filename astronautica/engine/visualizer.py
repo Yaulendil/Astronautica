@@ -11,7 +11,7 @@ from matplotlib import pyplot
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
-from .physics.geometry import to_spherical, from_spherical
+from .physics.space.geometry import from_spherical, to_spherical
 
 
 T = Terminal()
