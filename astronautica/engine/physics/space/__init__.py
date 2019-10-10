@@ -21,7 +21,7 @@ from typing import Dict, Tuple
 import numpy as np
 
 from .geometry import NumpyVector, Quat
-from .position import Virtual
+from .position import Position, Virtual
 from .rotation import Rotation
 from _abc import Clock, Domain, FrameOfReference, Node
 
@@ -121,7 +121,13 @@ class Coordinates(object):
         domain: int,
         space: Space,
     ) -> "Coordinates":
-        ...
+        if space is None:
+            _pos = Virtual(pos, vel)
+        else:
+            _pos = Position(pos, vel, domain=domain, space=space)
+        _rot = Rotation(aim, rot)
+
+        return cls(_pos, _rot, space)
 
     @property
     def domain(self) -> int:
