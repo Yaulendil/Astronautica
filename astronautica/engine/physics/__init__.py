@@ -33,7 +33,7 @@ class Spacetime:
         self.add(obj)
         return obj
 
-    def _tick(self, target=1.0, allow_collision=True):
+    def _tick(self, target=1.0, allow_collision=True) -> int:
         """Simulate the passing of time. The target amount should be one second
             divided by a power of two.
         """
@@ -48,7 +48,8 @@ class Spacetime:
 
         collisions = collisions_until(target)
 
-        passed = 0
+        hits: int = 0
+        passed: float = 0
         while collisions:
             # Find the soonest Collision.
             time, (obj_a, obj_b) = min(collisions, key=key)
@@ -59,6 +60,7 @@ class Spacetime:
 
             # Simulate the Collision.
             obj_a.collide_with(obj_b)
+            hits += 1
             # Objects have now had their Velocities changed. Future Collisions
             #   may no longer be valid.
 
@@ -71,6 +73,8 @@ class Spacetime:
 
         for obj in self.index:
             obj.frame.increment_rotation(target)
+
+        return hits
 
     def progress(self, time: int, granularity=2):
         """Simulate the passing of time"""

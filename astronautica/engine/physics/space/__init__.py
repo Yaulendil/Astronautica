@@ -20,13 +20,13 @@ from typing import Dict, Tuple
 
 import numpy as np
 
-from .abc import Clock, FrameOfReference
 from .geometry import NumpyVector, Quat
-from .position import Position
+from .position import Virtual
 from .rotation import Rotation
+from _abc import Clock, Domain, FrameOfReference, Node
 
 
-__all__ = ["Clock", "Coordinates", "FrameOfReference", "Space"]
+__all__ = ["Clock", "Coordinates", "Domain", "FrameOfReference", "Node", "Space"]
 
 
 class Space:
@@ -106,9 +106,9 @@ class Coordinates(object):
         paired with a Rotation.
     """
 
-    def __init__(self, pos: Position, rot: Rotation, space: Space):
-        self._position = pos
-        self._rotation = rot
+    def __init__(self, pos: FrameOfReference, rot: Rotation, space: Space):
+        self._position: FrameOfReference = pos
+        self._rotation: Rotation = rot
         self.space = space
 
     @classmethod
@@ -135,14 +135,17 @@ class Coordinates(object):
         self._rotation.increment(sec)
 
     def as_seen_from(self, pov: "Coordinates") -> "Coordinates":
-        """Return a new Coordinates, from the perspective a given frame of
+        """Return a new Coordinates, from the perspective of a given frame of
             reference.
         """
-        return self.new(
-            self._position.position - pov._position.position,
-            self._position.velocity - pov._position.velocity,
-            self._rotation.heading / pov._rotation.heading,
-            self._rotation.rotate / pov._rotation.heading,
-            domain=self.domain,
-            space=self.space,
+        return type(self)(
+            Virtual(
+                self._position.position - pov._position.position,
+                self._position.velocity - pov._position.velocity,
+            ),
+            Rotation(
+                self._rotation.heading / pov._rotation.heading,
+                self._rotation.rotate / pov._rotation.heading,
+            ),
+            None,
         )

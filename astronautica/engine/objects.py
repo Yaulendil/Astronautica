@@ -7,9 +7,8 @@ from attr import asdict, attrs
 import numpy as np
 from vectormath import Vector3
 
-from .abc import Node
 from .physics.collision import get_delta_v
-from .physics.space import Coordinates
+from .physics.space import Coordinates, Node
 from .physics.units import UNITS_LOCAL
 
 # from pytimer import Timer

@@ -1,16 +1,21 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, NewType, Type, TypeVar, Union
+from typing import Any, Dict, List, NewType, Tuple, Type, TypeVar, Union
 
 from astropy.units import Quantity
+from vectormath import Vector3
 
-from .physics.units import Units
-
-__all__ = ["Domain", "Node", "Serial", "Serializable"]
+from engine.physics.units import Units
 
 
 Primitive = Union[Dict["Primitive", "Primitive"], float, int, List["Primitive"], str]
 Serial: Type = NewType("Serial", Dict[str, Primitive])
 T = TypeVar("T")
+
+
+class Clock(ABC):
+    @abstractmethod
+    def __call__(self) -> float:
+        ...
 
 
 class Serializable(ABC):
@@ -57,4 +62,43 @@ class Domain(Node):
     @property
     @abstractmethod
     def units(self) -> Units:
+        ...
+
+
+class FrameOfReference(ABC):
+    __slots__ = ("domain", "space", "unit")
+
+    @property
+    @abstractmethod
+    def position(self) -> Vector3:
+        ...
+
+    @property
+    @abstractmethod
+    def velocity(self) -> Vector3:
+        ...
+
+    @property
+    @abstractmethod
+    def position_pol(self) -> Tuple[float, float, float]:
+        ...
+
+    @property
+    @abstractmethod
+    def velocity_pol(self) -> Tuple[float, float, float]:
+        ...
+
+    @property
+    @abstractmethod
+    def position_cyl(self) -> Tuple[float, float, float]:
+        ...
+
+    @property
+    @abstractmethod
+    def velocity_cyl(self) -> Tuple[float, float, float]:
+        ...
+
+    @property
+    @abstractmethod
+    def id(self) -> int:
         ...

@@ -9,10 +9,10 @@ from asyncio import CancelledError, sleep
 from datetime import datetime as dt, timedelta as td
 from typing import List, Union
 
-from .abc import Serial
 from .objects import Object
 from .physics import Coordinates, Space, Spacetime
 from .world import MultiSystem, System
+from _abc import Serial
 
 
 # This List MUST contain every Type which can be Serialized. It serves as the

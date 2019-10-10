@@ -6,8 +6,8 @@ from astropy import units as u
 import numpy as np
 from vectormath import Vector3
 
-from .abc import Clock, FrameOfReference
 from .geometry import NumpyVector, to_cylindrical, to_spherical
+from _abc import Clock, FrameOfReference
 
 
 class Position(FrameOfReference):
@@ -33,8 +33,8 @@ class Position(FrameOfReference):
 
         self._id: Dict[int, int] = {}
 
-        self.space = space
         self.domain = domain
+        self.space = space
         self.unit = unit
 
         self._id[self.domain] = self.space.register_coordinates(self, pos, vel)
@@ -119,12 +119,57 @@ class Position(FrameOfReference):
         return flat
 
 
+class Virtual(Position):
+    """Virtual Position object: Track information as Vector3 and return
+        transformations as requested, WITHOUT registering into a Space.
+    """
+
+    # noinspection PyMissingConstructor
+    def __init__(
+        self,
+        pos: NumpyVector = (0, 0, 0),
+        vel: NumpyVector = (0, 0, 0),
+        *,
+        unit: u.Unit = u.meter,
+    ):
+        self.position = Vector3(
+            pos if isinstance(pos, np.ndarray) else np.array(pos)
+        )  # Physical location.
+        self.velocity = Vector3(
+            vel if isinstance(vel, np.ndarray) else np.array(vel)
+        )  # Change in location per second.
+
+        self.domain = None
+        self.space = None
+        self.unit = unit
+
+        self.id = None
+
+    @property
+    def position(self) -> Vector3:
+        return self._pos
+
+    @position.setter
+    def position(self, v: np.ndarray):
+        self._pos = Vector3(v)
+
+    @property
+    def velocity(self) -> Vector3:
+        return self._vel
+
+    @velocity.setter
+    def velocity(self, v: np.ndarray):
+        self._vel = Vector3(v)
+
+
 class Orbit(FrameOfReference):
     """A Relative Frame of Reference which is based on a Primary, whose real
         position is a function of Time.
     """
 
     # TODO
+
+    __slots__ = ("offset", "primary", "radius", "time")
 
     def __init__(
         self,
