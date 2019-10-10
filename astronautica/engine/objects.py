@@ -1,22 +1,17 @@
 """Module implementing the Base Class for all Objects which reside in Space."""
 
-from typing import TypeVar
-
 from astropy import units as u
 from attr import asdict, attrs
 import numpy as np
 from vectormath import Vector3
 
 from .physics.collision import get_delta_v
-from .physics.space import Coordinates, Node
+from .physics.space import Coordinates, Node, Space
 from .physics.units import UNITS_LOCAL
 
 # from pytimer import Timer
 
 __all__ = ["Object"]
-
-
-T = TypeVar("T")
 
 
 class Object(Node):
@@ -26,9 +21,7 @@ class Object(Node):
         mass: int = 100
         units = UNITS_LOCAL
 
-    def __init__(
-        self, data: dict = None, frame: Coordinates = None
-    ):
+    def __init__(self, data: dict = None, frame: Coordinates = None):
         self.data = self.Data(**(data or {}))
         self.frame = frame
 
@@ -106,25 +99,28 @@ class Object(Node):
         """
         pass
 
-    def clone(self: T, space) -> T:
-        c = self.__class__(data=asdict(self.data), space=space)
-        c.coords = Coordinates(
-            self.coords.position,
-            self.coords.velocity,
-            self.coords.heading,
-            self.coords.rotate,
-            space=space,
+    def clone(self: "Object", domain: int, space: Space) -> "Object":
+        c = type(self)(
+            asdict(self.data),
+            Coordinates.new(
+                self.frame.position,
+                self.frame.velocity,
+                self.frame.heading,
+                self.frame.rotate,
+                domain=domain,
+                space=space,
+            ),
         )
         return c
 
     def serialize(self):
         flat = {
-            "type": str(type(self)),
+            "type": type(self).__name__,
             "data": asdict(self.data),
-            "subs": dict(coords=self.frame.serialize()),
+            "subs": dict(frame=self.frame.serialize()),
         }
         return flat
 
     @classmethod
     def from_serial(cls, data, subs):
-        return cls(subs["coords"], data=data)
+        return cls(data, subs["frame"])
