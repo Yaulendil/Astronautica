@@ -18,8 +18,7 @@ class MultiSystem(set, Domain):
         if len(bodies) < 2:
             raise ValueError("A Multi System must have at least two Objects.")
 
-        set.__init__(self, bodies)
-        Domain.__init__(self)
+        super().__init__(self, bodies)
         # self.slaves: Tuple[Node, ...] = bodies
 
     @property
@@ -49,8 +48,7 @@ class System(set, Domain):
     def __init__(self, master: Domain, *slaves: Domain):
         self.master: Domain = master
 
-        set.__init__(self, slaves)
-        Domain.__init__(self)
+        super().__init__(self, slaves)
         # self.slaves: Set[Node] = {*slaves}
 
     @property

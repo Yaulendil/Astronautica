@@ -15,8 +15,8 @@ Spherical Coordinates:
       South: θ = -180° OR 180°
       Zenith: φ = 90°
 """
-
-from typing import Dict, Tuple
+from functools import wraps, partial
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 
@@ -26,10 +26,14 @@ from .rotation import Rotation
 from _abc import Clock, Domain, FrameOfReference, Node
 
 
-__all__ = ["Clock", "Coordinates", "Domain", "FrameOfReference", "Node", "Space"]
+__all__ = ["Clock", "Coordinates", "FrameOfReference", "LocalSpace", "Node", "Space"]
 
 
-class Space:
+def _nothing(*_, **__):
+    pass
+
+
+class Space(object):
     """Coordinates tracker/handler object."""
 
     def __init__(self):
@@ -44,8 +48,8 @@ class Space:
         """
         self.array_position = np.ndarray((1, 1, 3))
         self.array_velocity = np.ndarray((1, 1, 3))
-        self.domains: Dict[int, Domain] = {}
-        self.next_id: Dict[int, int] = {0: 0}
+        self.domains: Dict[int, LocalSpace] = {}
+        self.next_id: Dict[int, int] = {}
 
     def register_coordinates(self, coords, newpos, newvel) -> int:
         """DEPRECATED"""
@@ -80,13 +84,12 @@ class Space:
         self.set_coordinates(coords.domain, new_id, newpos, newvel)
         return new_id
 
-    def add_domain(self, domain: Domain) -> int:
+    def add_domain(self, domain: "LocalSpace") -> int:
         """Add a new Domain. A Domain is essentially a set of Arrays within the
             Space Arrays which represent a locality in Space. Objects must be in
             the same Domain in order to interact.
         """
         next_domain: int = len(self.next_id)
-        domain.set_space(self, next_domain)
         shape = self.array_position.shape
 
         # Place a Zero in the ID Dict to represent the new, empty, Domain.
@@ -105,19 +108,22 @@ class Space:
                 self.array_velocity, np.array([[[0, 0, 0]] * shape[1]]), 0
             )
 
+        domain.set_space(self, next_domain)
         return next_domain
 
     def add_frame_to_domain(
-        self, domain: Domain, frame: FrameOfReference, *, index: int = -1
+        self, domain: "LocalSpace", frame: FrameOfReference, *, index: int = -1
     ) -> int:
         ...
 
     def get_coordinates(self, domain: int, index: int) -> Tuple[np.ndarray, np.ndarray]:
+        """DEPRECATED"""
         return self.array_position[domain][index], self.array_velocity[domain][index]
 
     def set_coordinates(
         self, domain: int, index: int, pos: np.ndarray = None, vel: np.ndarray = None
     ):
+        """DEPRECATED"""
         if pos is not None:
             self.array_position[domain][index] = pos
         if vel is not None:
@@ -125,6 +131,37 @@ class Space:
 
     def progress(self, time: float):
         self.array_position += self.array_velocity * time
+
+
+class LocalSpace(object):
+    def __init__(self, master: Domain):
+        self.master = master
+        self.index: int = -1
+
+        self.add_frame = _nothing
+        self.arrays: Optional[Tuple[np.ndarray, np.ndarray]] = None
+
+    def needs_space(self, meth):
+        """Decorate a Method so that it raises an Exception if the Instance has
+            not been assigned to a Space Instance.
+        """
+        @wraps(meth)
+        def wrapper(*a, **kw):
+            if self.arrays is None:
+                raise IndexError("LocalSpace Object not assigned a Space")
+            else:
+                return meth(*a, **kw)
+
+        return wrapper
+
+    def set_space(self, space: Space, index: int) -> None:
+        self.index = index
+
+        self.add_frame = partial(space.add_frame_to_domain, self)
+        self.arrays: Tuple[np.ndarray, np.ndarray] = (
+            space.array_position[self.index],
+            space.array_velocity[self.index],
+        )
 
 
 class Coordinates(object):

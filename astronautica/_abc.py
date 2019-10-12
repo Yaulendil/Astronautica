@@ -57,17 +57,7 @@ class Node(Serializable):
 
 class Domain(Node):
     """A specialized Node which defines the core of a local Coordinates System.
-
-    TODO: Move this API into the Space Package and rename this Class.
     """
-
-    def __init__(self):
-        self._space = None
-        self.index: int = -1
-
-    def set_space(self, space, index: int) -> None:
-        self._space = space
-        self.index = index
 
     @property
     @abstractmethod
