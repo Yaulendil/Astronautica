@@ -44,9 +44,11 @@ class Space:
         """
         self.array_position = np.ndarray((1, 1, 3))
         self.array_velocity = np.ndarray((1, 1, 3))
+        self.domains: Dict[int, Domain] = {}
         self.next_id: Dict[int, int] = {0: 0}
 
     def register_coordinates(self, coords, newpos, newvel) -> int:
+        """DEPRECATED"""
         # Register coordinates and return ID number with which to retrieve them
         next_domain: int = len(self.next_id)
         shape = self.array_position.shape
@@ -78,6 +80,38 @@ class Space:
         self.set_coordinates(coords.domain, new_id, newpos, newvel)
         return new_id
 
+    def add_domain(self, domain: Domain) -> int:
+        """Add a new Domain. A Domain is essentially a set of Arrays within the
+            Space Arrays which represent a locality in Space. Objects must be in
+            the same Domain in order to interact.
+        """
+        next_domain: int = len(self.next_id)
+        domain.set_space(self, next_domain)
+        shape = self.array_position.shape
+
+        # Place a Zero in the ID Dict to represent the new, empty, Domain.
+        self.next_id[next_domain] = 0
+
+        if next_domain >= shape[0]:
+            # The Index of the new Domain is higher than the number of Arrays
+            #   available. Increase the size of the Array along the Domain axis.
+            #   To this end, initialize new Arrays of X Arrays of three Zeros,
+            #   where X is the number of Object Slots required in the new Domain
+            #   to maintain Shape.
+            self.array_position = np.append(
+                self.array_position, np.array([[[0, 0, 0]] * shape[1]]), 0
+            )
+            self.array_velocity = np.append(
+                self.array_velocity, np.array([[[0, 0, 0]] * shape[1]]), 0
+            )
+
+        return next_domain
+
+    def add_frame_to_domain(
+        self, domain: Domain, frame: FrameOfReference, *, index: int = -1
+    ) -> int:
+        ...
+
     def get_coordinates(self, domain: int, index: int) -> Tuple[np.ndarray, np.ndarray]:
         return self.array_position[domain][index], self.array_velocity[domain][index]
 
@@ -88,14 +122,6 @@ class Space:
             self.array_position[domain][index] = pos
         if vel is not None:
             self.array_velocity[domain][index] = vel
-
-    def add_coordinates(
-        self, domain: int, index: int, pos: np.ndarray = None, vel: np.ndarray = None
-    ):
-        if pos is not None:
-            self.array_position[domain][index] += pos
-        if vel is not None:
-            self.array_velocity[domain][index] += vel
 
     def progress(self, time: float):
         self.array_position += self.array_velocity * time
