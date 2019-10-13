@@ -16,7 +16,8 @@ Spherical Coordinates:
       Zenith: φ = 90°
 """
 from functools import partial, wraps
-from typing import Dict, Optional, Tuple
+from itertools import count
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -48,41 +49,12 @@ class Space(object):
         """
         self.array_position = np.ndarray((1, 1, 3))
         self.array_velocity = np.ndarray((1, 1, 3))
-        self.domain_sizes: Dict[int, int] = {}
+        self.domain_indices: Dict[int, List[int]] = {}
         self.domains: Dict[int, LocalSpace] = {}
 
-    def register_coordinates(self, coords, newpos, newvel) -> int:
-        """DEPRECATED"""
-        # Register coordinates and return ID number with which to retrieve them
-        next_domain: int = len(self.domain_sizes)
-        shape = self.array_position.shape
-
-        if coords.domain > next_domain < -1:
-            # Domain number is too high, cannot make
-            raise IndexError("Cannot make new domain <0 or higher than next index")
-
-        elif coords.domain in (next_domain, -1):
-            # New domain needs to be made
-            new_id = 0
-            self.domain_sizes[next_domain] = 1
-            addition = np.array([[[0, 0, 0]] * shape[1]])
-            if next_domain >= shape[0]:
-                # Increase the size of the arrays along the Domain axis
-                self.array_position = np.append(self.array_position, addition, 0)
-                self.array_velocity = np.append(self.array_velocity, addition, 0)
-        else:
-            # Not a new domain, but a new index in the domain
-            new_id: int = self.domain_sizes[coords.domain]
-            self.domain_sizes[coords.domain] += 1
-
-            if new_id >= shape[1]:
-                # Increase the size of the arrays along the Index axis
-                addition = np.array([[[0, 0, 0]]] * shape[0])
-                self.array_position = np.append(self.array_position, addition, 1)
-                self.array_velocity = np.append(self.array_velocity, addition, 1)
-
-        self.set_coordinates(coords.domain, new_id, newpos, newvel)
-        return new_id
+    @property
+    def next_domain_index(self) -> int:
+        return next(i for i in count() if i not in self.domains)
 
     def add_domain(self, domain: "LocalSpace") -> int:
         """Add a new Domain. A Domain is essentially a set of Arrays within the
@@ -90,11 +62,11 @@ class Space(object):
             the same Domain in order to interact.
         """
         next_domain: int = len(self.domains)
-        shape = self.array_position.shape
 
         # Place a Zero in the ID Dict to represent the new, empty, Domain.
-        self.domain_sizes[next_domain] = 0
+        self.domain_indices[next_domain] = domain.used
 
+        shape = self.array_position.shape
         if next_domain >= shape[0]:
             # The Index of the new Domain is higher than the number of Arrays
             #   available. Increase the size of the Array along the Domain axis.
@@ -111,14 +83,18 @@ class Space(object):
         domain.set_space(self, next_domain)
         return next_domain
 
-    def add_frame_to_domain(self, domain: "LocalSpace", frame: FrameOfReference) -> int:
+    def add_frame_to_domain(
+        self, domain: "LocalSpace", frame: "Coordinates", index: int = None
+    ) -> int:
+        if index is None:
+            index = domain.next_object_index
+        elif index in domain.used:
+            raise IndexError(f"Index {index} is already allocated.")
+
+        domain.used.append(index)
+
         shape = self.array_position.shape
-
-        # Not a new domain, but a new index in the domain
-        next_id: int = domain.get_next_index()
-        self.domain_sizes[frame.domain] += 1
-
-        if next_id >= shape[1]:
+        if index >= shape[1]:
             # Increase the size of the Array along the Object axis.
             self.array_position = np.append(
                 self.array_position, np.array([[[0, 0, 0]]] * shape[0]), 1
@@ -127,20 +103,8 @@ class Space(object):
                 self.array_velocity, np.array([[[0, 0, 0]]] * shape[0]), 1
             )
 
-        return next_id
-
-    def get_coordinates(self, domain: int, index: int) -> Tuple[np.ndarray, np.ndarray]:
-        """DEPRECATED"""
-        return self.array_position[domain][index], self.array_velocity[domain][index]
-
-    def set_coordinates(
-        self, domain: int, index: int, pos: np.ndarray = None, vel: np.ndarray = None
-    ):
-        """DEPRECATED"""
-        if pos is not None:
-            self.array_position[domain][index] = pos
-        if vel is not None:
-            self.array_velocity[domain][index] = vel
+        frame.domain = domain
+        return index
 
     def progress(self, time: float):
         self.array_position += self.array_velocity * time
@@ -153,6 +117,12 @@ class LocalSpace(object):
 
         self.add_frame = _nothing
         self.arrays: Optional[Tuple[np.ndarray, np.ndarray]] = None
+
+        self.used: List[int] = []
+
+    @property
+    def next_object_index(self) -> int:
+        return next(i for i in count() if i not in self.used)
 
     def needs_space(self, meth):
         """Decorate a Method so that it raises an Exception if the Instance has
@@ -176,9 +146,6 @@ class LocalSpace(object):
             space.array_position[self.index],
             space.array_velocity[self.index],
         )
-
-    def get_next_index(self) -> int:
-        ...
 
 
 class Coordinates(object):
