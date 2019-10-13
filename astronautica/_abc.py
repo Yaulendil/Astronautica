@@ -66,7 +66,7 @@ class Domain(Node):
 
 
 class FrameOfReference(ABC):
-    __slots__ = ("domain", "space", "unit")
+    __slots__ = ("domain", "unit")
 
     @property
     @abstractmethod

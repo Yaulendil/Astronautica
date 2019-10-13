@@ -20,8 +20,7 @@ class Position(FrameOfReference):
         pos: NumpyVector = (0, 0, 0),
         vel: NumpyVector = (0, 0, 0),
         *,
-        domain: int = 0,
-        space,
+        domain,
         unit: u.Unit = u.meter,
     ):
         pos = (
@@ -34,17 +33,16 @@ class Position(FrameOfReference):
         self._id: Dict[int, int] = {}
 
         self.domain = domain
-        self.space = space
         self.unit = unit
 
-        self._id[self.domain] = self.space.register_coordinates(self, pos, vel)
+        self._id[self.domain] = self.domain.register_coordinates(self, pos, vel)
 
     @property
     def position(self) -> Vector3:
         """Go into the relevant Space structure and retrieve the Position that
             is assigned to this FoR, and wrap it in a Vector3.
         """
-        return Vector3(self.space.array_position[self.domain][self.id])
+        return Vector3(self.domain.arrays[0][self.id])
 
     @position.setter
     def position(self, v: np.ndarray):
@@ -52,14 +50,14 @@ class Position(FrameOfReference):
 
         If a Scalar is given, all values of the Array will be that value.
         """
-        self.space.array_position[self.domain][self.id] = v
+        self.domain.arrays[0][self.id] = v
 
     @property
     def velocity(self) -> Vector3:
         """Go into the relevant Space structure and retrieve the Velocity that
             is assigned to this FoR, and wrap it in a Vector3.
         """
-        return Vector3(self.space.array_velocity[self.domain][self.id])
+        return Vector3(self.domain.arrays[1][self.id])
 
     @velocity.setter
     def velocity(self, v: np.ndarray):
@@ -67,7 +65,7 @@ class Position(FrameOfReference):
 
         If a Scalar is given, all values of the Array will be that value.
         """
-        self.space.array_velocity[self.domain][self.id] = v
+        self.domain.arrays[1][self.id] = v
 
     @property
     def position_pol(self) -> Tuple[float, float, float]:
@@ -95,11 +93,11 @@ class Position(FrameOfReference):
 
     @property
     def id(self) -> int:
-        return self._id[self.domain]
+        return self._id[self.domain.index]
 
     @id.setter
     def id(self, v: int):
-        self._id[self.domain] = v
+        self._id[self.domain.index] = v
 
     def increment(self, seconds: float):
         self.increment_position(seconds)

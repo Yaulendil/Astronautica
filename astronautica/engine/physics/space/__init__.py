@@ -15,7 +15,7 @@ Spherical Coordinates:
       South: θ = -180° OR 180°
       Zenith: φ = 90°
 """
-from functools import wraps, partial
+from functools import partial, wraps
 from typing import Dict, Optional, Tuple
 
 import numpy as np
@@ -48,13 +48,13 @@ class Space(object):
         """
         self.array_position = np.ndarray((1, 1, 3))
         self.array_velocity = np.ndarray((1, 1, 3))
+        self.domain_sizes: Dict[int, int] = {}
         self.domains: Dict[int, LocalSpace] = {}
-        self.next_id: Dict[int, int] = {}
 
     def register_coordinates(self, coords, newpos, newvel) -> int:
         """DEPRECATED"""
         # Register coordinates and return ID number with which to retrieve them
-        next_domain: int = len(self.next_id)
+        next_domain: int = len(self.domain_sizes)
         shape = self.array_position.shape
 
         if coords.domain > next_domain < -1:
@@ -64,7 +64,7 @@ class Space(object):
         elif coords.domain in (next_domain, -1):
             # New domain needs to be made
             new_id = 0
-            self.next_id[next_domain] = 1
+            self.domain_sizes[next_domain] = 1
             addition = np.array([[[0, 0, 0]] * shape[1]])
             if next_domain >= shape[0]:
                 # Increase the size of the arrays along the Domain axis
@@ -72,8 +72,8 @@ class Space(object):
                 self.array_velocity = np.append(self.array_velocity, addition, 0)
         else:
             # Not a new domain, but a new index in the domain
-            new_id: int = self.next_id[coords.domain]
-            self.next_id[coords.domain] += 1
+            new_id: int = self.domain_sizes[coords.domain]
+            self.domain_sizes[coords.domain] += 1
 
             if new_id >= shape[1]:
                 # Increase the size of the arrays along the Index axis
@@ -89,11 +89,11 @@ class Space(object):
             Space Arrays which represent a locality in Space. Objects must be in
             the same Domain in order to interact.
         """
-        next_domain: int = len(self.next_id)
+        next_domain: int = len(self.domains)
         shape = self.array_position.shape
 
         # Place a Zero in the ID Dict to represent the new, empty, Domain.
-        self.next_id[next_domain] = 0
+        self.domain_sizes[next_domain] = 0
 
         if next_domain >= shape[0]:
             # The Index of the new Domain is higher than the number of Arrays
@@ -111,10 +111,23 @@ class Space(object):
         domain.set_space(self, next_domain)
         return next_domain
 
-    def add_frame_to_domain(
-        self, domain: "LocalSpace", frame: FrameOfReference, *, index: int = -1
-    ) -> int:
-        ...
+    def add_frame_to_domain(self, domain: "LocalSpace", frame: FrameOfReference) -> int:
+        shape = self.array_position.shape
+
+        # Not a new domain, but a new index in the domain
+        next_id: int = domain.get_next_index()
+        self.domain_sizes[frame.domain] += 1
+
+        if next_id >= shape[1]:
+            # Increase the size of the Array along the Object axis.
+            self.array_position = np.append(
+                self.array_position, np.array([[[0, 0, 0]]] * shape[0]), 1
+            )
+            self.array_velocity = np.append(
+                self.array_velocity, np.array([[[0, 0, 0]]] * shape[0]), 1
+            )
+
+        return next_id
 
     def get_coordinates(self, domain: int, index: int) -> Tuple[np.ndarray, np.ndarray]:
         """DEPRECATED"""
@@ -145,6 +158,7 @@ class LocalSpace(object):
         """Decorate a Method so that it raises an Exception if the Instance has
             not been assigned to a Space Instance.
         """
+
         @wraps(meth)
         def wrapper(*a, **kw):
             if self.arrays is None:
@@ -163,16 +177,19 @@ class LocalSpace(object):
             space.array_velocity[self.index],
         )
 
+    def get_next_index(self) -> int:
+        ...
+
 
 class Coordinates(object):
     """Coordinates Class: A composite Type allowing any FoR Subclass to be
         paired with a Rotation.
     """
 
-    def __init__(self, pos: FrameOfReference, rot: Rotation, space: Space):
+    def __init__(self, pos: FrameOfReference, rot: Rotation, domain: LocalSpace):
         self._position: FrameOfReference = pos
         self._rotation: Rotation = rot
-        self.space = space
+        self.domain = domain
 
     @classmethod
     def new(
@@ -181,16 +198,15 @@ class Coordinates(object):
         vel: NumpyVector,
         aim: Quat,
         rot: Quat,
-        domain: int,
-        space: Space,
+        domain: LocalSpace,
     ) -> "Coordinates":
-        if space is None:
+        if domain is None:
             _pos = Virtual(pos, vel)
         else:
-            _pos = Position(pos, vel, domain=domain, space=space)
+            _pos = Position(pos, vel, domain=domain)
         _rot = Rotation(aim, rot)
 
-        return cls(_pos, _rot, space)
+        return cls(_pos, _rot, domain)
 
     @property
     def domain(self) -> int:
