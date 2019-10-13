@@ -15,10 +15,12 @@ Spherical Coordinates:
       South: θ = -180° OR 180°
       Zenith: φ = 90°
 """
+
 from functools import partial, wraps
 from itertools import count
 from typing import Dict, List, Optional, Tuple
 
+from dataclasses import dataclass
 import numpy as np
 
 from .geometry import NumpyVector, Quat
@@ -30,8 +32,20 @@ from _abc import Clock, Domain, FrameOfReference, Node
 __all__ = ["Clock", "Coordinates", "FrameOfReference", "LocalSpace", "Node", "Space"]
 
 
+INITIAL_DOMAINS = 5
+INITIAL_OBJECTS = 10
+
+
 def _nothing(*_, **__):
     pass
+
+
+@dataclass
+class _Coords(object):
+    position: NumpyVector
+    velocity: NumpyVector
+    heading: Quat
+    rotate: Quat
 
 
 class Space(object):
@@ -47,8 +61,8 @@ class Space(object):
             refers to.
         Bottom level is the three values for X, Y, and Z.
         """
-        self.array_position = np.ndarray((1, 1, 3))
-        self.array_velocity = np.ndarray((1, 1, 3))
+        self.array_position = np.ndarray((INITIAL_DOMAINS, INITIAL_OBJECTS, 3))
+        self.array_velocity = np.ndarray((INITIAL_DOMAINS, INITIAL_OBJECTS, 3))
         self.domain_indices: Dict[int, List[int]] = {}
         self.domains: Dict[int, LocalSpace] = {}
 
@@ -182,6 +196,18 @@ class Coordinates(object):
     @domain.setter
     def domain(self, value: int):
         self._position.domain = value
+
+    @property
+    def flat(self) -> _Coords:
+        """Return a "flattened" version of this Coordinates Object, boiled down
+            into a minimal Dataclass.
+        """
+        return _Coords(
+            self._position.position,
+            self._position.velocity,
+            self._rotation.heading,
+            self._rotation.rotate,
+        )
 
     def increment_rotation(self, sec: float):
         self._rotation.increment(sec)
