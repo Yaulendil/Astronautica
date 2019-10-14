@@ -8,9 +8,9 @@ The Engine Package contains most of the "moving parts" of the Game World. It
 
 from asyncio import CancelledError, sleep
 from datetime import datetime as dt, timedelta as td
-from inspect import isabstract
+from inspect import isabstract, isawaitable
 from itertools import filterfalse
-from typing import Iterator, List, Union, Dict, Type
+from typing import Dict, Iterable, Iterator, List, Type, Union
 
 from .objects import Object
 from .physics import Spacetime
@@ -29,6 +29,9 @@ MAP: Dict[str, Type[...]] = {
     t.__name__: t for t in filterfalse(isabstract, get_subs(Serializable))
 }
 
+CB_PRE_TICK = set()
+CB_POST_TICK = set()
+
 
 def deserialize(obj: Union[List[Serial], Serial]):
     if isinstance(obj, list):
@@ -43,6 +46,16 @@ def deserialize(obj: Union[List[Serial], Serial]):
         return cls.from_serial(data, subs)
     else:
         return None
+
+
+async def run_iter(it: Iterable):
+    for func in it:
+        try:
+            result = func()
+            while isawaitable(result):
+                result = await result
+        except Exception as e:
+            print(f"Callback {func!r} raised {type(e).__name__!r}:\n    {e}")
 
 
 async def run_world(st: Spacetime, turn_length: int = 300, echo=print):
@@ -60,7 +73,11 @@ async def run_world(st: Spacetime, turn_length: int = 300, echo=print):
 
             tick_latest = tick_next
             echo(f"Simulating {turn_length} seconds...")
+
+            await run_iter(CB_PRE_TICK)
             st.progress(turn_length)
+            await run_iter(CB_POST_TICK)
+
             echo("Simulation complete.")
 
     except CancelledError:
