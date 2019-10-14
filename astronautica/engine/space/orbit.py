@@ -3,7 +3,7 @@ from typing import Tuple
 from astropy import units as u
 from vectormath import Vector3
 
-from engine.physics.space import Position, Clock
+from engine.space import Position, Clock
 
 
 class Orbit(Position):

@@ -2,11 +2,11 @@
 
 from typing import List, Tuple, Type, TypeVar
 
+from ..space import Space
 from .collision import distance_between_lines, find_collisions
-from .space import Coordinates, Space
 
 
-__all__ = ["Coordinates", "Space", "Spacetime"]
+__all__ = ["Spacetime"]
 
 
 O: Type = TypeVar("O")

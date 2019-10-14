@@ -1,25 +1,33 @@
-"""Package containing the working components of the Physics Engine.
+"""Package containing the working components of the Game Engine.
 
-The Spacetime Package contains abstract classes and handlers that expose
-    interactions. Another Package will contain implementations of the abstract
-    classes, such as vehicles and weaponry.
+The Engine Package contains most of the "moving parts" of the Game World. It
+    implements the Space Class, as well as all Coordinate systems that fall
+    under it, and the Spacetime Class, which applies the concept of Time to
+    Space.
 """
 
 from asyncio import CancelledError, sleep
 from datetime import datetime as dt, timedelta as td
-from typing import List, Union
+from inspect import isabstract
+from itertools import filterfalse
+from typing import Iterator, List, Union, Dict, Type
 
 from .objects import Object
-from .physics import Coordinates, Space, Spacetime
-from .physics.space.base import Serial
+from .physics import Spacetime
+from .space import Coordinates, Space
+from .space.base import Serial, Serializable
 from .world import MultiSystem, System
 
 
-# This List MUST contain every Type which can be Serialized. It serves as the
-#   seed from which the Deserialization Map is built. Only Objects whose Types
-#   are in this List are able to be reconstructed.
-SERIALS = [Coordinates, MultiSystem, Object, System]
-MAP = lambda: {t.__name__: t for t in SERIALS}
+def get_subs(t: type) -> Iterator[type]:
+    yield from map(get_subs, t.__subclasses__())
+
+
+# Recursively check for Subclasses to map out all Types that should implement a
+#   .from_serial() Classmethod.
+MAP: Dict[str, Type[...]] = {
+    t.__name__: t for t in filterfalse(isabstract, get_subs(Serializable))
+}
 
 
 def deserialize(obj: Union[List[Serial], Serial]):
@@ -27,7 +35,7 @@ def deserialize(obj: Union[List[Serial], Serial]):
         return list(map(deserialize, obj))
 
     classname: str = obj.get("class")
-    cls = MAP().get(classname)
+    cls = MAP.get(classname)
 
     if cls is not None:
         data = obj.get("data")

@@ -5,7 +5,7 @@ from numba import jit
 import numpy as np
 from numpy import random as npr
 
-from ..physics.space.geometry import from_spherical, to_spherical
+from ..space.geometry import from_spherical, to_spherical
 
 
 # from math import radians, degrees

@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 import numpy as np
 from yaml import safe_load
 
-from ..physics.space.base import Domain
+from ..space import base
 from ..visualizer import render
 from .generation import generate_galaxy
 from .gravity import MultiSystem, System
@@ -62,13 +62,13 @@ class Galaxy(object):
     def render(self, *a, **kw):
         render(self.stars[..., :3], *a, **kw)
 
-    def systems_at_coordinate(self, pos: np.ndarray) -> Optional[Domain]:
+    def systems_at_coordinate(self, pos: np.ndarray) -> Optional[base.Domain]:
         t = tuple(x for x in self.stars if x[:3] == pos)
         return t[0] if t else None
 
-    def systems_by_uuid(self, uuid: UUID) -> Optional[Domain]:
+    def systems_by_uuid(self, uuid: UUID) -> Optional[base.Domain]:
         t = tuple(x for x in self.stars if x[3] == uuid.int)
         return t[0] if t else None
 
-    def system_random(self) -> Domain:
+    def system_random(self) -> base.Domain:
         return np.random.choice(self.stars)
