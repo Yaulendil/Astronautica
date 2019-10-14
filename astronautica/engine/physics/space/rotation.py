@@ -28,26 +28,32 @@ class Pointer(Rotation):
     def rotate(self, value: quaternion) -> None:
         self.domain.quat_rotate[self.index] = value
 
+    def clone(self: Rotation) -> "Virtual":
+        return Virtual(self.heading, self.rotate)
+
 
 class Virtual(Rotation):
     def __init__(self, aim: quaternion, rot: quaternion):
         # Orientation.
-        self._heading = aim
+        self._hdg = aim
         # Spin per second.
-        self._rotate = rot
+        self._rot = rot
 
     @property
     def heading(self) -> quaternion:
-        return self._heading
+        return self._hdg
 
     @heading.setter
     def heading(self, value: quaternion) -> None:
-        self._heading = value
+        self._hdg = value
 
     @property
     def rotate(self) -> quaternion:
-        return self._rotate
+        return self._rot
 
     @rotate.setter
     def rotate(self, value: quaternion) -> None:
-        self._rotate = value
+        self._rot = value
+
+    def clone(self: Rotation) -> "Virtual":
+        return Virtual(self.heading, self.rotate)

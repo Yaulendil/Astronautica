@@ -43,6 +43,9 @@ class Pointer(Position):
         """
         self.domain.array_velocity[self.index] = v
 
+    def clone(self: Position) -> "Virtual":
+        return Virtual(self.position, self.velocity, unit=self.unit)
+
 
 class Virtual(Position):
     """Virtual Position object: Track information as Vector3 and return
@@ -79,3 +82,6 @@ class Virtual(Position):
     @velocity.setter
     def velocity(self, value: np.ndarray):
         self._vel: Vector3 = Vector3(value)
+
+    def clone(self: Position) -> "Virtual":
+        return Virtual(self.position, self.velocity, unit=self.unit)

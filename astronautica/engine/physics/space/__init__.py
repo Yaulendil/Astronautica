@@ -17,7 +17,7 @@ Spherical Coordinates:
 """
 
 from itertools import count
-from typing import Dict, List, Sequence
+from typing import Dict, List, Sequence, Optional
 
 import numpy as np
 from quaternion import (
@@ -189,15 +189,24 @@ class Coordinates(object):
         paired with a Rotation.
     """
 
-    def __init__(self, domain: LocalSpace, add_values: bool = True):
-        self.domain: LocalSpace = domain
-        self.index: int = self.domain.add_frame(self)
+    def __init__(self, domain: Optional[LocalSpace], add_values: bool = True):
+        self.domain: Optional[LocalSpace] = domain
 
-        if add_values:
-            self._position: base.Position = position.Pointer(self.domain, self.index)
-            self._rotation: base.Rotation = rotation.Pointer(self.domain, self.index)
+        if domain is not None:
+            self.index: int = self.domain.add_frame(self)
+
+            if add_values:
+                self._position: base.Position = position.Pointer(
+                    self.domain, self.index
+                )
+                self._rotation: base.Rotation = rotation.Pointer(
+                    self.domain, self.index
+                )
+            else:
+                self._position = self._rotation = None
+
         else:
-            self._position = self._rotation = None
+            self.index: int = -1
 
     def set_posrot(self, pos: base.Position, rot: base.Rotation):
         self._position: base.Position = pos
@@ -215,12 +224,24 @@ class Coordinates(object):
             self.domain.used.remove(self.index)
 
         self.domain = None
+        self.index = -1
+
+    def detach(self):
+        self._position = self._position.clone()
+        self._rotation = self._rotation.clone()
+        self.free()
+
+    def clone(self) -> "Coordinates":
+        new = Coordinates(None, False)
+        new.set_posrot(self._position.clone(), self._rotation.clone())
+        return new
 
     def as_seen_from(self, pov: "Coordinates") -> "Coordinates":
         """Return a new Coordinates, from the perspective of a given frame of
             reference.
         """
-        return type(self)(
+        new = Coordinates(None, False)
+        new.set_posrot(
             position.Virtual(
                 self._position.position - pov._position.position,
                 self._position.velocity - pov._position.velocity,
@@ -229,5 +250,5 @@ class Coordinates(object):
                 self._rotation.heading / pov._rotation.heading,
                 self._rotation.rotate / pov._rotation.heading,
             ),
-            None,
         )
+        return new
