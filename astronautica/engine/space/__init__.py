@@ -17,7 +17,8 @@ Spherical Coordinates:
 """
 
 from itertools import count
-from typing import Dict, List, Sequence, Optional
+from typing import Dict, Iterator, List, Optional, Sequence
+from weakref import proxy
 
 from astropy import constants as const
 from numba import jit
@@ -137,6 +138,23 @@ class Space(object):
         frame.domain = domain
         return index
 
+    def all_domains(self) -> Iterator["LocalSpace"]:
+        for d in LocalSpace.ALL:
+            try:
+                if d.space is self:
+                    yield d
+            except:
+                continue
+
+    @staticmethod
+    def all_frames() -> Iterator["Coordinates"]:
+        for f in Coordinates.ALL:
+            try:
+                if f.domain is not None:
+                    yield f
+            except:
+                continue
+
     @jit(forceobj=True, nopython=False)
     def progress(self, time: float):
         self.array_position += self.array_velocity * time
@@ -148,12 +166,16 @@ class Space(object):
 
 
 class LocalSpace(object):
+    ALL: List["LocalSpace"] = []
+
     def __init__(self, master: base.Domain, space: Space):
         self.master = master
         self.space: Space = space
         self.used: List[int] = []
 
         self.index: int = self.space.add_domain(self)
+
+        self.ALL.append(proxy(self, self.free_wr))
 
     @property
     def array_position(self) -> Sequence[Vector3]:
@@ -209,6 +231,20 @@ class LocalSpace(object):
         self.space = None
         self.used.clear()
 
+    def free_wr(self, prox):
+        if prox in self.ALL:
+            self.ALL.remove(prox)
+
+        self.free()
+
+    def all_frames(self) -> Iterator["Coordinates"]:
+        for f in Coordinates.ALL:
+            try:
+                if f.domain is self:
+                    yield f
+            except:
+                continue
+
     @jit(nopython=True)
     def gravitate(self, mass: float):
         self.array_velocity -= np.array(
@@ -218,9 +254,11 @@ class LocalSpace(object):
 
 
 class Coordinates(object):
-    """Coordinates Class: A composite Type allowing any FoR Subclass to be
+    """Coordinates Class: A composite Type allowing any Position Subclass to be
         paired with a Rotation.
     """
+
+    ALL: List["Coordinates"] = []
 
     def __init__(self, domain: Optional[LocalSpace], add_values: bool = True):
         self.domain: Optional[LocalSpace] = domain
@@ -241,6 +279,8 @@ class Coordinates(object):
         else:
             self.index: int = -1
 
+        self.ALL.append(proxy(self, self.free_wr))
+
     def set_posrot(self, pos: base.Position, rot: base.Rotation):
         self._position: base.Position = pos
         self._rotation: base.Rotation = rot
@@ -258,6 +298,12 @@ class Coordinates(object):
 
         self.domain = None
         self.index = -1
+
+    def free_wr(self, prox):
+        if prox in self.ALL:
+            self.ALL.remove(prox)
+
+        self.free()
 
     def detach(self):
         self._position = self._position.clone()
