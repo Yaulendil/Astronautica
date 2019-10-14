@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 import numpy as np
 from yaml import safe_load
 
-from ..physics.space import Domain
+from ..physics.space.base import Domain
 from ..visualizer import render
 from .generation import generate_galaxy
 from .gravity import MultiSystem, System

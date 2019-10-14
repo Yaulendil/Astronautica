@@ -6,7 +6,8 @@ import numpy as np
 from vectormath import Vector3
 
 from .physics.collision import get_delta_v
-from .physics.space import Coordinates, Node, Space
+from .physics.space import Coordinates, Space
+from .physics.space.base import Node
 from .physics.units import UNITS_LOCAL
 
 # from pytimer import Timer

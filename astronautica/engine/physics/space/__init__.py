@@ -20,7 +20,12 @@ from itertools import count
 from typing import Dict, List, Sequence
 
 import numpy as np
-from quaternion import from_float_array, quaternion
+from quaternion import (
+    from_float_array,
+    quaternion,
+    from_rotation_vector,
+    as_rotation_vector,
+)
 
 from . import base, position, rotation
 from .geometry import NumpyVector, Quat, scale_rotors
@@ -137,7 +142,10 @@ class Space(object):
 
     def progress(self, time: float):
         self.array_position += self.array_velocity * time
-        self.quat_heading[:] = scale_rotors(self.quat_rotate, time) / self.quat_heading
+        self.quat_heading[:] = (
+            from_rotation_vector(as_rotation_vector(self.quat_rotate[1]) * time)
+            / self.quat_heading
+        )
 
 
 class LocalSpace(object):

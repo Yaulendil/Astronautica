@@ -4,9 +4,7 @@ from typing import Tuple, Type, Union
 from numba import jit
 import numpy as np
 from quaternion import (
-    as_float_array,
     as_rotation_vector,
-    from_float_array,
     from_rotation_vector,
     quaternion,
 )
