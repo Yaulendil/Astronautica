@@ -97,8 +97,3 @@ class FrameOfReference(ABC):
     @abstractmethod
     def velocity_cyl(self) -> Tuple[float, float, float]:
         ...
-
-    @property
-    @abstractmethod
-    def id(self) -> int:
-        ...

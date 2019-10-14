@@ -16,17 +16,16 @@ Spherical Coordinates:
       Zenith: φ = 90°
 """
 
-from functools import partial, wraps
 from itertools import count
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Sequence
 
 from dataclasses import dataclass
 import numpy as np
+from quaternion import from_float_array, quaternion
 
-from .geometry import NumpyVector, Quat
-from .position import Position, Virtual
-from .rotation import Rotation
-from _abc import Clock, Domain, FrameOfReference, Node
+from . import position, rotation
+from .base import Clock, Domain, FrameOfReference, Node
+from .geometry import NumpyVector, Quat, scale_rotors
 
 
 __all__ = ["Clock", "Coordinates", "FrameOfReference", "LocalSpace", "Node", "Space"]
@@ -34,10 +33,6 @@ __all__ = ["Clock", "Coordinates", "FrameOfReference", "LocalSpace", "Node", "Sp
 
 INITIAL_DOMAINS = 5
 INITIAL_OBJECTS = 10
-
-
-def _nothing(*_, **__):
-    pass
 
 
 @dataclass
@@ -63,38 +58,53 @@ class Space(object):
         """
         self.array_position = np.ndarray((INITIAL_DOMAINS, INITIAL_OBJECTS, 3))
         self.array_velocity = np.ndarray((INITIAL_DOMAINS, INITIAL_OBJECTS, 3))
+        self.array_heading = np.ndarray((INITIAL_DOMAINS, INITIAL_OBJECTS, 4))
+        self.array_rotate = np.ndarray((INITIAL_DOMAINS, INITIAL_OBJECTS, 4))
+
         self.domain_indices: Dict[int, List[int]] = {}
-        self.domains: Dict[int, LocalSpace] = {}
 
     @property
     def next_domain_index(self) -> int:
-        return next(i for i in count() if i not in self.domains)
+        return next(i for i in count() if i not in self.domain_indices)
+
+    @property
+    def quat_heading(self) -> np.ndarray:
+        return from_float_array(self.array_heading)
+
+    @property
+    def quat_rotate(self) -> np.ndarray:
+        return from_float_array(self.array_rotate)
 
     def add_domain(self, domain: "LocalSpace") -> int:
         """Add a new Domain. A Domain is essentially a set of Arrays within the
             Space Arrays which represent a locality in Space. Objects must be in
             the same Domain in order to interact.
         """
-        next_domain: int = len(self.domains)
+        next_domain: int = self.next_domain_index
 
         # Place a Zero in the ID Dict to represent the new, empty, Domain.
         self.domain_indices[next_domain] = domain.used
 
         shape = self.array_position.shape
-        if next_domain >= shape[0]:
+        while next_domain >= shape[0]:
             # The Index of the new Domain is higher than the number of Arrays
             #   available. Increase the size of the Array along the Domain axis.
             #   To this end, initialize new Arrays of X Arrays of three Zeros,
             #   where X is the number of Object Slots required in the new Domain
             #   to maintain Shape.
-            self.array_position = np.append(
+            self.array_position[:] = np.append(
                 self.array_position, np.array([[[0, 0, 0]] * shape[1]]), 0
             )
-            self.array_velocity = np.append(
+            self.array_velocity[:] = np.append(
                 self.array_velocity, np.array([[[0, 0, 0]] * shape[1]]), 0
             )
+            self.array_heading[:] = np.append(
+                self.array_heading, np.array([[[0, 0, 0, 0]] * shape[1]]), 0
+            )
+            self.array_rotate[:] = np.append(
+                self.array_rotate, np.array([[[0, 0, 0, 0]] * shape[1]]), 0
+            )
 
-        domain.set_space(self, next_domain)
         return next_domain
 
     def add_frame_to_domain(
@@ -108,13 +118,19 @@ class Space(object):
         domain.used.append(index)
 
         shape = self.array_position.shape
-        if index >= shape[1]:
+        while index >= shape[1]:
             # Increase the size of the Array along the Object axis.
-            self.array_position = np.append(
+            self.array_position[:] = np.append(
                 self.array_position, np.array([[[0, 0, 0]]] * shape[0]), 1
             )
-            self.array_velocity = np.append(
+            self.array_velocity[:] = np.append(
                 self.array_velocity, np.array([[[0, 0, 0]]] * shape[0]), 1
+            )
+            self.array_heading[:] = np.append(
+                self.array_heading, np.array([[[0, 0, 0, 0]]] * shape[0]), 1
+            )
+            self.array_rotate[:] = np.append(
+                self.array_rotate, np.array([[[0, 0, 0, 0]]] * shape[0]), 1
             )
 
         frame.domain = domain
@@ -122,44 +138,43 @@ class Space(object):
 
     def progress(self, time: float):
         self.array_position += self.array_velocity * time
+        self.quat_heading[:] = scale_rotors(self.quat_rotate, time) / self.quat_heading
 
 
 class LocalSpace(object):
-    def __init__(self, master: Domain):
+    def __init__(self, master: Domain, space: Space):
         self.master = master
-        self.index: int = -1
-
-        self.add_frame = _nothing
-        self.arrays: Optional[Tuple[np.ndarray, np.ndarray]] = None
-
+        self.space: Space = space
         self.used: List[int] = []
+
+        self.index: int = self.space.add_domain(self)
+
+        self.array_position = self.space.array_position[self.index]
+        self.array_velocity = self.space.array_velocity[self.index]
+        self.array_heading = self.space.array_heading[self.index]
+        self.array_rotate = self.space.array_rotate[self.index]
 
     @property
     def next_object_index(self) -> int:
         return next(i for i in count() if i not in self.used)
 
-    def needs_space(self, meth):
-        """Decorate a Method so that it raises an Exception if the Instance has
-            not been assigned to a Space Instance.
-        """
+    @property
+    def quat_heading(self) -> Sequence[quaternion]:
+        return from_float_array(self.array_heading)
 
-        @wraps(meth)
-        def wrapper(*a, **kw):
-            if self.arrays is None:
-                raise IndexError("LocalSpace Object not assigned a Space")
-            else:
-                return meth(*a, **kw)
+    @property
+    def quat_rotate(self) -> Sequence[quaternion]:
+        return from_float_array(self.array_rotate)
 
-        return wrapper
+    def add_frame(self, frame: "Coordinates", index: int = None) -> int:
+        return self.space.add_frame_to_domain(self, frame, index)
 
-    def set_space(self, space: Space, index: int) -> None:
-        self.index = index
+    def free(self):
+        if self.index in self.space.domain_indices:
+            del self.space.domain_indices[self.index]
 
-        self.add_frame = partial(space.add_frame_to_domain, self)
-        self.arrays: Tuple[np.ndarray, np.ndarray] = (
-            space.array_position[self.index],
-            space.array_velocity[self.index],
-        )
+        self.space = None
+        self.used.clear()
 
 
 class Coordinates(object):
@@ -167,35 +182,14 @@ class Coordinates(object):
         paired with a Rotation.
     """
 
-    def __init__(self, pos: FrameOfReference, rot: Rotation, domain: LocalSpace):
-        self._position: FrameOfReference = pos
-        self._rotation: Rotation = rot
-        self.domain = domain
-
-    @classmethod
-    def new(
-        cls,
-        pos: NumpyVector,
-        vel: NumpyVector,
-        aim: Quat,
-        rot: Quat,
+    def __init__(
+        self,
         domain: LocalSpace,
-    ) -> "Coordinates":
-        if domain is None:
-            _pos = Virtual(pos, vel)
-        else:
-            _pos = Position(pos, vel, domain=domain)
-        _rot = Rotation(aim, rot)
-
-        return cls(_pos, _rot, domain)
-
-    @property
-    def domain(self) -> int:
-        return self._position.domain
-
-    @domain.setter
-    def domain(self, value: int):
-        self._position.domain = value
+        index: int = None,
+    ):
+        self.domain: LocalSpace = domain
+        self.index: int = self.domain.add_frame(self, index)
+        self._position = self._rotation = None
 
     @property
     def flat(self) -> _Coords:
@@ -209,19 +203,33 @@ class Coordinates(object):
             self._rotation.rotate,
         )
 
-    def increment_rotation(self, sec: float):
-        self._rotation.increment(sec)
+    def set_posrot(self, pos: FrameOfReference, rot: rotation.Rotation):
+        self._position: FrameOfReference = pos
+        self._rotation: rotation.Rotation = rot
+
+        def dset(newdomain: LocalSpace):
+            self.domain = newdomain
+
+        self._position.domain = self._rotation.domain = property(
+            (lambda: self.domain), dset
+        )
+
+    def free(self):
+        if self.index in self.domain.used:
+            self.domain.used.remove(self.index)
+
+        self.domain = None
 
     def as_seen_from(self, pov: "Coordinates") -> "Coordinates":
         """Return a new Coordinates, from the perspective of a given frame of
             reference.
         """
         return type(self)(
-            Virtual(
+            position.Virtual(
                 self._position.position - pov._position.position,
                 self._position.velocity - pov._position.velocity,
             ),
-            Rotation(
+            rotation.Rotation(
                 self._rotation.heading / pov._rotation.heading,
                 self._rotation.rotate / pov._rotation.heading,
             ),

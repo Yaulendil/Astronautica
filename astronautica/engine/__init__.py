@@ -11,8 +11,8 @@ from typing import List, Union
 
 from .objects import Object
 from .physics import Coordinates, Space, Spacetime
+from .physics.space.base import Serial
 from .world import MultiSystem, System
-from _abc import Serial
 
 
 # This List MUST contain every Type which can be Serialized. It serves as the

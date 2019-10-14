@@ -1,71 +1,20 @@
 """Position Module: Dedicated to locations in three-dimensional Space."""
 
-from typing import Dict, Tuple
+from abc import ABC
+from typing import Tuple
 
 from astropy import units as u
 import numpy as np
 from vectormath import Vector3
 
+from .base import Clock, FrameOfReference
 from .geometry import NumpyVector, to_cylindrical, to_spherical
-from _abc import Clock, FrameOfReference
 
 
-class Position(FrameOfReference):
+class Position(FrameOfReference, ABC):
     """Position object: Track information as Vector3 and return transformations
         as requested.
     """
-
-    def __init__(
-        self,
-        pos: NumpyVector = (0, 0, 0),
-        vel: NumpyVector = (0, 0, 0),
-        *,
-        domain,
-        unit: u.Unit = u.meter,
-    ):
-        pos = (
-            pos if isinstance(pos, np.ndarray) else np.array(pos)
-        )  # Physical location.
-        vel = (
-            vel if isinstance(vel, np.ndarray) else np.array(vel)
-        )  # Change in location per second.
-
-        self._id: Dict[int, int] = {}
-
-        self.domain = domain
-        self.unit = unit
-
-        self._id[self.domain] = self.domain.register_coordinates(self, pos, vel)
-
-    @property
-    def position(self) -> Vector3:
-        """Go into the relevant Space structure and retrieve the Position that
-            is assigned to this FoR, and wrap it in a Vector3.
-        """
-        return Vector3(self.domain.arrays[0][self.id])
-
-    @position.setter
-    def position(self, v: np.ndarray):
-        """Transparently change the value of the Position assigned to this FoR.
-
-        If a Scalar is given, all values of the Array will be that value.
-        """
-        self.domain.arrays[0][self.id] = v
-
-    @property
-    def velocity(self) -> Vector3:
-        """Go into the relevant Space structure and retrieve the Velocity that
-            is assigned to this FoR, and wrap it in a Vector3.
-        """
-        return Vector3(self.domain.arrays[1][self.id])
-
-    @velocity.setter
-    def velocity(self, v: np.ndarray):
-        """Transparently change the value of the Velocity assigned to this FoR.
-
-        If a Scalar is given, all values of the Array will be that value.
-        """
-        self.domain.arrays[1][self.id] = v
 
     @property
     def position_pol(self) -> Tuple[float, float, float]:
@@ -91,20 +40,6 @@ class Position(FrameOfReference):
     def speed(self) -> float:
         return self.velocity.length
 
-    @property
-    def id(self) -> int:
-        return self._id[self.domain.index]
-
-    @id.setter
-    def id(self, v: int):
-        self._id[self.domain.index] = v
-
-    def increment(self, seconds: float):
-        self.increment_position(seconds)
-
-    def increment_position(self, seconds: float):
-        self.position += self.velocity * seconds
-
     def serialize(self):
         flat = {
             "type": type(self).__name__,
@@ -115,6 +50,49 @@ class Position(FrameOfReference):
             },
         }
         return flat
+
+
+class Pointer(Position):
+    def __init__(
+        self,
+        domain,
+        index: int,
+        *,
+        unit: u.Unit = u.meter,
+    ):
+        self.domain = domain
+        self.index: int = index
+        self.unit = unit
+
+    @property
+    def position(self) -> Vector3:
+        """Go into the relevant Space structure and retrieve the Position that
+            is assigned to this FoR, and wrap it in a Vector3.
+        """
+        return Vector3(self.domain.array_position[self.index])
+
+    @position.setter
+    def position(self, v: np.ndarray):
+        """Transparently change the value of the Position assigned to this FoR.
+
+        If a Scalar is given, all values of the Array will be that value.
+        """
+        self.domain.array_position[self.index] = v
+
+    @property
+    def velocity(self) -> Vector3:
+        """Go into the relevant Space structure and retrieve the Velocity that
+            is assigned to this FoR, and wrap it in a Vector3.
+        """
+        return Vector3(self.domain.array_velocity[self.index])
+
+    @velocity.setter
+    def velocity(self, v: np.ndarray):
+        """Transparently change the value of the Velocity assigned to this FoR.
+
+        If a Scalar is given, all values of the Array will be that value.
+        """
+        self.domain.array_velocity[self.index] = v
 
 
 class Virtual(Position):

@@ -4,17 +4,13 @@
 
 from quaternion.numpy_quaternion import quaternion
 
-from .geometry import break_rotor, get_rotor, Quat
-
 
 class Rotation(object):
-    def __init__(self, aim: Quat = (1, 0, 0, 0), rot: Quat = (1, 0, 0, 0)):
-        self.heading = (
-            aim if isinstance(aim, quaternion) else quaternion(*aim)
-        )  # Orientation.
-        self.rotate = (
-            rot if isinstance(rot, quaternion) else quaternion(*rot)
-        )  # Spin per second.
+    def __init__(self, aim: quaternion, rot: quaternion):
+        # Orientation.
+        self.heading = aim
+        # Spin per second.
+        self.rotate = rot
 
     def serialize(self):
         flat = {
@@ -25,9 +21,3 @@ class Rotation(object):
             },
         }
         return flat
-
-    def increment(self, seconds: float):
-        theta, vec = break_rotor(self.rotate)
-        theta *= seconds
-        rotate = get_rotor(theta, vec)
-        self.heading = rotate * self.heading

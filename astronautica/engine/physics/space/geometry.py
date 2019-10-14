@@ -3,7 +3,13 @@ from typing import Tuple, Type, Union
 
 from numba import jit
 import numpy as np
-from quaternion.numpy_quaternion import quaternion
+from quaternion import (
+    as_float_array,
+    as_rotation_vector,
+    from_float_array,
+    from_rotation_vector,
+    quaternion,
+)
 from vectormath import Vector3
 
 
@@ -84,7 +90,8 @@ def break_rotor(q: quaternion) -> Tuple[float, Vector3]:
 
 @jit(nopython=True)
 def rotate_vector(vector: Vector3, rotor: quaternion) -> Vector3:
-    """
+    """Rotate a Vector around a Rotor Quaternion.
+
     p' = q*p*(q^-1)
     https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
     """
@@ -92,6 +99,11 @@ def rotate_vector(vector: Vector3, rotor: quaternion) -> Vector3:
     qvec = rotor * p * rotor.inverse()
     vector_out = Vector3(*[round(x, 3) for x in qvec.vec])
     return vector_out
+
+
+@jit(nopython=True)
+def scale_rotors(quats, coeff: float):
+    return from_rotation_vector(as_rotation_vector(quats) * coeff)
 
 
 @jit(nopython=True)

@@ -66,13 +66,10 @@ class Spacetime:
 
             # Recalculate the Collisions which have not happened yet.
             collisions = collisions_until(target - passed)
-        # Repeat this until there are no Collisions to be simulated.
+            # Repeat this until there are no Collisions to be simulated.
 
         # Then, simulate the rest of the time.
         self.space.progress(target - passed)
-
-        for obj in self.index:
-            obj.frame.increment_rotation(target)
 
         return hits
 
