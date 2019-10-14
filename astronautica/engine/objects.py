@@ -5,10 +5,10 @@ from attr import asdict, attrs
 import numpy as np
 from vectormath import Vector3
 
-from .physics.collision import get_delta_v
-from .physics.units import UNITS_LOCAL
+from .collision import get_delta_v
 from .space import Coordinates, Space
 from .space.base import Node
+from .units import UNITS_LOCAL
 
 # from pytimer import Timer
 

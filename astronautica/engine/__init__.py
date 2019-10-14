@@ -10,10 +10,10 @@ from asyncio import CancelledError, sleep
 from datetime import datetime as dt, timedelta as td
 from inspect import isabstract, isawaitable
 from itertools import filterfalse
-from typing import Dict, Iterable, Iterator, List, Type, Union
+from typing import Dict, Iterable, Iterator, List, Type, Union, TypeVar, Tuple
 
+from .collision import find_collisions
 from .objects import Object
-from .physics import Spacetime
 from .space import Coordinates, Space
 from .space.base import Serial, Serializable
 from .world import MultiSystem, System
@@ -31,6 +31,8 @@ MAP: Dict[str, Type[...]] = {
 
 CB_PRE_TICK = set()
 CB_POST_TICK = set()
+
+O: Type = TypeVar("O")
 
 
 def deserialize(obj: Union[List[Serial], Serial]):
@@ -58,30 +60,104 @@ async def run_iter(it: Iterable):
             print(f"Callback {func!r} raised {type(e).__name__!r}:\n    {e}")
 
 
-async def run_world(st: Spacetime, turn_length: int = 300, echo=print):
-    try:
-        turn = td(seconds=turn_length)
-        start = dt.utcnow()
-        tick_latest = start.replace(minute=0, second=0, microsecond=0)
+class Spacetime:
+    def __init__(self, space_: Space = None):
+        self.space: Space = space_ or Space()
+        self.index: List[O] = []
 
-        while tick_latest < (start - turn):
-            tick_latest += turn
+    def add(self, obj: O):
+        """Add an Object to the Index of the Spacetime."""
+        self.index.append(obj)
 
-        while True:
-            tick_next = tick_latest + turn
-            await sleep((tick_next - dt.utcnow()).total_seconds())
+    def new(self, cls: Type[O] = O, *a, **kw) -> O:
+        """Create a new Instance of an Object. Arguments are passed directly to
+            the Object Instantiation. This Method handles adding the new
+            Instance to the Index of the Spacetime, and provides its Space
+            object to the appropriate Keyword Argument. It then returns the new
+            Object Instance.
+        """
+        kw["space"] = self.space
+        obj: O = cls(*a, **kw)
+        self.add(obj)
+        return obj
 
-            tick_latest = tick_next
-            echo(f"Simulating {turn_length} seconds...")
+    def _tick(self, target: float = 1, allow_collision: bool = True) -> int:
+        """Simulate the passing of time. The target amount should be one second
+            divided by a power of two.
+        """
+        key = lambda o: o[0]
 
-            await run_iter(CB_PRE_TICK)
-            st.progress(turn_length)
-            await run_iter(CB_POST_TICK)
+        def collisions_until(_time) -> List[Tuple[float, Tuple[O, O]]]:
+            return (
+                find_collisions(_time, self.index.copy(), self.index.copy())
+                if allow_collision
+                else []
+            )
 
-            echo("Simulation complete.")
+        collisions = collisions_until(target)
 
-    except CancelledError:
-        echo("Simulation Coroutine cancelled. Saving...")
-    finally:
-        # st.save_to_file()
-        echo("Spacetime Saved.")
+        hits: int = 0
+        passed: float = 0
+        while collisions:
+            # Find the soonest Collision.
+            time, (obj_a, obj_b) = min(collisions, key=key)
+
+            # Progress Time to the point of the soonest Collision.
+            self.space.progress(time - passed)
+            passed += time
+
+            # Simulate the Collision.
+            obj_a.collide_with(obj_b)
+            hits += 1
+            # Objects have now had their Velocities changed. Future Collisions
+            #   may no longer be valid.
+
+            # Recalculate the Collisions which have not happened yet.
+            collisions = collisions_until(target - passed)
+            # Repeat this until there are no Collisions to be simulated.
+
+        # Then, simulate the rest of the time.
+        self.space.progress(target - passed)
+        return hits
+
+    def progress(self, time: int, granularity: int = 2):
+        """Simulate the passing of time."""
+        if time == 0:
+            return
+        elif time < 0:
+            raise ValueError(
+                "Unfortunately the laws of thermodynamics prohibit time reversal."
+            )
+        elif granularity <= 0:
+            raise ValueError("Progression granularity must be greater than zero.")
+
+        for i in range(time * granularity):
+            self._tick(1 / granularity, True)
+
+    async def run_world(self, turn_length: int = 300, echo=print):
+        try:
+            turn = td(seconds=turn_length)
+            start = dt.utcnow()
+            tick_latest = start.replace(minute=0, second=0, microsecond=0)
+
+            while tick_latest < (start - turn):
+                tick_latest += turn
+
+            while True:
+                tick_next = tick_latest + turn
+                await sleep((tick_next - dt.utcnow()).total_seconds())
+
+                tick_latest = tick_next
+                echo(f"Simulating {turn_length} seconds...")
+
+                await run_iter(CB_PRE_TICK)
+                self.progress(turn_length)
+                await run_iter(CB_POST_TICK)
+
+                echo("Simulation complete.")
+
+        except CancelledError:
+            echo("Simulation Coroutine cancelled. Saving...")
+        finally:
+            # self.save_to_file()
+            echo("Spacetime Saved.")

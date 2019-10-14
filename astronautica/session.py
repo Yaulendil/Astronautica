@@ -3,8 +3,8 @@ from getpass import getuser
 from time import sleep
 
 from astronautica import config
-from astronautica.engine.physics import Spacetime
 from astronautica.util import astroio, paths
+from engine import Spacetime
 
 
 class Game:

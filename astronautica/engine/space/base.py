@@ -5,7 +5,7 @@ from astropy.units import Quantity
 from quaternion import quaternion
 from vectormath import Vector3
 
-from engine.physics.units import Units
+from ..units import Units
 from .geometry import from_cylindrical, from_spherical, to_cylindrical, to_spherical
 
 
