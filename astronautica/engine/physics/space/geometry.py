@@ -3,16 +3,22 @@ from typing import Tuple, Type, Union
 
 from numba import jit
 import numpy as np
-from quaternion import (
-    as_rotation_vector,
-    from_rotation_vector,
-    quaternion,
-)
+from quaternion import quaternion
 from vectormath import Vector3
 
 
 NumpyVector: Type = Union[np.ndarray, Tuple[float, float, float]]
 Quat: Type = Union[quaternion, Tuple[float, float, float, float]]
+
+
+EAST = Vector3(1, 0, 0)
+WEST = Vector3(-1, 0, 0)
+
+NORTH = Vector3(0, 1, 0)
+SOUTH = Vector3(0, -1, 0)
+
+ZENITH = Vector3(0, 0, 1)
+NADIR = Vector3(0, 0, -1)
 
 
 ###===---
@@ -97,11 +103,6 @@ def rotate_vector(vector: Vector3, rotor: quaternion) -> Vector3:
     qvec = rotor * p * rotor.inverse()
     vector_out = Vector3(*[round(x, 3) for x in qvec.vec])
     return vector_out
-
-
-@jit(nopython=True)
-def scale_rotors(quats, coeff: float):
-    return from_rotation_vector(as_rotation_vector(quats) * coeff)
 
 
 @jit(nopython=True)

@@ -19,16 +19,13 @@ Spherical Coordinates:
 from itertools import count
 from typing import Dict, List, Sequence, Optional
 
+from astropy import constants as const
+from numba import jit
 import numpy as np
-from quaternion import (
-    from_float_array,
-    quaternion,
-    from_rotation_vector,
-    as_rotation_vector,
-)
+from quaternion import as_float_array, from_float_array, quaternion
+from vectormath import Vector3
 
 from . import base, position, rotation
-from .geometry import NumpyVector, Quat, scale_rotors
 
 
 __all__ = ["base", "Coordinates", "LocalSpace", "position", "rotation", "Space"]
@@ -51,12 +48,12 @@ class Space(object):
             refers to.
         Bottom level is the three values for X, Y, and Z.
         """
-        self.array_position = np.ndarray((INITIAL_DOMAINS, INITIAL_OBJECTS, 3))
-        self.array_velocity = np.ndarray((INITIAL_DOMAINS, INITIAL_OBJECTS, 3))
-        self.array_heading = np.ndarray((INITIAL_DOMAINS, INITIAL_OBJECTS, 4))
-        self.array_rotate = np.ndarray((INITIAL_DOMAINS, INITIAL_OBJECTS, 4))
+        self.array_position = np.zeros((INITIAL_DOMAINS, INITIAL_OBJECTS, 3))
+        self.array_velocity = np.zeros((INITIAL_DOMAINS, INITIAL_OBJECTS, 3))
+        self.array_heading = np.zeros((INITIAL_DOMAINS, INITIAL_OBJECTS, 4))
+        self.array_rotate = np.zeros((INITIAL_DOMAINS, INITIAL_OBJECTS, 4))
 
-        self.domain_indices: Dict[int, List[int]] = {}
+        self.domains: Dict[int, List[int]] = {}
 
         if struct is not None:
             struct["positions"] = self.array_position
@@ -65,11 +62,11 @@ class Space(object):
             struct["headings"] = self.array_heading
             struct["rotations"] = self.array_rotate
 
-            struct["domains"] = self.domain_indices
+            struct["domains"] = self.domains
 
     @property
     def next_domain_index(self) -> int:
-        return next(i for i in count() if i not in self.domain_indices)
+        return next(i for i in count() if i not in self.domains)
 
     @property
     def quat_heading(self) -> np.ndarray:
@@ -87,7 +84,7 @@ class Space(object):
         next_domain: int = self.next_domain_index
 
         # Place a Zero in the ID Dict to represent the new, empty, Domain.
-        self.domain_indices[next_domain] = domain.used
+        self.domains[next_domain] = domain.used
 
         shape = self.array_position.shape
         while next_domain >= shape[0]:
@@ -96,16 +93,16 @@ class Space(object):
             #   To this end, initialize new Arrays of X Arrays of three Zeros,
             #   where X is the number of Object Slots required in the new Domain
             #   to maintain Shape.
-            self.array_position[:] = np.append(
+            self.array_position = np.append(
                 self.array_position, np.array([[[0, 0, 0]] * shape[1]]), 0
             )
-            self.array_velocity[:] = np.append(
+            self.array_velocity = np.append(
                 self.array_velocity, np.array([[[0, 0, 0]] * shape[1]]), 0
             )
-            self.array_heading[:] = np.append(
+            self.array_heading = np.append(
                 self.array_heading, np.array([[[0, 0, 0, 0]] * shape[1]]), 0
             )
-            self.array_rotate[:] = np.append(
+            self.array_rotate = np.append(
                 self.array_rotate, np.array([[[0, 0, 0, 0]] * shape[1]]), 0
             )
 
@@ -124,27 +121,29 @@ class Space(object):
         shape = self.array_position.shape
         while index >= shape[1]:
             # Increase the size of the Array along the Object axis.
-            self.array_position[:] = np.append(
+            self.array_position = np.append(
                 self.array_position, np.array([[[0, 0, 0]]] * shape[0]), 1
             )
-            self.array_velocity[:] = np.append(
+            self.array_velocity = np.append(
                 self.array_velocity, np.array([[[0, 0, 0]]] * shape[0]), 1
             )
-            self.array_heading[:] = np.append(
+            self.array_heading = np.append(
                 self.array_heading, np.array([[[0, 0, 0, 0]]] * shape[0]), 1
             )
-            self.array_rotate[:] = np.append(
+            self.array_rotate = np.append(
                 self.array_rotate, np.array([[[0, 0, 0, 0]]] * shape[0]), 1
             )
 
         frame.domain = domain
         return index
 
+    @jit(forceobj=True, nopython=False)
     def progress(self, time: float):
         self.array_position += self.array_velocity * time
-        self.quat_heading[:] = (
-            from_rotation_vector(as_rotation_vector(self.quat_rotate[1]) * time)
-            / self.quat_heading
+        self.array_heading = as_float_array(
+            # from_rotation_vector(as_rotation_vector(self.quat_rotate[1]) * time)
+            from_float_array(self.array_rotate * np.array((time, 1, 1, 1)))
+            * self.quat_heading
         )
 
 
@@ -156,14 +155,37 @@ class LocalSpace(object):
 
         self.index: int = self.space.add_domain(self)
 
-        self.array_position = self.space.array_position[self.index]
-        self.array_velocity = self.space.array_velocity[self.index]
-        self.array_heading = self.space.array_heading[self.index]
-        self.array_rotate = self.space.array_rotate[self.index]
+    @property
+    def array_position(self) -> Sequence[Vector3]:
+        return self.space.array_position[self.index]
+
+    @array_position.setter
+    def array_position(self, value: Sequence[Vector3]) -> None:
+        self.space.array_position[self.index] = value
 
     @property
-    def next_object_index(self) -> int:
-        return next(i for i in count() if i not in self.used)
+    def array_velocity(self) -> Sequence[Vector3]:
+        return self.space.array_velocity[self.index]
+
+    @array_velocity.setter
+    def array_velocity(self, value: Sequence[Vector3]) -> None:
+        self.space.array_velocity[self.index] = value
+
+    @property
+    def array_heading(self) -> Sequence[np.ndarray]:
+        return self.space.array_heading[self.index]
+
+    @array_heading.setter
+    def array_heading(self, value: Sequence[np.ndarray]) -> None:
+        self.space.array_heading[self.index] = value
+
+    @property
+    def array_rotate(self) -> Sequence[np.ndarray]:
+        return self.space.array_rotate[self.index]
+
+    @array_rotate.setter
+    def array_rotate(self, value: Sequence[np.ndarray]) -> None:
+        self.space.array_rotate[self.index] = value
 
     @property
     def quat_heading(self) -> Sequence[quaternion]:
@@ -172,6 +194,10 @@ class LocalSpace(object):
     @property
     def quat_rotate(self) -> Sequence[quaternion]:
         return from_float_array(self.array_rotate)
+
+    @property
+    def next_object_index(self) -> int:
+        return next(i for i in count() if i not in self.used)
 
     def add_frame(self, frame: "Coordinates", index: int = None) -> int:
         return self.space.add_frame_to_domain(self, frame, index)
@@ -182,6 +208,13 @@ class LocalSpace(object):
 
         self.space = None
         self.used.clear()
+
+    @jit(nopython=True)
+    def gravitate(self, mass: float):
+        self.array_velocity -= np.array(
+            np.linalg.norm(vec) * ((const.G * mass) / np.square(vec.length))
+            for vec in self.array_position
+        )
 
 
 class Coordinates(object):
