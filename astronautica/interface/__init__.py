@@ -11,7 +11,7 @@ from .client import Client
 from .commands import CommandRoot
 from .etc import T
 from config import cfg
-from engine import Coordinates, Object, run_world, Spacetime
+from engine import Coordinates, Galaxy, Object, Spacetime
 
 
 pattern_address = compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?")
@@ -62,7 +62,7 @@ def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
         )
 
         run = loop.create_task(server.run(loop))  # Start the Server.
-        world = loop.create_task(run_world(st))  # Start the World.
+        world = loop.create_task(st.run())  # Start the World.
 
         @cmd
         def close():
@@ -76,6 +76,9 @@ def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
         except CancelledError:
             cli.echo("Server closed.")
 
+        except Exception as e:
+            cli.echo(f"Server raised {type(e).__name__!r}: {e}")
+
         finally:
             world.cancel()
             for remote in server.remotes:
@@ -84,18 +87,40 @@ def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
             cmd.add(host)
             del cmd.commands["close"]
 
-    @cmd
-    def spawn(x="0", y="0", z="0") -> Union[Object, str]:
-        try:
-            new = Object(frame=Coordinates((float(x), float(y), float(z)), space=space))
-        except ValueError:
-            return "Cannot make arguments into numbers."
-        else:
-            return new
+    # @cmd
+    # def spawn(x="0", y="0", z="0") -> Union[Object, str]:
+    #     try:
+    #         new = Object(frame=Coordinates((float(x), float(y), float(z)), space=space))
+    #     except ValueError:
+    #         return "Cannot make arguments into numbers."
+    #     else:
+    #         return new
+
+    # @cmd
+    # def ls():
+    #     yield from iter(st.index)
 
     @cmd
-    def ls():
-        yield from iter(st.index)
+    def g():
+        ...
+
+    @g.sub
+    async def new():
+        yield "Generating..."
+        st.world = Galaxy.generate((1.4, 1, 0.2), arms=3)
+        yield "New Galaxy Generated."
+
+    @g.sub
+    async def load(path: str):
+        yield "Loading..."
+        st.world = Galaxy.from_file(path)
+        yield f"Loaded {st.world.stars.shape} stars."
+
+    @g.sub
+    async def save(path: str):
+        yield "Saving..."
+        st.world.save(path)
+        yield "Galaxy Saved."
 
 
 def setup_client(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
@@ -127,8 +152,13 @@ def setup_client(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
 
         try:
             await ipc.listening
+
         except CancelledError:
             cli.echo("Connection closed.")
+
+        except Exception as e:
+            cli.echo(f"Connection failed with {type(e).__name__!r}: {e}")
+
         finally:
             await ipc.disconnect()
 

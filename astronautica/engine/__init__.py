@@ -9,14 +9,13 @@ The Engine Package contains most of the "moving parts" of the Game World. It
 from asyncio import CancelledError, sleep
 from datetime import datetime as dt, timedelta as td
 from inspect import isabstract, isawaitable
-from itertools import filterfalse
-from typing import Dict, Iterable, Iterator, List, Type, Union, TypeVar, Tuple
+from typing import Dict, Iterable, Iterator, List, Tuple, Type, Union
 
 from .collision import find_collisions
 from .objects import Object
 from .space import Coordinates, Space
-from .space.base import Serial, Serializable
-from .world import MultiSystem, System
+from .space.base import Clock, Serial, Serializable
+from .world import Galaxy, MultiSystem, System
 
 
 def get_subs(t: type) -> Iterator[type]:
@@ -25,14 +24,12 @@ def get_subs(t: type) -> Iterator[type]:
 
 # Recursively check for Subclasses to map out all Types that should implement a
 #   .from_serial() Classmethod.
-MAP: Dict[str, Type[...]] = {
-    t.__name__: t for t in filterfalse(isabstract, get_subs(Serializable))
+MAP: Dict[str, Type[Serializable]] = {
+    t.__name__: t for t in get_subs(Serializable) if not isabstract(t)
 }
 
 CB_PRE_TICK = set()
 CB_POST_TICK = set()
-
-O: Type = TypeVar("O")
 
 
 def deserialize(obj: Union[List[Serial], Serial]):
@@ -61,25 +58,26 @@ async def run_iter(it: Iterable):
 
 
 class Spacetime:
-    def __init__(self, space_: Space = None):
+    def __init__(self, space_: Space = None, world_: Galaxy = None):
+        # self.index: List[Object] = []
         self.space: Space = space_ or Space()
-        self.index: List[O] = []
+        self.world: Galaxy = world_  # or Galaxy.generate((1.4, 1, 0.2), arms=3)
 
-    def add(self, obj: O):
-        """Add an Object to the Index of the Spacetime."""
-        self.index.append(obj)
-
-    def new(self, cls: Type[O] = O, *a, **kw) -> O:
-        """Create a new Instance of an Object. Arguments are passed directly to
-            the Object Instantiation. This Method handles adding the new
-            Instance to the Index of the Spacetime, and provides its Space
-            object to the appropriate Keyword Argument. It then returns the new
-            Object Instance.
-        """
-        kw["space"] = self.space
-        obj: O = cls(*a, **kw)
-        self.add(obj)
-        return obj
+    # def add(self, obj: Object):
+    #     """Add an Object to the Index of the Spacetime."""
+    #     self.index.append(obj)
+    #
+    # def new(self, cls: Type[Object] = Object, *a, **kw) -> Object:
+    #     """Create a new Instance of an Object. Arguments are passed directly to
+    #         the Object Instantiation. This Method handles adding the new
+    #         Instance to the Index of the Spacetime, and provides its Space
+    #         object to the appropriate Keyword Argument. It then returns the new
+    #         Object Instance.
+    #     """
+    #     kw["space"] = self.space
+    #     obj: Object = cls(*a, **kw)
+    #     self.add(obj)
+    #     return obj
 
     def _tick(self, target: float = 1, allow_collision: bool = True) -> int:
         """Simulate the passing of time. The target amount should be one second
@@ -87,7 +85,7 @@ class Spacetime:
         """
         key = lambda o: o[0]
 
-        def collisions_until(_time) -> List[Tuple[float, Tuple[O, O]]]:
+        def collisions_until(_time) -> List[Tuple[float, Tuple[Object, Object]]]:
             return (
                 find_collisions(_time, self.index.copy(), self.index.copy())
                 if allow_collision
@@ -110,11 +108,10 @@ class Spacetime:
             obj_a.collide_with(obj_b)
             hits += 1
             # Objects have now had their Velocities changed. Future Collisions
-            #   may no longer be valid.
-
-            # Recalculate the Collisions which have not happened yet.
+            #   may no longer be valid, so recalculate the Collisions which have
+            #   not happened yet.
             collisions = collisions_until(target - passed)
-            # Repeat this until there are no Collisions to be simulated.
+            # Repeat this until there are no Collisions left to be simulated.
 
         # Then, simulate the rest of the time.
         self.space.progress(target - passed)
@@ -126,7 +123,7 @@ class Spacetime:
             return
         elif time < 0:
             raise ValueError(
-                "Unfortunately the laws of thermodynamics prohibit time reversal."
+                "Unfortunately, the laws of thermodynamics prohibit time reversal."
             )
         elif granularity <= 0:
             raise ValueError("Progression granularity must be greater than zero.")
@@ -134,7 +131,7 @@ class Spacetime:
         for i in range(time * granularity):
             self._tick(1 / granularity, True)
 
-    async def run_world(self, turn_length: int = 300, echo=print):
+    async def run(self, turn_length: int = 300, echo=print):
         try:
             turn = td(seconds=turn_length)
             start = dt.utcnow()
