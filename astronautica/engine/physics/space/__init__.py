@@ -19,7 +19,6 @@ Spherical Coordinates:
 from itertools import count
 from typing import Dict, List, Sequence
 
-from dataclasses import dataclass
 import numpy as np
 from quaternion import from_float_array, quaternion
 
@@ -35,18 +34,10 @@ INITIAL_DOMAINS = 5
 INITIAL_OBJECTS = 10
 
 
-@dataclass
-class _Coords(object):
-    position: NumpyVector
-    velocity: NumpyVector
-    heading: Quat
-    rotate: Quat
-
-
 class Space(object):
     """Coordinates tracker/handler object."""
 
-    def __init__(self):
+    def __init__(self, struct: dict = None):
         """Initialize positions and velocities to be ndarrays, three dimensions
             deep.
 
@@ -62,6 +53,15 @@ class Space(object):
         self.array_rotate = np.ndarray((INITIAL_DOMAINS, INITIAL_OBJECTS, 4))
 
         self.domain_indices: Dict[int, List[int]] = {}
+
+        if struct is not None:
+            struct["positions"] = self.array_position
+            struct["velocities"] = self.array_velocity
+
+            struct["headings"] = self.array_heading
+            struct["rotations"] = self.array_rotate
+
+            struct["domains"] = self.domain_indices
 
     @property
     def next_domain_index(self) -> int:
@@ -190,18 +190,6 @@ class Coordinates(object):
         self.domain: LocalSpace = domain
         self.index: int = self.domain.add_frame(self, index)
         self._position = self._rotation = None
-
-    @property
-    def flat(self) -> _Coords:
-        """Return a "flattened" version of this Coordinates Object, boiled down
-            into a minimal Dataclass.
-        """
-        return _Coords(
-            self._position.position,
-            self._position.velocity,
-            self._rotation.heading,
-            self._rotation.rotate,
-        )
 
     def set_posrot(self, pos: Position, rot: rotation.Rotation):
         self._position: Position = pos
