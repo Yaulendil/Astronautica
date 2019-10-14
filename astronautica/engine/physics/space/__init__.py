@@ -24,11 +24,11 @@ import numpy as np
 from quaternion import from_float_array, quaternion
 
 from . import position, rotation
-from .base import Clock, Domain, FrameOfReference, Node
+from .base import Clock, Domain, Node, Position
 from .geometry import NumpyVector, Quat, scale_rotors
 
 
-__all__ = ["Clock", "Coordinates", "FrameOfReference", "LocalSpace", "Node", "Space"]
+__all__ = ["Clock", "Coordinates", "LocalSpace", "Node", "Position", "Space"]
 
 
 INITIAL_DOMAINS = 5
@@ -203,8 +203,8 @@ class Coordinates(object):
             self._rotation.rotate,
         )
 
-    def set_posrot(self, pos: FrameOfReference, rot: rotation.Rotation):
-        self._position: FrameOfReference = pos
+    def set_posrot(self, pos: Position, rot: rotation.Rotation):
+        self._position: Position = pos
         self._rotation: rotation.Rotation = rot
 
         def dset(newdomain: LocalSpace):
