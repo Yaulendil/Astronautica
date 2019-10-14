@@ -2,22 +2,52 @@
     Space.
 """
 
-from quaternion.numpy_quaternion import quaternion
+from quaternion import quaternion
+
+from .base import Rotation
 
 
-class Rotation(object):
+class Pointer(Rotation):
+    def __init__(self, domain, index: int):
+        self.domain = domain
+        self.index: int = index
+
+    @property
+    def heading(self) -> quaternion:
+        return self.domain.quat_heading[self.index]
+
+    @heading.setter
+    def heading(self, value: quaternion) -> None:
+        self.domain.quat_heading[self.index] = value
+
+    @property
+    def rotate(self) -> quaternion:
+        return self.domain.quat_rotate[self.index]
+
+    @rotate.setter
+    def rotate(self, value: quaternion) -> None:
+        self.domain.quat_rotate[self.index] = value
+
+
+class Virtual(Rotation):
     def __init__(self, aim: quaternion, rot: quaternion):
         # Orientation.
-        self.heading = aim
+        self._heading = aim
         # Spin per second.
-        self.rotate = rot
+        self._rotate = rot
 
-    def serialize(self):
-        flat = {
-            "type": type(self).__name__,
-            "data": {
-                "hdg": [self.heading.w, *self.heading.vec],
-                "rot": [self.rotate.w, *self.rotate.vec],
-            },
-        }
-        return flat
+    @property
+    def heading(self) -> quaternion:
+        return self._heading
+
+    @heading.setter
+    def heading(self, value: quaternion) -> None:
+        self._heading = value
+
+    @property
+    def rotate(self) -> quaternion:
+        return self._rotate
+
+    @rotate.setter
+    def rotate(self, value: quaternion) -> None:
+        self._rotate = value

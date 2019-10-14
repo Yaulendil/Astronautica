@@ -5,17 +5,10 @@ import numpy as np
 from vectormath import Vector3
 
 from .base import Position
-from .geometry import NumpyVector
 
 
 class Pointer(Position):
-    def __init__(
-        self,
-        domain,
-        index: int,
-        *,
-        unit: u.Unit = u.meter,
-    ):
+    def __init__(self, domain, index: int, *, unit: u.Unit = u.meter):
         self.domain = domain
         self.index: int = index
         self.unit = unit
@@ -56,41 +49,33 @@ class Virtual(Position):
         transformations as requested, WITHOUT registering into a Space.
     """
 
-    # noinspection PyMissingConstructor
     def __init__(
         self,
-        pos: NumpyVector = (0, 0, 0),
-        vel: NumpyVector = (0, 0, 0),
+        pos: Vector3 = Vector3(0, 0, 0),
+        vel: Vector3 = Vector3(0, 0, 0),
         *,
         unit: u.Unit = u.meter,
     ):
-        self.position = Vector3(
-            pos if isinstance(pos, np.ndarray) else np.array(pos)
-        )  # Physical location.
-        self.velocity = Vector3(
-            vel if isinstance(vel, np.ndarray) else np.array(vel)
-        )  # Change in location per second.
+        # Physical location.
+        self._pos: Vector3 = pos
+        # Change in location per second.
+        self._vel: Vector3 = vel
 
         self.domain = None
-        self.space = None
         self.unit = unit
-
-        self.id = None
 
     @property
     def position(self) -> Vector3:
         return self._pos
 
     @position.setter
-    def position(self, v: np.ndarray):
-        self._pos = Vector3(v)
+    def position(self, value: np.ndarray):
+        self._pos: Vector3 = Vector3(value)
 
     @property
     def velocity(self) -> Vector3:
         return self._vel
 
     @velocity.setter
-    def velocity(self, v: np.ndarray):
-        self._vel = Vector3(v)
-
-
+    def velocity(self, value: np.ndarray):
+        self._vel: Vector3 = Vector3(value)

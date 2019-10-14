@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, NewType, Tuple, Type, TypeVar, Union
 
 from astropy.units import Quantity
+from quaternion import quaternion
 from vectormath import Vector3
 
 from engine.physics.units import Units
@@ -139,7 +140,38 @@ class Position(ABC):
             "data": {
                 "pos": list(self.position),
                 "vel": list(self.velocity),
-                "domain": self.domain,
+            },
+        }
+        return flat
+
+
+class Rotation(ABC):
+    @property
+    @abstractmethod
+    def heading(self) -> quaternion:
+        ...
+
+    @heading.setter
+    @abstractmethod
+    def heading(self, value: quaternion) -> None:
+        ...
+
+    @property
+    @abstractmethod
+    def rotate(self) -> quaternion:
+        ...
+
+    @rotate.setter
+    @abstractmethod
+    def rotate(self, value: quaternion) -> None:
+        ...
+
+    def serialize(self):
+        flat = {
+            "type": type(self).__name__,
+            "data": {
+                "hdg": list(self.heading),
+                "rot": list(self.rotate),
             },
         }
         return flat

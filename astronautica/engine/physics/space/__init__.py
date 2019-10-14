@@ -22,12 +22,11 @@ from typing import Dict, List, Sequence
 import numpy as np
 from quaternion import from_float_array, quaternion
 
-from . import position, rotation
-from .base import Clock, Domain, Node, Position
+from . import base, position, rotation
 from .geometry import NumpyVector, Quat, scale_rotors
 
 
-__all__ = ["Clock", "Coordinates", "LocalSpace", "Node", "Position", "Space"]
+__all__ = ["base", "Coordinates", "LocalSpace", "position", "rotation", "Space"]
 
 
 INITIAL_DOMAINS = 5
@@ -142,7 +141,7 @@ class Space(object):
 
 
 class LocalSpace(object):
-    def __init__(self, master: Domain, space: Space):
+    def __init__(self, master: base.Domain, space: Space):
         self.master = master
         self.space: Space = space
         self.used: List[int] = []
@@ -182,18 +181,19 @@ class Coordinates(object):
         paired with a Rotation.
     """
 
-    def __init__(
-        self,
-        domain: LocalSpace,
-        index: int = None,
-    ):
+    def __init__(self, domain: LocalSpace, add_values: bool = True):
         self.domain: LocalSpace = domain
-        self.index: int = self.domain.add_frame(self, index)
-        self._position = self._rotation = None
+        self.index: int = self.domain.add_frame(self)
 
-    def set_posrot(self, pos: Position, rot: rotation.Rotation):
-        self._position: Position = pos
-        self._rotation: rotation.Rotation = rot
+        if add_values:
+            self._position: base.Position = position.Pointer(self.domain, self.index)
+            self._rotation: base.Rotation = rotation.Pointer(self.domain, self.index)
+        else:
+            self._position = self._rotation = None
+
+    def set_posrot(self, pos: base.Position, rot: base.Rotation):
+        self._position: base.Position = pos
+        self._rotation: base.Rotation = rot
 
         def dset(newdomain: LocalSpace):
             self.domain = newdomain
@@ -217,7 +217,7 @@ class Coordinates(object):
                 self._position.position - pov._position.position,
                 self._position.velocity - pov._position.velocity,
             ),
-            rotation.Rotation(
+            rotation.Virtual(
                 self._rotation.heading / pov._rotation.heading,
                 self._rotation.rotate / pov._rotation.heading,
             ),
