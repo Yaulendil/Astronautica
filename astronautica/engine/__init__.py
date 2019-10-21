@@ -47,6 +47,17 @@ def deserialize(obj: Union[List[Serial], Serial]):
         return None
 
 
+def is_power_of_2(n: int) -> bool:
+    i = 0
+    p = 0
+
+    while n > p:
+        p = 2 ** i
+        i += 1
+
+    return n == p
+
+
 async def run_iter(it: Iterable):
     for func in it:
         try:
@@ -123,10 +134,12 @@ class Spacetime:
             return
         elif time < 0:
             raise ValueError(
-                "Unfortunately, the laws of thermodynamics prohibit time reversal."
+                "Unfortunately, the Laws of Thermodynamics prohibit time reversal."
             )
         elif granularity <= 0:
-            raise ValueError("Progression granularity must be greater than zero.")
+            raise ValueError("Progression Granularity must be greater than zero.")
+        elif not is_power_of_2(granularity):
+            raise ValueError("Progression Granularity must be an integral power of 2.")
 
         for i in range(time * granularity):
             self._tick(1 / granularity, True)
