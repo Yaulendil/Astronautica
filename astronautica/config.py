@@ -1,19 +1,6 @@
-working_dir = "/astronautica"
-turn_length = 300  # Seconds
-
-cmd_prompt = "{c}{u}@{h}\033[0m:\033[94m{p}\033[0m$ "
-cmd_aliases = {"quit": "exit", "logout": "exit", "nav": "navigation", "wep": "weapons"}
-
-class Scan:
-    result_none = "Telemetry includes no {}."
-    indent = 3
-    display_attr = ["radius", "mass", "coords"]
-    decimals = 3
-
-
 from pathlib import Path
 from sys import argv
-from typing import Any, Sequence
+from typing import Any, Sequence, Tuple, Union
 
 import yaml
 
@@ -77,6 +64,12 @@ class Config(object):
                     f"Config option '{'.'.join(route)}' is of incorrect type:"
                     f" Wanted '{enforce}', got '{type(here)}'"
                 )
+
+    def __getitem__(self, key: Union[str, Tuple[str]]):
+        if isinstance(key, str):
+            return self.get(key)
+        elif isinstance(key, Sequence):
+            return self.get(*key)
 
 
 cfg = Config()

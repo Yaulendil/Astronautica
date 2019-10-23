@@ -22,6 +22,7 @@ from ptterm import Terminal
 from .commands import CommandRoot
 from .etc import keys, STYLE, unstyle
 from .execution import execute_function
+from config import cfg
 
 
 class Mode(Enum):
@@ -112,12 +113,16 @@ class Client(object):
         mode = cycle(Mode)
         self.state: Mode = next(mode)
 
-        @self.kb.add("tab")
+        @self.kb.add("s-tab")
         def nextmode(*_) -> None:
             self.state = next(mode)
 
         # Create a Prompt Object with initial values.
-        self.prompt = Prompt("nobody", "ingress", "/login")
+        self.prompt = Prompt(
+            cfg["interface/initial/user", "nobody"],
+            cfg["interface/initial/host", "ingress"],
+            cfg["interface/initial/wdir", "/login"],
+        )
 
         # Build the UI.
         self.bar = FormattedTextControl("asdf qwert")

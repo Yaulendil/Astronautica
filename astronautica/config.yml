@@ -1,4 +1,8 @@
 interface:
+  initial:
+    user: "nobody"
+    host: "ingress"
+    wdir: "/login"
   style:
     etc: ""
     hostname: fg:ansicyan
@@ -8,3 +12,13 @@ connection:
   address: 127.0.0.1
   port: 1729
   deny_custom_server: true
+
+data:
+  directory: data/
+
+game:
+  turnlength: 300
+
+telemetry:
+  decimal: 3
+  indent: 3

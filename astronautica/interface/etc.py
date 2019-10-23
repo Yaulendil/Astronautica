@@ -12,7 +12,7 @@ from config import cfg
 
 N = FormattedText([("class:etc", "\n")])
 NNN = repeat(("class:etc", "\n"))
-STYLE = Style(list(cfg.get("interface/style").items()))
+STYLE = Style(list(cfg.get("interface/style", required=True).items()))
 
 T = Terminal()
 
