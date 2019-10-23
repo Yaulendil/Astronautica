@@ -1,8 +1,9 @@
 from collections import deque
 from itertools import compress
-from typing import Deque, Sequence, Tuple
+from typing import Deque, Sequence, Tuple, Dict
 
-from .. import Coordinates, Object
+from ..objects import Object
+from ..space import Coordinates
 from .subsystem import Section
 
 
@@ -14,7 +15,7 @@ class Vessel(object):
         self.obj: Object = obj
         self.orders: Deque[str] = deque()
 
-        self.sections = {}
+        self.sections: Dict[str, Section] = {}
         for sys in sections:
             name__ = type(sys).__name__
 
@@ -22,6 +23,30 @@ class Vessel(object):
                 raise ValueError("Multiple {!r} Subsystems".format(name__))
             else:
                 self.sections[name__] = sys
+
+    @property
+    def crew(self) -> int:
+        return sum(sec.staff.crew for sec in self.sections.values())
+
+    @property
+    def crew_hurt(self) -> int:
+        return sum(sec.staff.crew_hurt for sec in self.sections.values())
+
+    @property
+    def crew_dead(self) -> int:
+        return sum(sec.staff.crew_dead for sec in self.sections.values())
+
+    @property
+    def equip(self) -> int:
+        return sum(sec.staff.equip for sec in self.sections.values())
+
+    @property
+    def equip_damaged(self) -> int:
+        return sum(sec.staff.equip_damaged for sec in self.sections.values())
+
+    @property
+    def equip_destroy(self) -> int:
+        return sum(sec.staff.equip_destroy for sec in self.sections.values())
 
     @property
     def frame(self) -> Coordinates:
