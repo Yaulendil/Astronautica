@@ -1,9 +1,11 @@
 """Interface Package: Command line Client and all integrations with Engine."""
 
 from asyncio import AbstractEventLoop, sleep, CancelledError
+from pathlib import Path
 from re import compile
 from time import sleep as sleep2
 from typing import Tuple, Union
+from uuid import UUID
 
 from ezipc.util import P
 
@@ -14,6 +16,7 @@ from config import cfg
 from engine import Coordinates, Galaxy, Object, Spacetime
 
 
+DATA_DIR = Path(cfg["data/directory"])
 pattern_address = compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?")
 
 
@@ -86,6 +89,8 @@ def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
 
             cmd.add(host)
             del cmd.commands["close"]
+            if st.world:
+                st.world.save()
 
     # @cmd
     # def spawn(x="0", y="0", z="0") -> Union[Object, str]:
@@ -113,14 +118,18 @@ def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
     @g.sub
     async def load(path: str):
         yield "Loading..."
-        st.world = Galaxy.from_file(path)
+        st.world = Galaxy.from_file(DATA_DIR / path)
         yield f"Loaded {st.world.stars.shape} stars."
 
     @g.sub
-    async def save(path: str):
+    async def save(path: str = None):
         yield "Saving..."
-        st.world.save(path)
-        yield "Galaxy Saved."
+        yield "Galaxy Saved in: {}".format(
+        st.world.save(path and (DATA_DIR / path)))
+
+    @g.sub
+    async def rand():
+        yield repr(st.world.load_system(UUID(int=st.world.system_random()[3])))
 
 
 def setup_client(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):

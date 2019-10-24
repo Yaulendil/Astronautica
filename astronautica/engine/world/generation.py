@@ -155,3 +155,7 @@ def generate_galaxy(
         arm_arrays = np.concatenate(arm_arrays) if arm_arrays else np.array([])
 
     return [x for x in (core, cloud, cluster_arrays, arm_arrays) if len(x) > 0]
+
+
+def generate_system() -> dict:
+    return {"asdf": "qwert"}

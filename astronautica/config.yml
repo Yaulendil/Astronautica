@@ -15,6 +15,9 @@ connection:
 
 data:
   directory: data/
+  meta: meta.yml
+  obj: objects.json
+  stars: STARS
 
 game:
   turnlength: 300

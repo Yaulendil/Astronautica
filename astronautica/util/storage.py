@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import pickle
 import shutil
+from typing import Union
 
 
 class PersistentDict(dict):
@@ -28,7 +29,7 @@ class PersistentDict(dict):
 
     def __init__(
         self,
-        filename: str,
+        filepath: Union[Path, str],
         flag: str = "c",
         mode: int = None,
         fmt: str = "pickle",
@@ -38,9 +39,9 @@ class PersistentDict(dict):
         self.flag = flag  # r=readonly, c=create, or n=new
         self.mode = mode  # None or an octal triple like 0644 (As Int: 0o0644)
         self.format = fmt  # 'csv', 'json', or 'pickle'
-        self.path = Path(filename)
+        self.path = Path(filepath)
 
-        if flag != "n" and os.access(filename, os.R_OK):
+        if flag != "n" and os.access(str(filepath), os.R_OK):
             with self.path.open("rb" if fmt == "pickle" else "r") as fd:
                 self.load(fd)
 
