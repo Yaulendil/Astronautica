@@ -130,42 +130,43 @@ def _find_collision(
 
 @jit(forceobj=True, nopython=False)
 def find_collisions(
-    seconds: float, list_a: List[Object], list_b: List[Object]
+    seconds: float, objs: List[Tuple[List[Object], List[Object]]]
 ) -> List[Tuple[float, Tuple[Object, Object]]]:
     collisions: List[Tuple[float, Tuple[Object, Object]]] = []
 
-    for obj_a in list_a[-1:0:-1]:
-        list_b.pop(-1)
-        start_a = obj_a.frame.position
-        end_a = obj_a.frame.position + obj_a.frame.velocity * seconds
+    for list_a, list_b in objs:
+        for obj_a in list_a[-1:0:-1]:
+            list_b.pop(-1)
+            start_a = obj_a.frame.position
+            end_a = obj_a.frame.position + obj_a.frame.velocity * seconds
 
-        for obj_b in list_b:
-            if obj_a.frame.domain != obj_b.frame.domain:
-                continue
-            start_b = obj_b.frame.position
-            contact = obj_a.radius + obj_b.radius
+            for obj_b in list_b:
+                if obj_a.frame.domain != obj_b.frame.domain:
+                    continue
+                start_b = obj_b.frame.position
+                contact = obj_a.radius + obj_b.radius
 
-            if (start_a - start_b).length < contact:
-                continue
+                if (start_a - start_b).length < contact:
+                    continue
 
-            end_b = obj_b.frame.position + obj_b.frame.velocity * seconds
-            nearest_a, nearest_b, proximity = distance_between_lines(
-                start_a, end_a, start_b, end_b
-            )
-
-            if proximity < contact:
-                # Objects look like they might collide.
-                impact = _find_collision(
-                    obj_a.frame.position,
-                    obj_a.frame.velocity,
-                    obj_b.frame.position,
-                    obj_b.frame.velocity,
-                    0.0,
-                    seconds,
-                    contact,
+                end_b = obj_b.frame.position + obj_b.frame.velocity * seconds
+                nearest_a, nearest_b, proximity = distance_between_lines(
+                    start_a, end_a, start_b, end_b
                 )
-                if impact is not False:
-                    collisions.append((impact, (obj_a, obj_b)))
+
+                if proximity < contact:
+                    # Objects look like they might collide.
+                    impact = _find_collision(
+                        obj_a.frame.position,
+                        obj_a.frame.velocity,
+                        obj_b.frame.position,
+                        obj_b.frame.velocity,
+                        0.0,
+                        seconds,
+                        contact,
+                    )
+                    if impact is not False:
+                        collisions.append((impact, (obj_a, obj_b)))
 
     return collisions
 

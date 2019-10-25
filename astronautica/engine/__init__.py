@@ -7,16 +7,17 @@ The Engine Package contains most of the "moving parts" of the Game World. It
 """
 
 from asyncio import CancelledError, sleep
+from collections import defaultdict
 from datetime import datetime as dt, timedelta as td
 from inspect import isawaitable
 from sys import stderr
 from time import time
-from typing import Iterable, List, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 from .collision import find_collisions
 from .objects import Object
 from .serial import deserialize, Serial, Serializable
-from .space import Coordinates, Space
+from .space import Coordinates, LocalSpace, Space
 from .world import Clock, Galaxy, MultiSystem, System
 
 
@@ -42,7 +43,9 @@ async def run_iter(it: Iterable):
             while isawaitable(result):
                 result = await result
         except Exception as e:
-            print(f"Callback {func!r} raised {type(e).__name__!r}:\n    {e}", file=stderr)
+            print(
+                f"Callback {func!r} raised {type(e).__name__!r}:\n    {e}", file=stderr
+            )
 
 
 class RealTime(Clock):
@@ -79,11 +82,7 @@ class Spacetime:
         key = lambda o: o[0]
 
         def collisions_until(_time) -> List[Tuple[float, Tuple[Object, Object]]]:
-            return (
-                find_collisions(_time, self.index.copy(), self.index.copy())
-                if allow_collision
-                else []
-            )
+            return find_collisions(_time, self.objects) if allow_collision else []
 
         collisions = collisions_until(target)
 
@@ -109,6 +108,20 @@ class Spacetime:
         # Then, simulate the rest of the time.
         self.space.progress(target - passed)
         return hits
+
+    @property
+    def index(self) -> Dict[LocalSpace, List[Object]]:
+        out: Dict[LocalSpace, List[Object]] = defaultdict(list)
+
+        for obj in Object.ALL:
+            if obj.frame.domain:
+                out[obj.frame.domain].append(obj)
+
+        return out
+
+    @property
+    def objects(self) -> List[Tuple[List[Object], List[Object]]]:
+        return [(l, l.copy()) for l in self.index.values()]
 
     def progress(self, seconds: int, granularity: int = 2):
         """Simulate the passing of time."""

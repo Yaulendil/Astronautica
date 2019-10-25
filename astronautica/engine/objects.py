@@ -1,5 +1,5 @@
 """Module implementing the Base Class for all Objects which reside in Space."""
-from typing import Tuple
+from typing import Tuple, Set
 
 from astropy import units as u
 from attr import asdict, attrs
@@ -17,6 +17,8 @@ __all__ = ["Object"]
 
 
 class Object(Node):
+    ALL: Set["Object"] = set()
+
     @attrs
     class Data:
         radius: int = 100
@@ -26,6 +28,8 @@ class Object(Node):
     def __init__(self, data: dict = None, frame: Coordinates = None):
         self.data = self.Data(**(data or {}))
         self.frame = frame
+
+        self.ALL.add(self)
 
     @property
     def mass(self):
@@ -102,11 +106,13 @@ class Object(Node):
         pass
 
     def clone(self: "Object") -> "Object":
-        c = type(self)(
-            asdict(self.data),
-            self.frame.clone(),
-        )
+        c = type(self)(asdict(self.data), self.frame.clone())
         return c
+
+    def unlink(self):
+        if self in self.ALL:
+            self.ALL.remove(self)
+        self.frame.detach()
 
     def serialize(self):
         flat = {
