@@ -102,15 +102,16 @@ class Galaxy(object):
             return False
 
     def unload_all(self) -> int:
-        return sum(x and 1 or 0 for x in map(self.unload_system, self.loaded))
+        return sum(1 for x in map(self.unload_system, self.loaded) if x)
 
     def render(self, *a, **kw):
         render(self.stars[..., :3], *a, **kw)
 
-    def save(self, path: Union[Path, str] = None) -> Path:
-        if path is not None:
-            self.gdir = Path(path)
+    def rename(self, path: Path):
+        self.gdir.rename(path)
+        self.gdir = path
 
+    def save(self):
         p_data = self.gdir / cfg["data/meta", "meta.yml"]
         p_stars = self.gdir / cfg["data/stars", "STARS"]
         self.ensure()

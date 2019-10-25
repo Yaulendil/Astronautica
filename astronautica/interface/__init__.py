@@ -122,10 +122,17 @@ def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
         yield f"Loaded {st.world.stars.shape} stars."
 
     @g.sub
-    async def save(path: str = None):
+    async def rename(path: str = None):
+        path = DATA_DIR / path
+        st.world.rename(path)
+        return f"Galaxy Renamed. New location: {path}"
+
+    @g.sub
+    async def save():
         yield "Saving..."
+        st.world.save()
         yield "Galaxy Saved in: {}".format(
-        st.world.save(path and (DATA_DIR / path)))
+        st.world.gdir)
 
     @g.sub
     async def rand():

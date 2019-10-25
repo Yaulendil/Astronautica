@@ -26,10 +26,10 @@ from config import cfg
 
 
 class Mode(Enum):
+    OFF = auto()
     SCOPES = auto()
     SCANS = auto()
     ORDERS = auto()
-    OFF = auto()
 
 
 class Prompt(object):
@@ -108,7 +108,7 @@ class Client(object):
         self.TASKS: List[Task] = []
 
         self.read_only = False
-        self.kb = keys()
+        self.kb = keys(self)
         # noinspection PyTypeChecker
         mode = cycle(Mode)
         self.state: Mode = next(mode)

@@ -79,7 +79,10 @@ def unformat(text: FormattedText) -> str:
 
 
 def keys(
-    given: Dict[str, Callable[[Event], Any]] = None, *, bind_defaults: bool = True
+    client,
+    given: Dict[str, Callable[[Event], Any]] = None,
+    *,
+    bind_defaults: bool = True
 ) -> KeyBindings:
     kb = KeyBindings()
 
@@ -92,8 +95,9 @@ def keys(
 
         @kb.add("c-d")
         def eof(event):
-            """Ctrl-Q: Exit program."""
-            event.app.exit(exception=EOFError)
+            """Ctrl-D: Exit program, but only if waiting for input."""
+            if not client.read_only:
+                event.app.exit(exception=EOFError)
 
         @kb.add("c-q")
         def close(event):
