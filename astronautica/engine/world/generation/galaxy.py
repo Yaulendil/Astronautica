@@ -1,78 +1,13 @@
 from secrets import randbelow
-from typing import Sequence, Tuple
+from typing import Tuple, Sequence
 
 from numba import jit
 import numpy as np
 from numpy import random as npr
 
-from ..space.geometry import from_spherical, to_spherical
+from engine.space.geometry import from_spherical, to_spherical
 
 
-# from math import radians, degrees
-#
-# # noinspection NonAsciiCharacters
-# @jit(nopython=True)
-# def polar_convert(ρ: float, θ: float, φ: float) -> Tuple[float, float, float]:
-#     # TODO: REMOVE
-#     """Given polar coordinates in the conventions of Physics, convert to
-#         conventions of Navigation.
-#     """
-#     # Physics conventions: +θ = North of East from 0° to 360°, +φ = Down from Zenith
-#     #   # North: θ = 90°
-#     #   # South: θ = 270°
-#     #   # Zenith: φ = 0°
-#     # Navigational format: +θ = West of South from -180° to 180°, +φ = Up from Horizon
-#     #   # North: θ = 0°
-#     #   # South: θ = -180° OR 180°
-#     #   # Zenith: φ = 90°
-#
-#     θ = 180 - ((90 + θ) % 360)
-#     φ = 90 - φ
-#     if φ == 90 or φ == -90:
-#         θ = 0
-#     return ρ, φ, θ
-#
-#
-# @jit(nopython=True)
-# def rad_deg(theta: float) -> float:
-#     # TODO: REMOVE
-#     """Convert Radians to Degrees."""
-#     return np.round(degrees(theta), 5)
-#
-#
-# @jit(nopython=True)
-# def deg_rad(theta: float) -> float:
-#     # TODO: REMOVE
-#     """Convert Degrees to Radians."""
-#     return np.round(radians(theta), 5)
-#
-#
-# # noinspection NonAsciiCharacters
-# @jit(nopython=True)
-# def cart3_polar3(x: float, y: float, z: float) -> Tuple[float, float, float]:
-#     # TODO: REMOVE
-#     """Convert three-dimensional Cartesian Coordinates to Polar."""
-#     ρ = np.sqrt(x ** 2 + y ** 2 + z ** 2)
-#     φ = rad_deg(np.arccos(z / ρ))
-#     θ = rad_deg(np.arctan2(y, x))
-#     return polar_convert(ρ, θ, φ)
-#     # return ρ, θ, φ
-#
-#
-# # noinspection NonAsciiCharacters
-# @jit(nopython=True)
-# def polar3_cart3(ρ: float, θ: float, φ: float) -> Tuple[float, float, float]:
-#     # TODO: REMOVE
-#     """Convert three-dimensional Polar Coordinates to Cartesian."""
-#     θ = np.pi / 2 - deg_rad(θ)
-#     φ = deg_rad(φ)
-#     x = ρ * np.cos(φ) * np.sin(θ)
-#     y = ρ * np.sin(φ) * np.sin(θ)
-#     z = ρ * np.cos(θ)
-#     return x, y, z
-
-
-# @jit(nopython=True)
 def apply_swirl(stars: np.ndarray, deg: float, factor: float) -> None:
     for star in stars:
         rho, theta, phi = to_spherical(*star)
@@ -155,7 +90,3 @@ def generate_galaxy(
         arm_arrays = np.concatenate(arm_arrays) if arm_arrays else np.array([])
 
     return [x for x in (core, cloud, cluster_arrays, arm_arrays) if len(x) > 0]
-
-
-def generate_system() -> dict:
-    return {"asdf": "qwert"}

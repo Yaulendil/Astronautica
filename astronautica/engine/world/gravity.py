@@ -1,6 +1,6 @@
 from astropy import units as u
 
-from ..space.base import Node, Domain
+from ..serial import Domain, Node
 
 
 class Orbit(object):

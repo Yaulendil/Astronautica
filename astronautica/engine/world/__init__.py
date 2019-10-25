@@ -8,6 +8,7 @@ from numpy.linalg import norm
 from yaml import safe_dump, safe_load
 
 from ..visualizer import render
+from .base import Clock, SystemHandler
 from .generation import generate_galaxy, generate_system
 from .gravity import MultiSystem, System
 from config import cfg
@@ -60,7 +61,7 @@ class Galaxy(object):
         self.gdir = gdir
         self.gid = gid
 
-        self.loaded: List[PersistentDict] = []
+        self.loaded: List[SystemHandler] = []
         self.obj = PersistentDict(
             self.gdir / cfg["data/obj", "objects.json"], fmt="json"
         )
@@ -72,7 +73,10 @@ class Galaxy(object):
         else:
             self.gdir.mkdir()
 
-    def load_system(self, uuid: UUID) -> PersistentDict:
+    def load_system(self, uuid: UUID) -> SystemHandler:
+        """Retrieve a Star System by its UUID. If the System does not exist,
+            procedurally generate it on the fly.
+        """
         uuid_h = uuid.hex
         uuid_i = uuid.int
         self.ensure()
@@ -82,20 +86,16 @@ class Galaxy(object):
             systems.mkdir(exist_ok=True)
             fp = (systems / uuid_h).with_suffix(".json")
 
-            if fp.exists():
-                pd = PersistentDict(fp, fmt="json")
-            else:
-                pd = PersistentDict(fp, fmt="json")
-                pd.update(generate_system())
+            system = SystemHandler(fp)
 
-            self.loaded.append(pd)
-            return pd
+            self.loaded.append(system)
+            return system
         else:
             raise FileNotFoundError(f"System {uuid_h!r} not found in Galaxy.")
 
-    def unload_system(self, system: PersistentDict) -> bool:
+    def unload_system(self, system: SystemHandler) -> bool:
         if system in self.loaded:
-            system.close()
+            system.sync()
             self.loaded.remove(system)
             return True
         else:

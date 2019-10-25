@@ -8,43 +8,19 @@ The Engine Package contains most of the "moving parts" of the Game World. It
 
 from asyncio import CancelledError, sleep
 from datetime import datetime as dt, timedelta as td
-from inspect import isabstract, isawaitable
-from typing import Dict, Iterable, Iterator, List, Tuple, Type, Union
+from inspect import isawaitable
+from typing import Iterable, List, Tuple
 
 from .collision import find_collisions
 from .objects import Object
+from .serial import deserialize
 from .space import Coordinates, Space
-from .space.base import Clock, Serial, Serializable
-from .world import Galaxy, MultiSystem, System
+from .serial import Serial, Serializable
+from .world import Clock, Galaxy, MultiSystem, System
 
-
-def get_subs(t: type) -> Iterator[type]:
-    yield from map(get_subs, t.__subclasses__())
-
-
-# Recursively check for Subclasses to map out all Types that should implement a
-#   .from_serial() Classmethod.
-MAP: Dict[str, Type[Serializable]] = {
-    t.__name__: t for t in get_subs(Serializable) if not isabstract(t)
-}
 
 CB_PRE_TICK = set()
 CB_POST_TICK = set()
-
-
-def deserialize(obj: Union[List[Serial], Serial]):
-    if isinstance(obj, list):
-        return list(map(deserialize, obj))
-
-    classname: str = obj.get("class")
-    cls = MAP.get(classname)
-
-    if cls is not None:
-        data = obj.get("data")
-        subs = {k: deserialize(v) for k, v in obj.get("subs", {}).items()}
-        return cls.from_serial(data, subs)
-    else:
-        return None
 
 
 def is_power_of_2(n: int) -> bool:

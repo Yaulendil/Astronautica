@@ -7,7 +7,7 @@ from vectormath import Vector3
 
 from .collision import get_delta_v
 from .space import Coordinates, Space
-from .space.base import Node
+from engine.serial import Node
 from .units import UNITS_LOCAL
 
 # from pytimer import Timer

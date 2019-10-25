@@ -168,7 +168,7 @@ class Space(object):
 class LocalSpace(object):
     ALL: List["LocalSpace"] = []
 
-    def __init__(self, master: base.Domain, space: Space):
+    def __init__(self, master, space: Space):
         self.master = master
         self.space: Space = space
         self.used: List[int] = []
