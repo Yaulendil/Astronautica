@@ -1,13 +1,14 @@
 """Module implementing the Base Class for all Objects which reside in Space."""
+from typing import Tuple
 
 from astropy import units as u
 from attr import asdict, attrs
+from numba import jit
 import numpy as np
 from vectormath import Vector3
 
-from .collision import get_delta_v
-from .space import Coordinates, Space
-from engine.serial import Node
+from .serial import Node
+from .space import Coordinates
 from .units import UNITS_LOCAL
 
 # from pytimer import Timer
@@ -100,17 +101,10 @@ class Object(Node):
         """
         pass
 
-    def clone(self: "Object", domain: int, space: Space) -> "Object":
+    def clone(self: "Object") -> "Object":
         c = type(self)(
             asdict(self.data),
-            Coordinates.new(
-                self.frame.position,
-                self.frame.velocity,
-                self.frame.heading,
-                self.frame.rotate,
-                domain=domain,
-                space=space,
-            ),
+            self.frame.clone(),
         )
         return c
 
@@ -125,3 +119,36 @@ class Object(Node):
     @classmethod
     def from_serial(cls, data, subs):
         return cls(data, subs["frame"])
+
+
+@jit
+def get_delta_v(
+    e: float,
+    normal: np.ndarray,
+    velocity_a: np.ndarray,
+    velocity_b: np.ndarray,
+    mass_a: float,
+    mass_b: float,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Given a Coefficient, a Normal, and the Velocities and Masses of two
+        Objects, return the Δv values of a collision between the Objects. The
+        first and second returned Vectors should be added to the Velocities of
+        the first and second Objects, respectively.
+
+    This equation is not complete, as I have purposefully left out rotation, at
+        least for the time being.
+
+    https://www.euclideanspace.com/physics/dynamics/collision/threed/index.htm
+        J = -(1+e) * (
+            ((vai-vbi) • n)
+            /
+            (1/ma + 1/mb)
+        )
+        vaf = vai + (J / ma)
+        vbf = vbi - (J / mb)
+    """
+    J: np.ndarray = normal * (
+        -(1 + e)
+        * (np.dot((velocity_a - velocity_b), normal) / ((1 / mass_a) + (1 / mass_b)))
+    )
+    return J / mass_a, -J / mass_b

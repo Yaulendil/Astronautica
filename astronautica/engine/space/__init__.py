@@ -281,6 +281,22 @@ class Coordinates(object):
 
         self.ALL.append(proxy(self, self.free_wr))
 
+    @property
+    def position(self) -> Vector3:
+        return self._position and self._position.position
+
+    @property
+    def velocity(self) -> Vector3:
+        return self._position and self._position.velocity
+
+    @property
+    def heading(self) -> quaternion:
+        return self._rotation and self._rotation.heading
+
+    @property
+    def rotate(self) -> quaternion:
+        return self._rotation and self._rotation.rotate
+
     def set_posrot(self, pos: base.Position, rot: base.Rotation):
         self._position: base.Position = pos
         self._rotation: base.Rotation = rot

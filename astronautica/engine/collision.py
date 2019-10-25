@@ -4,48 +4,14 @@
 Uses Numba for JIT Compilation.
 """
 
-from typing import Optional, Tuple, Type, TypeVar, List
+from typing import List, Optional, Tuple
 
 from numba import jit
 import numpy as np
 
-__all__ = ["distance_between_lines", "find_collisions", "get_delta_v"]
+from .objects import Object
 
-
-O: Type = TypeVar("O")
-
-
-@jit
-def get_delta_v(
-    e: float,
-    normal: np.ndarray,
-    velocity_a: np.ndarray,
-    velocity_b: np.ndarray,
-    mass_a: float,
-    mass_b: float,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Given a Coefficient, a Normal, and the Velocities and Masses of two
-        Objects, return the Δv values of a collision between the Objects. The
-        first and second returned Vectors should be added to the Velocities of
-        the first and second Objects, respectively.
-
-    This equation is not complete, as I have purposefully left out rotation, at
-        least for the time being.
-
-    https://www.euclideanspace.com/physics/dynamics/collision/threed/index.htm
-        J = -(1+e) * (
-            ((vai-vbi) • n)
-            /
-            (1/ma + 1/mb)
-        )
-        vaf = vai + (J / ma)
-        vbf = vbi - (J / mb)
-    """
-    J: np.ndarray = normal * (
-        -(1 + e)
-        * (np.dot((velocity_a - velocity_b), normal) / ((1 / mass_a) + (1 / mass_b)))
-    )
-    return J / mass_a, -J / mass_b
+__all__ = ["distance_between_lines", "find_collisions"]
 
 
 @jit(looplift=True)
@@ -164,25 +130,25 @@ def _find_collision(
 
 @jit(forceobj=True, nopython=False)
 def find_collisions(
-    seconds: float, list_a: List[O], list_b: List[O]
-) -> List[Tuple[float, Tuple[O, O]]]:
-    collisions: List[Tuple[float, Tuple[O, O]]] = []
+    seconds: float, list_a: List[Object], list_b: List[Object]
+) -> List[Tuple[float, Tuple[Object, Object]]]:
+    collisions: List[Tuple[float, Tuple[Object, Object]]] = []
 
     for obj_a in list_a[-1:0:-1]:
         list_b.pop(-1)
-        start_a = obj_a.coords.position
-        end_a = obj_a.coords.position + obj_a.coords.velocity * seconds
+        start_a = obj_a.frame.position
+        end_a = obj_a.frame.position + obj_a.frame.velocity * seconds
 
         for obj_b in list_b:
-            if obj_a.coords.domain != obj_b.coords.domain:
+            if obj_a.frame.domain != obj_b.frame.domain:
                 continue
-            start_b = obj_b.coords.position
+            start_b = obj_b.frame.position
             contact = obj_a.radius + obj_b.radius
 
             if (start_a - start_b).length < contact:
                 continue
 
-            end_b = obj_b.coords.position + obj_b.coords.velocity * seconds
+            end_b = obj_b.frame.position + obj_b.frame.velocity * seconds
             nearest_a, nearest_b, proximity = distance_between_lines(
                 start_a, end_a, start_b, end_b
             )
@@ -190,10 +156,10 @@ def find_collisions(
             if proximity < contact:
                 # Objects look like they might collide.
                 impact = _find_collision(
-                    obj_a.coords.position,
-                    obj_a.coords.velocity,
-                    obj_b.coords.position,
-                    obj_b.coords.velocity,
+                    obj_a.frame.position,
+                    obj_a.frame.velocity,
+                    obj_b.frame.position,
+                    obj_b.frame.velocity,
                     0.0,
                     seconds,
                     contact,

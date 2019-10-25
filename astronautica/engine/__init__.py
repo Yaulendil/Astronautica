@@ -9,6 +9,7 @@ The Engine Package contains most of the "moving parts" of the Game World. It
 from asyncio import CancelledError, sleep
 from datetime import datetime as dt, timedelta as td
 from inspect import isawaitable
+from sys import stderr
 from time import time
 from typing import Iterable, List, Tuple
 
@@ -41,7 +42,7 @@ async def run_iter(it: Iterable):
             while isawaitable(result):
                 result = await result
         except Exception as e:
-            print(f"Callback {func!r} raised {type(e).__name__!r}:\n    {e}")
+            print(f"Callback {func!r} raised {type(e).__name__!r}:\n    {e}", file=stderr)
 
 
 class RealTime(Clock):
