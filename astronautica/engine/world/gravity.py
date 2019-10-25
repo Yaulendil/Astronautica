@@ -1,20 +1,20 @@
 from astropy import units as u
 
-from ..serial import Domain, Node
+from ..serial import Node
 
 
 class Orbit(object):
-    def __init__(self, master: Domain, slave: Node):
-        self.master: Domain = master
+    def __init__(self, master: Node, slave: Node):
+        self.master: Node = master
         self.slave: Node = slave
 
 
-class MultiSystem(set, Domain):
+class MultiSystem(set, Node):
     """Representation of a Gravitational System without any clear "Master".
         Typically the case for Stars near each other.
     """
 
-    def __init__(self, *bodies: Domain):
+    def __init__(self, *bodies: Node):
         if len(bodies) < 2:
             raise ValueError("A Multi System must have at least two Objects.")
 
@@ -25,9 +25,9 @@ class MultiSystem(set, Domain):
     def mass(self):
         return sum((o.mass for o in self), u.kg * 0)
 
-    @property
-    def units(self):
-        return tuple(self)[0].units
+    # @property
+    # def units(self):
+    #     return tuple(self)[0].units
 
     def serialize(self):
         return dict(
@@ -40,13 +40,13 @@ class MultiSystem(set, Domain):
         return cls(*subs["bodies"])
 
 
-class System(set, Domain):
+class System(set, Node):
     """Representation of a Gravitational System with a clear "Master". Typically
         the case for Planetary Systems orbiting a single Star.
     """
 
-    def __init__(self, master: Domain, *slaves: Domain):
-        self.master: Domain = master
+    def __init__(self, master: Node, *slaves: Node):
+        self.master: Node = master
 
         super().__init__(self, slaves)
         # self.slaves: Set[Node] = {*slaves}
@@ -55,9 +55,9 @@ class System(set, Domain):
     def mass(self):
         return sum((o.mass for o in self), self.master.mass)
 
-    @property
-    def units(self):
-        return self.master.units
+    # @property
+    # def units(self):
+    #     return self.master.units
 
     def serialize(self):
         return dict(

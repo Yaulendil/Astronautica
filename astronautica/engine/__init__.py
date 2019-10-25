@@ -9,13 +9,13 @@ The Engine Package contains most of the "moving parts" of the Game World. It
 from asyncio import CancelledError, sleep
 from datetime import datetime as dt, timedelta as td
 from inspect import isawaitable
+from time import time
 from typing import Iterable, List, Tuple
 
 from .collision import find_collisions
 from .objects import Object
-from .serial import deserialize
+from .serial import deserialize, Serial, Serializable
 from .space import Coordinates, Space
-from .serial import Serial, Serializable
 from .world import Clock, Galaxy, MultiSystem, System
 
 
@@ -42,6 +42,11 @@ async def run_iter(it: Iterable):
                 result = await result
         except Exception as e:
             print(f"Callback {func!r} raised {type(e).__name__!r}:\n    {e}")
+
+
+class RealTime(Clock):
+    def __call__(self):
+        return time()
 
 
 class Spacetime:
@@ -85,11 +90,11 @@ class Spacetime:
         passed: float = 0
         while collisions:
             # Find the soonest Collision.
-            time, (obj_a, obj_b) = min(collisions, key=key)
+            seconds, (obj_a, obj_b) = min(collisions, key=key)
 
             # Progress Time to the point of the soonest Collision.
-            self.space.progress(time - passed)
-            passed += time
+            self.space.progress(seconds - passed)
+            passed += seconds
 
             # Simulate the Collision.
             obj_a.collide_with(obj_b)
@@ -104,11 +109,11 @@ class Spacetime:
         self.space.progress(target - passed)
         return hits
 
-    def progress(self, time: int, granularity: int = 2):
+    def progress(self, seconds: int, granularity: int = 2):
         """Simulate the passing of time."""
-        if time == 0:
+        if seconds == 0:
             return
-        elif time < 0:
+        elif seconds < 0:
             raise ValueError(
                 "Unfortunately, the Laws of Thermodynamics prohibit time reversal."
             )
@@ -117,7 +122,7 @@ class Spacetime:
         elif not is_power_of_2(granularity):
             raise ValueError("Progression Granularity must be an integral power of 2.")
 
-        for i in range(time * granularity):
+        for i in range(seconds * granularity):
             self._tick(1 / granularity, True)
 
     async def run(self, turn_length: int = 300, echo=print):

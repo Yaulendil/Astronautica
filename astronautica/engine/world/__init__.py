@@ -1,14 +1,15 @@
 from pathlib import Path
 from secrets import choice
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional
 from uuid import UUID, uuid4
 
 import numpy as np
 from numpy.linalg import norm
 from yaml import safe_dump, safe_load
 
+from ..serial import deserialize
 from ..visualizer import render
-from .base import Clock, SystemHandler
+from .base import Clock
 from .generation import generate_galaxy, generate_system
 from .gravity import MultiSystem, System
 from config import cfg
@@ -17,6 +18,26 @@ from util.storage import PersistentDict
 
 DELIM = "|"
 LINE = (DELIM.join((*(["{: = 23}"] * 3), "{}")) + "\n").format
+
+
+class SystemHandler(object):
+    def __init__(self, filepath: Path, dat: Tuple[float, float, float, int]):
+        self.path = filepath
+        _load = self.path.exists()
+
+        self.data = PersistentDict(self.path, fmt="json")
+
+        if _load:
+            self.system = deserialize(self.data)
+        else:
+            self.system = generate_system(self.data)
+
+    def serialize(self):
+        return dict(type=type(self).__name__)
+
+    def sync(self):
+        self.data.update(self.serialize())
+        self.data.sync()
 
 
 class Galaxy(object):
@@ -80,13 +101,15 @@ class Galaxy(object):
         uuid_h = uuid.hex
         uuid_i = uuid.int
         self.ensure()
+        dat = self.system_by_uuid(uuid)
 
-        if uuid_i in self.stars[..., 3]:
+        # if uuid_i in self.stars[..., 3]:
+        if dat:
             systems = self.gdir / "systems"
             systems.mkdir(exist_ok=True)
             fp = (systems / uuid_h).with_suffix(".json")
 
-            system = SystemHandler(fp)
+            system = SystemHandler(fp, dat)
 
             self.loaded.append(system)
             return system
@@ -135,14 +158,21 @@ class Galaxy(object):
 
         return self.gdir
 
-    def systems_at_coordinate(
+    def systems_at(
         self, pos: np.ndarray, radius: float = 0
     ) -> Tuple[Tuple[float, float, float, int], ...]:
         return tuple(x for x in self.stars if norm(x[:3] - pos) <= radius)
 
-    def system_by_uuid(self, uuid: UUID) -> Tuple[float, float, float, int]:
-        t = tuple(x for x in self.stars if x[3] == uuid.int)
-        return t[0] if t else None
+    def system_by_uuid(self, uuid: UUID) -> Optional[Tuple[float, float, float, int]]:
+        # Find Indices of all Stars with a matching UUID.
+        indices = np.where(self.stars[..., 3] == uuid.int)[0].tolist()
+        if indices:
+            # Return the Data at the first Index.
+            return tuple(self.stars[indices[0]].tolist())
+        else:
+            return None
+        # t = tuple(x for x in self.stars if x[3] == uuid.int)
+        # return t[0] if t else None
 
     def system_random(self) -> Tuple[float, float, float, int]:
         return choice(self.stars)
