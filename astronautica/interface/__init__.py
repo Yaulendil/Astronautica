@@ -107,7 +107,7 @@ def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
 
     @cmd
     def g():
-        ...
+        raise NotImplementedError
 
     @g.sub
     async def new():
@@ -118,12 +118,18 @@ def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
     @g.sub
     async def load(path: str):
         yield "Loading..."
-        st.world = Galaxy.from_file(DATA_DIR / path)
-        yield f"Loaded {st.world.stars.shape} stars."
+        try:
+            st.world = Galaxy.from_file(DATA_DIR / path)
+        except NotADirectoryError:
+            yield "Galaxy Directory not found."
+        else:
+            yield f"Loaded {st.world.stars.shape} stars."
 
     @g.sub
     async def rename(path: str = None):
         path = DATA_DIR / path
+        if path.parent != DATA_DIR:
+            return "Galaxy Directory must be a simple name."
         st.world.rename(path)
         return f"Galaxy Renamed. New location: {path}"
 

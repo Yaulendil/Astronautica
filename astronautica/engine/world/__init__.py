@@ -39,7 +39,7 @@ class Galaxy(object):
                         x, y, z, h = line.strip("\n").replace(" ", "").split(DELIM)
                         yield (float(x), float(y), float(z), UUID(hex=h).int)
 
-        stars = np.array(list(stream()))
+        stars = np.array(stream())
         return cls(stars, path, UUID(hex=data["uuid"]))
 
     @classmethod
@@ -107,9 +107,13 @@ class Galaxy(object):
     def render(self, *a, **kw):
         render(self.stars[..., :3], *a, **kw)
 
-    def rename(self, path: Path):
-        self.gdir.rename(path)
-        self.gdir = path
+    def rename(self, target: Path):
+        if not target.exists():
+            if self.gdir.exists():
+                self.gdir.rename(target)
+            self.gdir = target
+        else:
+            raise FileExistsError(target)
 
     def save(self):
         p_data = self.gdir / cfg["data/meta", "meta.yml"]
