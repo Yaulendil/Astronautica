@@ -1,6 +1,6 @@
 from pathlib import Path
 from secrets import choice
-from typing import List, Tuple, Union, Optional
+from typing import Dict, List, Optional, Tuple, Union
 from uuid import UUID, uuid4
 
 import numpy as np
@@ -26,6 +26,7 @@ class SystemHandler(object):
         _load = self.path.exists()
 
         self.data = PersistentDict(self.path, fmt="json")
+        self.uuid = dat[3]
 
         if _load:
             self.system = deserialize(self.data)
@@ -82,7 +83,7 @@ class Galaxy(object):
         self.gdir = gdir
         self.gid = gid
 
-        self.loaded: List[SystemHandler] = []
+        self.loaded: Dict[int, SystemHandler] = {}
         self.obj = PersistentDict(
             self.gdir / cfg["data/obj", "objects.json"], fmt="json"
         )
@@ -94,13 +95,17 @@ class Galaxy(object):
         else:
             self.gdir.mkdir()
 
-    def load_system(self, uuid: UUID) -> SystemHandler:
+    def get_system(self, uuid: UUID) -> SystemHandler:
         """Retrieve a Star System by its UUID. If the System does not exist,
             procedurally generate it on the fly.
         """
         uuid_h = uuid.hex
         uuid_i = uuid.int
         self.ensure()
+
+        if uuid_i in self.loaded:
+            return self.loaded[uuid_i]
+
         dat = self.system_by_uuid(uuid)
 
         # if uuid_i in self.stars[..., 3]:
@@ -111,21 +116,21 @@ class Galaxy(object):
 
             system = SystemHandler(fp, dat)
 
-            self.loaded.append(system)
+            self.loaded[uuid_i] = system
             return system
         else:
             raise FileNotFoundError(f"System {uuid_h!r} not found in Galaxy.")
 
     def unload_system(self, system: SystemHandler) -> bool:
-        if system in self.loaded:
+        if system.uuid in self.loaded:
             system.sync()
-            self.loaded.remove(system)
+            del self.loaded[system.uuid]
             return True
         else:
             return False
 
     def unload_all(self) -> int:
-        return sum(1 for x in map(self.unload_system, self.loaded) if x)
+        return sum(1 for x in map(self.unload_system, self.loaded.values()) if x)
 
     def render(self, *a, **kw):
         render(self.stars[..., :3], *a, **kw)
@@ -143,7 +148,7 @@ class Galaxy(object):
         p_stars = self.gdir / cfg["data/stars", "STARS"]
         self.ensure()
 
-        for system in self.loaded:
+        for system in self.loaded.values():
             system.sync()
 
         tmp = p_data.with_suffix(".TMP")

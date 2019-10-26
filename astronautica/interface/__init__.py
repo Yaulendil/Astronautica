@@ -142,7 +142,7 @@ def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
 
     @g.sub
     async def rand():
-        yield repr(st.world.load_system(UUID(int=st.world.system_random()[3])))
+        yield repr(st.world.get_system(UUID(int=st.world.system_random()[3])))
 
 
 def setup_client(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
