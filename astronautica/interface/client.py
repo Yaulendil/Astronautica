@@ -1,10 +1,12 @@
 from asyncio import AbstractEventLoop, Task
 from enum import auto, Enum
 from itertools import cycle
-from typing import List, Optional, Union
+from typing import Iterator, List, Optional, Union
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.document import Document
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import FormattedText, fragment_list_to_text
 from prompt_toolkit.layout.containers import (
@@ -102,6 +104,39 @@ class Prompt(object):
             return self.prompt + [(style, str(text))]
 
 
+class Completer_(Completer):
+    def __init__(self, cmd: CommandRoot, bar: FormattedTextControl):
+        self.cmd: CommandRoot = cmd
+        self.bar: FormattedTextControl = bar
+
+    def get_completions(
+        self, document: Document, complete_event
+    ) -> Iterator[Completion]:
+        line = document.text_before_cursor
+
+        if " " in line:
+            most, word = line.rsplit(" ", 1)
+            cmd = self.cmd.get_command(most)[0]
+            if not cmd:
+                return
+            cmd_dict = cmd.subcommands
+        else:
+            word = line
+            cmd_dict = self.cmd.commands
+
+        comps = [
+            possibility[len(word) :]
+            for possibility in sorted(cmd_dict.keys())
+            if possibility.startswith(word)
+        ]
+
+        if len(comps) > 1:
+            yield from map(Completion, comps)
+        elif comps:
+            # If there is only one possibility, append a Space.
+            yield Completion(comps[0] + " ")
+
+
 class Client(object):
     def __init__(self, loop: AbstractEventLoop, command_handler: CommandRoot = None):
         self.LOOP: AbstractEventLoop = loop
@@ -117,6 +152,14 @@ class Client(object):
         def nextmode(*_) -> None:
             self.state = next(mode)
 
+        @self.kb.add("pageup")
+        def hist_first(*_) -> None:
+            self.cmd.go_to_history(0)
+
+        @self.kb.add("pagedown")
+        def hist_last(*_) -> None:
+            self.cmd.go_to_history(len(self.cmd.history.get_strings()))
+
         # Create a Prompt Object with initial values.
         self.prompt = Prompt(
             cfg["interface/initial/user", "nobody"],
@@ -128,6 +171,7 @@ class Client(object):
         self.bar = FormattedTextControl("asdf qwert")
         self.cmd = Buffer(
             accept_handler=self.enter,
+            completer=Completer_(command_handler, self.bar),
             multiline=False,
             read_only=Condition(lambda: self.read_only),
         )
@@ -220,8 +264,9 @@ class Client(object):
                                     ConditionalContainer(
                                         Window(
                                             BufferControl(self.cmd, self.procs),
+                                            dont_extend_height=True,
+                                            # height=1,
                                             wrap_lines=True,
-                                            height=1,
                                         ),
                                         Condition(lambda: not self.read_only),
                                     ),
