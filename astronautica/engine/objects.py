@@ -9,24 +9,25 @@ from vectormath import Vector3
 
 from .serial import Node
 from .space import Coordinates
-from .units import UNITS_LOCAL
+from .units import Units, UNITS_LOCAL
 
 # from pytimer import Timer
 
-__all__ = ["Object"]
+__all__ = ["Data", "Object"]
+
+
+@attrs
+class Data:
+    mass: float = 100
+    radius: float = 100
+    units: Units = UNITS_LOCAL
 
 
 class Object(Node):
     ALL: Set["Object"] = set()
 
-    @attrs
-    class Data:
-        radius: int = 100
-        mass: int = 100
-        units = UNITS_LOCAL
-
     def __init__(self, data: dict = None, frame: Coordinates = None):
-        self.data = self.Data(**(data or {}))
+        self.data = Data(**(data or {}))
         self.frame = frame
 
         self.ALL.add(self)
