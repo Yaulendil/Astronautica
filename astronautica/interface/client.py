@@ -142,6 +142,7 @@ class Client(object):
         self.LOOP: AbstractEventLoop = loop
         self.TASKS: List[Task] = []
 
+        self.first = True
         self.read_only = False
         self.kb = keys(self)
         # noinspection PyTypeChecker
@@ -196,7 +197,7 @@ class Client(object):
         self.handler = command_handler
         self._app: Optional[Application] = None
 
-        self.echo("Ready.", start="")
+        # self.echo("Ready.", start="")
 
     def cmd_hide(self):
         """Make the Command Prompt invisible, and then update the display."""
@@ -216,7 +217,7 @@ class Client(object):
     def echo(self, *text, sep: str = "\r\n", start: str = "\r\n"):
         """Print Text to the Console Output, and then update the display."""
         self.console.write_text(
-            start
+            ("" if self.first else start)
             + sep.join(
                 fragment_list_to_text(line)
                 if isinstance(line, FormattedText)
@@ -224,6 +225,7 @@ class Client(object):
                 for line in text
             )
         )
+        self.first = False
         self.redraw()
 
     def enter(self, buffer: Buffer) -> None:
