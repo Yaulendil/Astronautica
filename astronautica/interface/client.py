@@ -1,12 +1,10 @@
 from asyncio import AbstractEventLoop, Task
 from enum import Enum
 from itertools import cycle
-from typing import Iterator, List, Optional, Union
+from typing import List, Optional, Union
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
-from prompt_toolkit.completion import Completer, Completion
-from prompt_toolkit.document import Document
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import FormattedText, fragment_list_to_text
 from prompt_toolkit.layout.containers import (
@@ -104,39 +102,6 @@ class Prompt(object):
             return self.prompt + [(style, str(text))]
 
 
-class Completer_(Completer):
-    def __init__(self, cmd: CommandRoot, bar: FormattedTextControl):
-        self.cmd: CommandRoot = cmd
-        self.bar: FormattedTextControl = bar
-
-    def get_completions(
-        self, document: Document, complete_event
-    ) -> Iterator[Completion]:
-        line = document.text_before_cursor
-
-        if " " in line:
-            most, word = line.rsplit(" ", 1)
-            cmd = self.cmd.get_command(most)[0]
-            if not cmd:
-                return
-            cmd_dict = cmd.subcommands
-        else:
-            word = line
-            cmd_dict = self.cmd.commands
-
-        comps = [
-            possibility[len(word) :]
-            for possibility in sorted(cmd_dict.keys())
-            if possibility.startswith(word)
-        ]
-
-        if len(comps) > 1:
-            yield from map(Completion, comps)
-        elif comps:
-            # If there is only one possibility, append a Space.
-            yield Completion(comps[0] + " ")
-
-
 class Client(object):
     def __init__(self, loop: AbstractEventLoop, command_handler: CommandRoot = None):
         self.LOOP: AbstractEventLoop = loop
@@ -179,7 +144,7 @@ class Client(object):
         )
         self.cmd = Buffer(
             accept_handler=self.enter,
-            completer=Completer_(command_handler, self.bar),
+            completer=command_handler,
             multiline=False,
             read_only=Condition(lambda: self.read_only),
         )

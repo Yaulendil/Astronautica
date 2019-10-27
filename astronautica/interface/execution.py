@@ -14,9 +14,7 @@ def handle_return(echo: EchoType, result):
         If it is an Iterator or a Sequence, loop through it and Echo each
         element to the Output. Otherwise, simply Echo a String of it.
     """
-    if isinstance(result, (Iterator, Sequence)) and not isinstance(
-        result, str
-    ):
+    if isinstance(result, (Iterator, Sequence)) and not isinstance(result, str):
         for each in result:
             if each is not None:
                 echo(str(each))
@@ -65,7 +63,7 @@ def execute_function(
     command, tokens = handler.get_command(line)
     try:
         if command is None:
-            raise CommandNotFound(f"Command '{tokens[0].upper()}' not found.")
+            raise CommandNotFound(f"Command {tokens[0].upper()!r} not found.")
 
         handler.client.cmd_hide()
         result = command(tokens)

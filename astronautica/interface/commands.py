@@ -2,18 +2,21 @@ from functools import partial, update_wrapper
 
 # from getopt import getopt
 from inspect import Parameter, Signature
+from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.document import Document
 from shlex import shlex
 from typing import (
     Any,
     Callable,
     Dict,
+    Iterator,
     List,
+    Optional,
     Sequence,
     Set,
     Tuple,
     Type,
     Union,
-    Optional,
 )
 
 
@@ -117,11 +120,20 @@ class Command(object):
             self.add(cmd)
             return cmd
 
+    def __repr__(self) -> str:
+        return (
+            f"{type(self).__name__}"
+            f"({self._func},"
+            f" {self.keyword!r},"
+            f" {self.client},"
+            f" {self.dispatch_task})"
+        )
+
     def __str__(self):
         return f"Command with Keyword {self.KEYWORD!r} which calls: {self._func}"
 
 
-class CommandRoot(object):
+class CommandRoot(Completer):
     def __init__(self, client=None):
         self.client = client
         self.commands: Dict[str, Command] = {}
@@ -167,6 +179,33 @@ class CommandRoot(object):
 
         else:
             return None, []
+
+    def get_completions(
+        self, document: Document, complete_event
+    ) -> Iterator[Completion]:
+        line = document.text_before_cursor
+
+        if " " in line:
+            most, word = line.rsplit(" ", 1)
+            cmd = self.get_command(most)[0]
+            if not cmd:
+                return
+            cmd_dict = cmd.subcommands
+        else:
+            word = line
+            cmd_dict = self.commands
+
+        comps = [
+            possibility[len(word) :]
+            for possibility in sorted(cmd_dict.keys())
+            if possibility.startswith(word)
+        ]
+
+        if len(comps) > 1:
+            yield from map(Completion, comps)
+        elif comps:
+            # If there is only one possibility, append a Space.
+            yield Completion(comps[0] + " ")
 
     def set_client(self, client):
         self.client = client
