@@ -9,20 +9,20 @@ from uuid import UUID
 
 from ezipc.util import P
 
-from .client import Client
+from .client import Interface
 from .commands import CommandRoot
 from .etc import T
 from config import cfg
-from engine import Coordinates, Galaxy, Object, Spacetime
+from engine import Galaxy, Spacetime
 
 
 DATA_DIR = Path(cfg["data/directory"])
 pattern_address = compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d{1,5})?")
 
 
-def get_client(loop) -> Tuple[Client, CommandRoot]:
+def get_client(loop) -> Tuple[Interface, CommandRoot]:
     cmd = CommandRoot()
-    interface_client = Client(loop, command_handler=cmd)
+    interface_client = Interface(loop, command_handler=cmd)
     cmd.set_client(interface_client)
 
     @cmd
@@ -49,13 +49,13 @@ def get_client(loop) -> Tuple[Client, CommandRoot]:
     return interface_client, cmd
 
 
-def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
+def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     from ezipc.server import Server
 
     P.output_line = cli.echo
 
     st = Spacetime()
-    space = st.space
+    # space = st.space
 
     @cmd("open", task=True)
     async def host():
@@ -63,15 +63,21 @@ def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
             cfg.get("connection/address", "127.0.0.1"),
             cfg.get("connection/port", required=True),
         )
+        server.setup()
 
         run = loop.create_task(server.run(loop))  # Start the Server.
-        world = loop.create_task(st.run())  # Start the World.
+        world = loop.create_task(st.run(echo=cli.echo))  # Start the World.
 
         @cmd
         def close():
             server.server.close()
 
         del cmd.commands["open"]
+
+        @server.hook_request("LOGIN")
+        async def login(data):
+            cli.echo(repr(data))
+            return ["zzzz"]
 
         try:
             await run
@@ -84,26 +90,12 @@ def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
 
         finally:
             world.cancel()
-            for remote in server.remotes:
-                await remote.terminate()
+            await server.terminate()
 
             cmd.add(host)
             del cmd.commands["close"]
             if st.world:
                 st.world.save()
-
-    # @cmd
-    # def spawn(x="0", y="0", z="0") -> Union[Object, str]:
-    #     try:
-    #         new = Object(frame=Coordinates((float(x), float(y), float(z)), space=space))
-    #     except ValueError:
-    #         return "Cannot make arguments into numbers."
-    #     else:
-    #         return new
-
-    # @cmd
-    # def ls():
-    #     yield from iter(st.index)
 
     @cmd
     def g():
@@ -137,26 +129,24 @@ def setup_host(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
     async def save():
         yield "Saving..."
         st.world.save()
-        yield "Galaxy Saved in: {}".format(
-        st.world.gdir)
+        yield "Galaxy Saved in: {}".format(st.world.gdir)
 
     @g.sub
     async def rand():
         yield repr(st.world.get_system(UUID(int=st.world.system_random()[3])))
 
 
-def setup_client(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
+def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     from ezipc.client import Client as ClientIPC
 
     P.output_line = cli.echo
 
     @cmd(task=True)
     async def connect(addr_port: str = cfg.get("connection/address", "127.0.0.1")):
+        port = cfg.get("connection/port", required=True)
+
         if cfg.get("connection/deny_custom_server", False):
-            addr_port = (
-                f'{cfg.get("connection/address", "127.0.0.1")}'
-                f':{cfg.get("connection/port", required=True)}'
-            )
+            addr_port = f'{cfg.get("connection/address", "127.0.0.1")}' f":{port}"
 
         if not pattern_address.fullmatch(addr_port):
             raise ValueError(f"Invalid IPv4 Address: {addr_port}")
@@ -164,7 +154,6 @@ def setup_client(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
             addr, port = addr_port.split(":")
         else:
             addr = addr_port
-            port = cfg.get("connection/port", required=True)
 
         ipc = ClientIPC(addr, int(port))
         await ipc.connect(loop)
@@ -172,7 +161,31 @@ def setup_client(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
         cmd(ipc.disconnect)
         del cmd.commands["connect"]
 
+        async def send_command(
+            meth: str, data: Union[list, dict], default=None, wait: bool = True
+        ):
+            if wait:
+                return await ipc.remote.request_wait(meth, data, default)
+            else:
+                return await ipc.remote.request(meth, data)
+
+        @cmd
+        async def login(username: str):
+            result = await send_command("LOGIN", [username], 1)
+            cli.echo(repr(result))
+
+        @cmd
+        async def ping(*a):
+            result = await send_command("PING", list(a))
+            cli.echo(repr(result))
+
+        @cmd
+        async def time():
+            result = await send_command("TIME", [])
+            cli.echo(repr(result))
+
         try:
+            cli.TASKS.append(ipc.listening)
             await ipc.listening
 
         except CancelledError:
@@ -182,7 +195,7 @@ def setup_client(cli: Client, cmd: CommandRoot, loop: AbstractEventLoop):
             cli.echo(f"Connection failed with {type(e).__name__!r}: {e}")
 
         finally:
-            await ipc.disconnect()
+            await ipc.terminate()
 
             cmd.add(connect)
             del cmd.commands["disconnect"]

@@ -44,16 +44,19 @@ try:
 except (EOFError, KeyboardInterrupt):
     pass
 finally:
-    loop.run_until_complete(
-        wait_for(
-            gather(
-                loop.shutdown_asyncgens(),
-                *filter((lambda task: not task.done()), client.TASKS),
+    try:
+        loop.run_until_complete(
+            wait_for(
+                gather(
+                    loop.shutdown_asyncgens(),
+                    *filter((lambda task: not task.done()), client.TASKS),
+                    loop=loop,
+                    return_exceptions=True
+                ),
+                5,
                 loop=loop,
-                return_exceptions=True
-            ),
-            5,
-            loop=loop,
+            )
         )
-    )
-    loop.close()
+        loop.close()
+    except KeyboardInterrupt:
+        print()

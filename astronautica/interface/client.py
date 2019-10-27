@@ -102,7 +102,7 @@ class Prompt(object):
             return self.prompt + [(style, str(text))]
 
 
-class Client(object):
+class Interface(object):
     def __init__(self, loop: AbstractEventLoop, command_handler: CommandRoot = None):
         self.LOOP: AbstractEventLoop = loop
         self.TASKS: List[Task] = []
@@ -211,7 +211,9 @@ class Client(object):
             if self.handler:
                 if hide:
                     self.read_only = True
-                execute_function(line, self.echo, self.handler, self.LOOP, self.TASKS)
+                execute_function(
+                    line.strip(), self.echo, self.handler, self.LOOP, self.TASKS
+                )
             else:
                 self.echo("No handler.")
 
@@ -243,6 +245,10 @@ class Client(object):
                                             wrap_lines=True,
                                         ),
                                         Condition(lambda: not self.read_only),
+                                    ),
+                                    ConditionalContainer(
+                                        Window(FormattedTextControl("..."), height=1),
+                                        Condition(lambda: self.read_only),
                                     ),
                                 )
                             ),
