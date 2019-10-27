@@ -103,9 +103,11 @@ class Command(object):
         self, func: Union[Callable, str] = None, name: str = None, task: bool = False
     ) -> Union[Callable[[CmdType], "Command"], "Command"]:
         if func is None:
+            # noinspection PyTypeChecker
             return partial(self.sub, name=name, task=task)
 
         elif isinstance(func, str):
+            # noinspection PyTypeChecker
             return partial(self.sub, name=func, task=task)
 
         elif isinstance(func, Callable):
@@ -128,9 +130,11 @@ class CommandRoot(object):
         self, func: Union[Callable, str] = None, name: str = None, task: bool = False
     ) -> Union[Callable[[CmdType], Command], Command]:
         if func is None:
+            # noinspection PyTypeChecker
             return partial(self, name=name, task=task)
 
         elif isinstance(func, str):
+            # noinspection PyTypeChecker
             return partial(self, name=func, task=task)
 
         elif isinstance(func, Callable):

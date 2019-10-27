@@ -1,5 +1,5 @@
 from asyncio import AbstractEventLoop, Task
-from enum import auto, Enum
+from enum import Enum
 from itertools import cycle
 from typing import Iterator, List, Optional, Union
 
@@ -22,16 +22,16 @@ from prompt_toolkit.widgets import HorizontalLine, VerticalLine
 from ptterm import Terminal
 
 from .commands import CommandRoot
-from .etc import keys, STYLE, unstyle
+from .etc import keys, STYLE, T, unstyle
 from .execution import execute_function
 from config import cfg
 
 
 class Mode(Enum):
-    OFF = auto()
-    SCOPES = auto()
-    SCANS = auto()
-    ORDERS = auto()
+    OFF = "OFF"  # auto()
+    SCOPES = "SCOPES"  # auto()
+    SCANS = "SCANS"  # auto()
+    ORDERS = "ORDERS"  # auto()
 
 
 class Prompt(object):
@@ -168,7 +168,14 @@ class Client(object):
         )
 
         # Build the UI.
-        self.bar = FormattedTextControl("asdf qwert")
+        self.bar = FormattedTextControl(
+            lambda: "{left:{pad}^{half}}│{right:{pad}^{half}}".format(
+                left="Panel Display: CONSOLE",
+                right=f"Panel Display: {self.state.value} [Shift-Tab]",
+                half=(int(T.width / 2)),
+                pad="",
+            )
+        )
         self.cmd = Buffer(
             accept_handler=self.enter,
             completer=Completer_(command_handler, self.bar),

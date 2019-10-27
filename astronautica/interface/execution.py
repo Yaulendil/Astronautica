@@ -6,7 +6,7 @@ from asyncio import AbstractEventLoop, Task
 from typing import AsyncIterator, Coroutine, Iterator, List, Sequence
 
 from .commands import CommandNotFound, CommandRoot
-from .etc import EchoType
+from .etc import EchoType, T
 
 
 def handle_return(echo: EchoType, result):
@@ -25,7 +25,7 @@ def handle_return(echo: EchoType, result):
         echo(str(result))
 
 
-async def handle_async(tokens: Sequence[str], echo: EchoType, result):
+async def handle_async(line, echo: EchoType, result):
     """We have received...something. So long as it is a Coroutine, replace it
         with the result of awaiting it. If it is an Asynchronous Iterator,
         loop through it and Echo each element. If it is anything else, simply
@@ -45,9 +45,9 @@ async def handle_async(tokens: Sequence[str], echo: EchoType, result):
 
     except Exception as exc:
         echo(
-            f"Error: {' '.join(tokens)}: {type(exc).__name__}: {exc}"
+            f"Error: {T.bold(line)}: {type(exc).__name__!r}\n\r    {exc}"
             if str(exc)
-            else f"Error: {' '.join(tokens)}: {type(exc).__name__}"
+            else f"Error: {T.bold(line)}: {type(exc).__name__!r}"
         )
 
 
@@ -74,7 +74,7 @@ def execute_function(
             if isinstance(result, (AsyncIterator, Coroutine)):
                 # This Command Function is Asynchronous. Dispatch a Task to run
                 #   and manage it.
-                task = loop.create_task(handle_async(tokens, echo, result))
+                task = loop.create_task(handle_async(line, echo, result))
 
                 if command.dispatch_task:
                     # This Command is meant to run in the background. Return
@@ -97,8 +97,8 @@ def execute_function(
 
     except Exception as exc:
         echo(
-            f"Error: {' '.join(tokens)}: {type(exc).__name__}: {exc}"
+            f"Error: {T.bold(line)}: {type(exc).__name__!r}\n\r    {exc}"
             if str(exc)
-            else f"Error: {' '.join(tokens)}: {type(exc).__name__}"
+            else f"Error: {T.bold(line)}: {type(exc).__name__!r}"
         )
         handler.client.cmd_show()
