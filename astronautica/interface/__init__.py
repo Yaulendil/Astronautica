@@ -5,9 +5,11 @@ from typing import Tuple
 
 from ezipc.util import P
 
-from .tui import Interface
+from .client import setup_client
 from .commands import CommandRoot
 from .etc import T
+from .server import setup_host
+from .tui import Interface
 
 
 def get_client(loop) -> Tuple[Interface, CommandRoot]:
