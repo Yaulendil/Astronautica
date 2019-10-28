@@ -66,32 +66,29 @@ def execute_function(
             raise CommandNotFound(f"Command {tokens[0].upper()!r} not found.")
 
         handler.client.cmd_hide()
-        result = command(tokens)
 
-        if result:
-            if isinstance(result, (AsyncIterator, Coroutine)):
-                # This Command Function is Asynchronous. Dispatch a Task to run
-                #   and manage it.
-                task = loop.create_task(handle_async(line, echo, result))
+        if command.is_async:
+            # This Command Function is Asynchronous. Dispatch a Task to run
+            #   and manage it.
+            task = loop.create_task(handle_async(line, echo, command(tokens)))
+            tasks.append(task)
 
-                if command.dispatch_task:
-                    # This Command is meant to run in the background. Return
-                    #   control to the User now.
-                    handler.client.cmd_show()
-                else:
-                    # This Command, while Asynchronous, is meant to block
-                    #   further User Input. Register a Callback to return
-                    #   control after it is done.
-                    task.add_done_callback(handler.client.cmd_show)
-
-                tasks.append(task)
-                # echo("Asynchronous Task dispatched.")
-            else:
-                # This Command Function is Synchronous. We have no choice but to
-                #   accept the blocking (and in fact, if the Function is not a
-                #   Generator, it has already done its blocking anyway).
-                handle_return(echo, result)
+            if command.dispatch_task:
+                # This Command is meant to run in the background. Return
+                #   control to the User now.
                 handler.client.cmd_show()
+            else:
+                # This Command, while Asynchronous, is meant to block
+                #   further User Input. Register a Callback to return
+                #   control after it is done.
+                task.add_done_callback(handler.client.cmd_show)
+
+            # echo("Asynchronous Task dispatched.")
+        else:
+            # This Command Function is Synchronous. We have no choice but to
+            #   accept the blocking.
+            handle_return(echo, command(tokens))
+            handler.client.cmd_show()
 
     except Exception as exc:
         echo(

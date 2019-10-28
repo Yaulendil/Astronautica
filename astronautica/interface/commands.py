@@ -1,7 +1,15 @@
 from functools import partial, update_wrapper
 
 # from getopt import getopt
-from inspect import Parameter, Signature
+from inspect import (
+    isasyncgenfunction,
+    isawaitable,
+    iscoroutinefunction,
+    Parameter,
+    Signature,
+)
+
+from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.document import Document
 from shlex import shlex
@@ -75,6 +83,14 @@ class Command(object):
         #                 self.bools.add(k)
         #     else:
         #         pass
+
+    @property
+    def is_async(self):
+        return (
+            iscoroutinefunction(self._func)
+            or isasyncgenfunction(self._func)
+            or isawaitable(self._func)
+        )
 
     def __call__(self, tokens: Sequence[str] = None):
         """Execute the Command. Takes a Sequence of Strings."""
