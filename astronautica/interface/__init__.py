@@ -8,7 +8,7 @@ from uuid import UUID
 
 from ezipc.util import P
 
-from .client import Interface
+from .tui import Interface
 from .commands import CommandRoot
 from .etc import T
 from config import cfg
