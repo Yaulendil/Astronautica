@@ -85,6 +85,10 @@ class Command(object):
         #         pass
 
     @property
+    def doc(self) -> str:
+        return self._func.__doc__
+
+    @property
     def is_async(self):
         return (
             iscoroutinefunction(self._func)
@@ -155,6 +159,34 @@ class CommandRoot(Completer):
         self.commands: Dict[str, Command] = {}
 
         self.completion: str = ""
+
+        @self("help")
+        def _help(*path):
+            if path:
+                full = " ".join(path)
+                cmd, _ = self.get_command(full)
+                full = full.upper()
+                if cmd:
+                    doc = cmd.doc
+                    yield "{} :: {}".format(
+                        full,
+                        doc
+                        and "\n\r    ".join(
+                            filter(None, map(str.strip, doc.split("\n")))
+                        )
+                        or "No Help available.",
+                    )
+
+                    if cmd.subcommands:
+                        yield "\n\rSubcommands:"
+                        for sub in sorted(cmd.subcommands):
+                            yield f"    {full} {sub.upper()}"
+                else:
+                    yield "Command not found."
+            else:
+                yield "Commands:"
+                for cmd in sorted(self.commands.values(), key=lambda x: x.keyword):
+                    yield f"    {cmd.KEYWORD}"
 
     def __call__(
         self, func: Union[Callable, str] = None, name: str = None, task: bool = False

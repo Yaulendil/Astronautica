@@ -26,6 +26,10 @@ def get_client(loop) -> Tuple[Interface, CommandRoot]:
 
     @cmd
     def asdf(*words):
+        """Test command.
+
+        Does nothing interesting.
+        """
         sleep2(3)
         yield from words
 
