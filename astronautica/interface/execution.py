@@ -55,6 +55,7 @@ def execute_function(
     handler: CommandRoot,
     loop: AbstractEventLoop,
     tasks: List[Task],
+    set_job,
 ) -> None:
     """Find the Command Object and Tokens represented by the input line, and
         handle the process of either retrieving its output, or dispatching a
@@ -74,22 +75,25 @@ def execute_function(
             task = loop.create_task(handle_async(line, echo, command(args)))
             tasks.append(task)
 
-            if command.dispatch_task:
-                # This Command is meant to run in the background. Return
-                #   control to the User now.
-                handler.client.cmd_show()
-            else:
-                # This Command, while Asynchronous, is meant to block
-                #   further User Input. Register a Callback to return
-                #   control after it is done.
-                task.add_done_callback(handler.client.cmd_show)
+            if not command.dispatch_task:
+                set_job(task)
+
+            # if command.dispatch_task:
+            #     # This Command is meant to run in the background. Return
+            #     #   control to the User now.
+            #     handler.client.cmd_show()
+            # else:
+            #     # This Command, while Asynchronous, is meant to block
+            #     #   further User Input. Register a Callback to return
+            #     #   control after it is done.
+            #     task.add_done_callback(handler.client.cmd_show)
 
             # echo("Asynchronous Task dispatched.")
         else:
             # This Command Function is Synchronous. We have no choice but to
             #   accept the blocking.
             handle_return(echo, command(args))
-            handler.client.cmd_show()
+            # handler.client.cmd_show()
 
     except Exception as exc:
         echo(
@@ -97,4 +101,4 @@ def execute_function(
             if str(exc)
             else f"Error: {T.bold(line)}: {type(exc).__name__!r}"
         )
-        handler.client.cmd_show()
+        # handler.client.cmd_show()

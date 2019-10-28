@@ -147,7 +147,7 @@ class Interface(object):
             accept_handler=self.enter,
             completer=command_handler,
             multiline=False,
-            read_only=Condition(lambda: self.read_only),
+            read_only=Condition(self.busy),
             on_text_changed=command_handler.change,
         )
         self.term = Terminal(sim_prompt=True)
@@ -164,7 +164,16 @@ class Interface(object):
         self.handler = command_handler
         self._app: Optional[Application] = None
 
+        self.job: Optional[Task] = None
+
         # self.echo("Ready.", start="")
+
+    def busy(self) -> bool:
+        return self.job is not None and not self.job.done()
+
+    def set_job(self, job: Task):
+        self.job = job
+        self.redraw()
 
     def cmd_hide(self):
         """Make the Command Prompt invisible, and then update the display."""
@@ -215,7 +224,7 @@ class Interface(object):
                 if hide:
                     self.read_only = True
                 execute_function(
-                    line.strip(), self.echo, self.handler, self.LOOP, self.TASKS
+                    line.strip(), self.echo, self.handler, self.LOOP, self.TASKS, self.set_job
                 )
             else:
                 self.echo("No handler.")
@@ -247,11 +256,11 @@ class Interface(object):
                                             # height=1,
                                             wrap_lines=True,
                                         ),
-                                        Condition(lambda: not self.read_only),
+                                        Condition(lambda: not self.busy()),
                                     ),
                                     ConditionalContainer(
                                         Window(FormattedTextControl("..."), height=1),
-                                        Condition(lambda: self.read_only),
+                                        Condition(self.busy),
                                     ),
                                     ConditionalContainer(
                                         Window(

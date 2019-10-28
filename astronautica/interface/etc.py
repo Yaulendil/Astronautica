@@ -96,7 +96,7 @@ def keys(
         @kb.add("c-d")
         def eof(event):
             """Ctrl-D: Exit program, but only if waiting for input."""
-            if not client.read_only:
+            if not client.busy():
                 event.app.exit(exception=EOFError)
 
         @kb.add("c-q")
