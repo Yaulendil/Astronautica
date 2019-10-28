@@ -93,7 +93,7 @@ class Command(object):
 
     def add(self, command: "Command") -> None:
         if command.keyword in self.subcommands:
-            raise CommandExists(f"Subcommand '{command.KEYWORD}' already exists.")
+            raise CommandExists(f"Subcommand {command.KEYWORD!r} already exists.")
         else:
             self.subcommands[command.keyword] = command
 
@@ -138,6 +138,8 @@ class CommandRoot(Completer):
         self.client = client
         self.commands: Dict[str, Command] = {}
 
+        self.completion: str = ""
+
     def __call__(
         self, func: Union[Callable, str] = None, name: str = None, task: bool = False
     ) -> Union[Callable[[CmdType], Command], Command]:
@@ -158,9 +160,13 @@ class CommandRoot(Completer):
 
     def add(self, command: Command) -> None:
         if command.keyword in self.commands:
-            raise CommandExists(f"Command '{command.KEYWORD}' already exists.")
+            raise CommandExists(f"Command {command.KEYWORD!r} already exists.")
         else:
             self.commands[command.keyword] = command
+
+    def change(self, buf: Buffer):
+        if buf.text.endswith(" "):
+            self.completion = ""
 
     def get_command(self, line: str) -> Tuple[Optional[Command], List[str]]:
         if line:
@@ -195,17 +201,15 @@ class CommandRoot(Completer):
             word = line
             cmd_dict = self.commands
 
-        comps = [
-            possibility[len(word) :]
-            for possibility in sorted(cmd_dict.keys())
-            if possibility.startswith(word)
-        ]
-
-        if len(comps) > 1:
-            yield from map(Completion, comps)
-        elif comps:
-            # If there is only one possibility, append a Space.
-            yield Completion(comps[0] + " ")
+        keys = [p for p in sorted(cmd_dict.keys()) if p.startswith(word)]
+        if len(keys) > 1:
+            self.completion = "<TAB> ::  " + ", ".join(keys)
+            yield from (Completion(possible[len(word) :]) for possible in keys)
+        else:
+            self.completion = ""
+            if keys:
+                # If there is only one possibility, append a Space.
+                yield Completion(keys[0][len(word) :] + " ")
 
     def set_client(self, client):
         self.client = client

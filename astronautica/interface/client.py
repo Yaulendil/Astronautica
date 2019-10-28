@@ -148,6 +148,7 @@ class Interface(object):
             completer=command_handler,
             multiline=False,
             read_only=Condition(lambda: self.read_only),
+            on_text_changed=command_handler.change,
         )
         self.term = Terminal(sim_prompt=True)
         self.console = self.term.terminal_control.process.terminal
@@ -198,6 +199,7 @@ class Interface(object):
         """The User has Accepted the LineBuffer. Read the Buffer, reset the
             line, and then forward the text to the Execute Function.
         """
+        self.handler.completion = ""
         command: str = buffer.text
         buffer.reset(append_to_history=True)
         self.execute(command)
@@ -250,6 +252,16 @@ class Interface(object):
                                     ConditionalContainer(
                                         Window(FormattedTextControl("..."), height=1),
                                         Condition(lambda: self.read_only),
+                                    ),
+                                    ConditionalContainer(
+                                        Window(
+                                            FormattedTextControl(
+                                                lambda: self.handler.completion
+                                            ),
+                                            height=1,
+                                            style="ansigray bold reverse",
+                                        ),
+                                        Condition(lambda: self.handler.completion),
                                     ),
                                 )
                             ),
