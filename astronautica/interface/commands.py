@@ -76,7 +76,7 @@ class Command(object):
         #     else:
         #         pass
 
-    def __call__(self, tokens: Sequence[str]):
+    def __call__(self, tokens: Sequence[str] = None):
         """Execute the Command. Takes a Sequence of Strings."""
         # opts, args = getopt(tokens, self.shorts, self.longs)
         # opts = {k: (True if k in self.bools else v) for k, v in opts}

@@ -1,6 +1,7 @@
 from asyncio import AbstractEventLoop, Task
 from enum import Enum
 from itertools import cycle
+from pathlib import Path
 from typing import List, Optional, Union
 
 from prompt_toolkit import Application
@@ -37,14 +38,14 @@ class Prompt(object):
         self,
         username: str,
         host: str,
-        path: str = "~",
+        path: Union[Path, str] = "~",
         *,
         namestyle: str = None,
         prefix: str = "",
     ):
         self.username: str = username
         self.hostname: str = host
-        self.path: str = path
+        self.path: Path = Path(path)
 
         self.namestyle: str = namestyle
         self.prefix: str = prefix
@@ -69,7 +70,7 @@ class Prompt(object):
                     f"{self.username}@{self.hostname}",
                 ),
                 ("class:etc", ":"),
-                ("class:path", self.path),
+                ("class:path", str(self.path)),
                 ("class:etc", self.char),
             ]
         )
@@ -82,7 +83,7 @@ class Prompt(object):
         return "{}{}:{}{}{}".format(
             self.prefix,
             unstyle["class:hostname"](f"{self.username}@{self.hostname}"),
-            unstyle["class:path"](self.path),
+            unstyle["class:path"](str(self.path)),
             self.char,
             append,
         )

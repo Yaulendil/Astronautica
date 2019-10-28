@@ -1,6 +1,5 @@
 """Interface Package: Command line Client and all integrations with Engine."""
-
-from asyncio import AbstractEventLoop, sleep, CancelledError
+from asyncio import AbstractEventLoop, Future, sleep, CancelledError
 from pathlib import Path
 from re import compile
 from time import sleep as sleep2
@@ -74,10 +73,19 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         del cmd.commands["open"]
 
+        @server.hook_request("CD")
+        async def cd(data):
+            cli.echo(repr(data))
+            return [True]
+
         @server.hook_request("LOGIN")
         async def login(data):
             cli.echo(repr(data))
-            return ["zzzz"]
+            return [name.lower().replace(" ", "") for name in data]
+
+        @server.hook_request("SYNC")
+        async def sync(_data):
+            return dict(username="nobody", hostname="ingress", path="/login")
 
         try:
             await run
@@ -163,16 +171,32 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         async def send_command(
             meth: str, data: Union[list, dict], default=None, wait: bool = True
-        ):
+        ) -> Union[dict, Future, list]:
+            resp = await ipc.remote.request(meth, data)
             if wait:
-                return await ipc.remote.request_wait(meth, data, default)
+                return await resp
             else:
-                return await ipc.remote.request(meth, data)
+                return resp
+
+        @cmd
+        async def cd(path: str):
+            result = await send_command("CD", [path])
+            if result and True in result:
+                cli.prompt.path /= path
+                cli.prompt.path = cli.prompt.path.resolve()
 
         @cmd
         async def login(username: str):
-            result = await send_command("LOGIN", [username], 1)
-            cli.echo(repr(result))
+            result = await send_command("LOGIN", [username])
+            if result:
+                cli.prompt.username = result[0]
+
+        @cmd
+        async def sync():
+            result = await send_command("SYNC", [], {})
+            cli.prompt.username = result.get("username", cli.prompt.username)
+            cli.prompt.hostname = result.get("hostname", cli.prompt.hostname)
+            cli.prompt.path = Path(result.get("path", cli.prompt.path))
 
         @cmd
         async def ping(*a):
@@ -185,6 +209,8 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             cli.echo(repr(result))
 
         try:
+            await sync()
+            cli.redraw()
             cli.TASKS.append(ipc.listening)
             await ipc.listening
 

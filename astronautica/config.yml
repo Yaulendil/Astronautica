@@ -1,8 +1,8 @@
 interface:
   initial:
     user: "nobody"
-    host: "ingress"
-    wdir: "/login"
+    host: "local"
+    wdir: "~"
   style:
     etc: ""
     hostname: fg:ansicyan
