@@ -60,7 +60,8 @@ def execute_function(
         handle the process of either retrieving its output, or dispatching a
         Task to do so.
     """
-    command, tokens = handler.get_command(line)
+    tokens = handler.split(line)
+    command, args = handler.get_command(tokens)
     try:
         if command is None:
             raise CommandNotFound(f"Command {tokens[0].upper()!r} not found.")
@@ -70,7 +71,7 @@ def execute_function(
         if command.is_async:
             # This Command Function is Asynchronous. Dispatch a Task to run
             #   and manage it.
-            task = loop.create_task(handle_async(line, echo, command(tokens)))
+            task = loop.create_task(handle_async(line, echo, command(args)))
             tasks.append(task)
 
             if command.dispatch_task:
@@ -87,7 +88,7 @@ def execute_function(
         else:
             # This Command Function is Synchronous. We have no choice but to
             #   accept the blocking.
-            handle_return(echo, command(tokens))
+            handle_return(echo, command(args))
             handler.client.cmd_show()
 
     except Exception as exc:

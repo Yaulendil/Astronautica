@@ -161,20 +161,20 @@ class CommandRoot(Completer):
         self.completion: str = ""
 
         @self("help")
-        def _help(*path):
+        def _help(*path: str):
             if path:
-                full = " ".join(path)
-                cmd, _ = self.get_command(full)
-                full = full.upper()
+                cmd, args = self.get_command(path)
+                if cmd and args:
+                    path = path[:-len(args)]
+
+                full = " ".join(path).upper()
                 if cmd:
                     doc = cmd.doc
                     yield "{} :: {}".format(
                         full,
-                        doc
-                        and "\n\r    ".join(
-                            filter(None, map(str.strip, doc.split("\n")))
-                        )
-                        or "No Help available.",
+                        "\n\r    ".join(filter(None, map(str.strip, doc.split("\n"))))
+                        if doc
+                        else "No Help available.",
                     )
 
                     if cmd.subcommands:
@@ -182,7 +182,7 @@ class CommandRoot(Completer):
                         for sub in sorted(cmd.subcommands):
                             yield f"    {full} {sub.upper()}"
                 else:
-                    yield "Command not found."
+                    yield f"Command {path[0].upper()!r} not found."
             else:
                 yield "Commands:"
                 for cmd in sorted(self.commands.values(), key=lambda x: x.keyword):
@@ -216,31 +216,44 @@ class CommandRoot(Completer):
         if buf.text.endswith(" "):
             self.completion = ""
 
-    def get_command(self, line: str) -> Tuple[Optional[Command], List[str]]:
-        if line:
-            sh = shlex(line, posix=True, punctuation_chars=True)
-            sh.wordchars += ":+"
-            tokens: List[str] = list(sh)
+    def get_command(
+        self, tokens: Union[List[str], Tuple[str, ...]]
+    ) -> Tuple[Optional[Command], Sequence[str]]:
+        cmd_dict, here = self.commands, None
 
-            cmd_dict, here = self.commands, None
+        while tokens and tokens[0].lower() in cmd_dict:
+            here = cmd_dict[tokens[0].lower()]
+            cmd_dict = here.subcommands
+            tokens = tokens[1:]
 
-            while tokens and tokens[0] in cmd_dict:
-                here = cmd_dict[tokens[0]]
-                cmd_dict = here.subcommands
-                tokens = tokens[1:]
+        return here, tokens
 
-            return here, tokens
+    @staticmethod
+    def split(line: str) -> List[str]:
+        sh = shlex(line, posix=True, punctuation_chars=True)
+        sh.wordchars += ":+"
+        return list(sh)
 
-        else:
-            return None, []
+    def split_and_get(self, line: str) -> Tuple[Optional[Command], Sequence[str]]:
+        return self.get_command(self.split(line))
 
     def get_completions(
         self, document: Document, complete_event
     ) -> Iterator[Completion]:
         line = document.text_before_cursor
 
-        if " " in line:
-            most, word = line.rsplit(" ", 1)
+        # most, word = line.rsplit(" ", 1)
+        tokens = self.split(line)
+
+        if line.endswith(" "):
+            tokens.append("")
+
+        if tokens:
+            most, word = tokens[:-1], tokens[-1]
+        else:
+            most, word = [], line
+
+        if most:
             cmd = self.get_command(most)[0]
             if not cmd:
                 return
