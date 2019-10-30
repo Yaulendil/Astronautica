@@ -50,16 +50,16 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     ###===---
 
     @cmd
-    def g():
+    def galaxy():
         raise NotImplementedError
 
-    @g.sub
+    @galaxy.sub
     async def new():
         yield "Generating..."
         st.world = Galaxy.generate((1.4, 1, 0.2), arms=3)
         yield "New Galaxy Generated."
 
-    @g.sub
+    @galaxy.sub
     async def load(path: str):
         yield "Loading..."
         try:
@@ -69,7 +69,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         else:
             yield f"Loaded {st.world.stars.shape} stars."
 
-    @g.sub
+    @galaxy.sub
     async def rename(path: str = None):
         path = DATA_DIR / path
         if path.parent != DATA_DIR:
@@ -77,13 +77,13 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         st.world.rename(path)
         return f"Galaxy Renamed. New location: {path}"
 
-    @g.sub
+    @galaxy.sub
     async def save():
         yield "Saving..."
         st.world.save()
         yield "Galaxy Saved in: {}".format(st.world.gdir)
 
-    @g.sub
+    @galaxy.sub
     async def rand():
         yield repr(st.world.get_system(UUID(int=st.world.system_random()[3])))
 
@@ -98,7 +98,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         server.setup()
 
         run = loop.create_task(server.run(loop))  # Start the Server.
-        world = loop.create_task(st.run(echo=cli.echo))  # Start the World.
+        world = loop.create_task(st.run())  # Start the World.
 
         @server.hook_connect
         async def sync(remote: Remote):

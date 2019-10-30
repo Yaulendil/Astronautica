@@ -14,9 +14,9 @@ from .tui import Interface
 
 def get_client(loop: AbstractEventLoop) -> Tuple[Interface, CommandRoot]:
     cmd = CommandRoot()
-    interface_client = Interface(loop, command_handler=cmd)
-    cmd.set_client(interface_client)
-    P.output_line = interface_client.echo
+    cli = Interface(loop, command_handler=cmd)
+    cmd.set_client(cli)
+    P.output_line = cli.echo
 
     @cmd
     def asdf(*words):
@@ -71,4 +71,4 @@ def get_client(loop: AbstractEventLoop) -> Tuple[Interface, CommandRoot]:
         yield fut.result()
         yield "Result Yielded"
 
-    return interface_client, cmd
+    return cli, cmd

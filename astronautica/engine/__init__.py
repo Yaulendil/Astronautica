@@ -14,6 +14,8 @@ from sys import stderr
 from time import time
 from typing import Dict, Iterable, List, Tuple
 
+from ezipc.util import echo
+
 from .collision import find_collisions
 from .objects import Object
 from .serial import deserialize, Serial, Serializable
@@ -139,7 +141,7 @@ class Spacetime:
         for i in range(seconds * granularity):
             self._tick(1 / granularity, True)
 
-    async def run(self, turn_length: int = 300, echo=print):
+    async def run(self, turn_length: int = 300):
         try:
             turn = td(seconds=turn_length)
             start = dt.utcnow()
@@ -165,4 +167,4 @@ class Spacetime:
             echo("Simulation Coroutine cancelled. Saving...")
         finally:
             # self.save_to_file()
-            echo("Spacetime Saved.")
+            echo("win", "Spacetime Saved.")
