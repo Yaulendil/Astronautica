@@ -4,6 +4,9 @@ from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
+from ezipc.remote import Remote
+from ezipc.util import P
+
 from .commands import CommandRoot
 from .tui import Interface
 from config import cfg
@@ -20,6 +23,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     st = Spacetime()
     # space = st.space
+    P.verbosity = 3
 
     def needs_server(func):
         @wraps(func)
@@ -41,53 +45,9 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         return wrapped
 
-    @cmd("open", task=True)
-    @needs_no_server
-    async def host():
-        nonlocal server
-        server = Server(
-            cfg.get("connection/address", "127.0.0.1"),
-            cfg.get("connection/port", required=True),
-        )
-        server.setup()
-
-        run = loop.create_task(server.run(loop))  # Start the Server.
-        world = loop.create_task(st.run(echo=cli.echo))  # Start the World.
-
-        @server.hook_request("CMD.CD")
-        async def cd(data):
-            cli.echo(repr(data))
-            return [True]
-
-        @server.hook_request("CMD.LOGIN")
-        async def login(data):
-            cli.echo(repr(data))
-            return [name.lower().replace(" ", "") for name in data]
-
-        @server.hook_request("CMD.SYNC")
-        async def sync(_data):
-            return dict(username="nobody", hostname="ingress", path="/login")
-
-        try:
-            await run
-
-        except CancelledError:
-            cli.echo("Server closed.")
-
-        except Exception as e:
-            cli.echo(f"Server raised {type(e).__name__!r}: {e}")
-
-        finally:
-            world.cancel()
-            await server.terminate()
-
-            if st.world:
-                st.world.save()
-
-    @cmd
-    @needs_server
-    def close():
-        server.server.close()
+    ###===---
+    # COMMAND HOOKS: All "local" Commands for the Server Console go here.
+    ###===---
 
     @cmd
     def g():
@@ -126,3 +86,62 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     @g.sub
     async def rand():
         yield repr(st.world.get_system(UUID(int=st.world.system_random()[3])))
+
+    @cmd("open", task=True)
+    @needs_no_server
+    async def host():
+        nonlocal server
+        server = Server(
+            cfg.get("connection/address", "127.0.0.1"),
+            cfg.get("connection/port", required=True),
+        )
+        server.setup()
+
+        run = loop.create_task(server.run(loop))  # Start the Server.
+        world = loop.create_task(st.run(echo=cli.echo))  # Start the World.
+
+        @server.hook_connect
+        async def sync(remote: Remote):
+            await remote.notif("SYNC", dict(username="nobody", hostname="ingress", path="/login"))
+
+        ###===---
+        # REQUEST HOOKS: All "incoming" Commands from Remote Clients go here.
+        ###===---
+
+        @server.hook_request("CMD.CD")
+        async def cd(data):
+            cli.echo(repr(data))
+            return [True]
+
+        @server.hook_request("CMD.LOGIN")
+        async def login(data):
+            cli.echo(repr(data))
+            return [name.lower().replace(" ", "") for name in data]
+
+        ###===---
+
+        try:
+            await run
+
+        except CancelledError:
+            cli.echo("Server closed.")
+
+        except Exception as e:
+            cli.echo(f"Server raised {type(e).__name__!r}: {e}")
+
+        finally:
+            # CLEANUP
+            if world.cancel():
+                await world
+
+            if server:
+                await server.terminate()
+                server = None
+
+    @cmd
+    @needs_server
+    async def close():
+        nonlocal server
+
+        server.server.close()
+        server = None

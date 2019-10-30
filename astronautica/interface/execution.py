@@ -34,9 +34,11 @@ async def handle_async(line, echo: EchoType, result, dispatched: bool = False):
             result = await result
 
         if isinstance(result, AsyncIterator):
+            kw = line.split()[0].lower()
+
             async for each in result:
                 if each is not None:
-                    echo(each)
+                    echo(f"{T.bold(kw)}: {each}")
 
         elif result is not None:
             handle_return(echo, result)
@@ -50,7 +52,7 @@ async def handle_async(line, echo: EchoType, result, dispatched: bool = False):
 
     finally:
         if dispatched:
-            echo(f"Command Complete: {line}")
+            echo(f"Command Complete: {T.bold(line)}")
 
 
 def execute_function(

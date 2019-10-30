@@ -51,6 +51,8 @@ class Command(object):
 
     def __init__(self, func: CmdType, keyword: str, client, task: bool = False):
         self._func: CmdType = func
+        keyword = keyword.replace("_", "-")
+
         self.keyword: str = keyword.lower()
         self.KEYWORD: str = keyword.upper()
         self.client = client

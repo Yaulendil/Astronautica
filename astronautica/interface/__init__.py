@@ -1,5 +1,5 @@
 """Interface Package: Command line Client and all integrations with Engine."""
-from asyncio import sleep
+from asyncio import AbstractEventLoop, sleep
 from time import sleep as sleep2
 from typing import Tuple
 
@@ -12,7 +12,7 @@ from .server import setup_host
 from .tui import Interface
 
 
-def get_client(loop) -> Tuple[Interface, CommandRoot]:
+def get_client(loop: AbstractEventLoop) -> Tuple[Interface, CommandRoot]:
     cmd = CommandRoot()
     interface_client = Interface(loop, command_handler=cmd)
     cmd.set_client(interface_client)
@@ -42,5 +42,33 @@ def get_client(loop) -> Tuple[Interface, CommandRoot]:
     @cmd
     def test(*text):
         yield from map(repr, text)
+
+    @cmd
+    async def check_future_bad():
+        fut = loop.create_future()
+        yield "Future Created"
+
+        fut.set_exception(RuntimeError)
+        yield "Exception Added"
+
+        await fut  # Exception should raise here.
+        yield "Awaited"
+
+        yield fut.result()
+        yield "Result Yielded"
+
+    @cmd
+    async def check_future_good():
+        fut = loop.create_future()
+        yield "Future Created"
+
+        fut.set_result(dict(asdf="qwert",zx="cv"))
+        yield "Result Set"
+
+        yield str(await fut)
+        yield "Awaited"
+
+        yield fut.result()
+        yield "Result Yielded"
 
     return interface_client, cmd
