@@ -7,6 +7,7 @@ from inspect import (
     iscoroutinefunction,
     Parameter,
     Signature,
+    unwrap,
 )
 
 from prompt_toolkit.buffer import Buffer
@@ -90,10 +91,11 @@ class Command(object):
 
     @property
     def is_async(self):
+        true = unwrap(self._func)
         return (
-            iscoroutinefunction(self._func)
-            or isasyncgenfunction(self._func)
-            or isawaitable(self._func)
+            iscoroutinefunction(true)
+            or isasyncgenfunction(true)
+            or isawaitable(true)
         )
 
     def __call__(self, tokens: Sequence[str] = None):

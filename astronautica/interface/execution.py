@@ -23,7 +23,7 @@ def handle_return(echo: EchoType, result):
         echo(str(result))
 
 
-async def handle_async(line, echo: EchoType, result):
+async def handle_async(line, echo: EchoType, result, dispatched: bool = False):
     """We have received...something. So long as it is a Coroutine, replace it
         with the result of awaiting it. If it is an Asynchronous Iterator,
         loop through it and Echo each element. If it is anything else, simply
@@ -47,6 +47,10 @@ async def handle_async(line, echo: EchoType, result):
             if str(exc)
             else f"Error: {T.bold(line)}: {type(exc).__name__!r}"
         )
+
+    finally:
+        if dispatched:
+            echo(f"Command Complete: {line}")
 
 
 def execute_function(
@@ -72,7 +76,9 @@ def execute_function(
         if command.is_async:
             # This Command Function is Asynchronous. Dispatch a Task to run
             #   and manage it.
-            task = loop.create_task(handle_async(line, echo, command(args)))
+            task = loop.create_task(
+                handle_async(line, echo, command(args), command.dispatch_task)
+            )
             tasks.append(task)
 
             if not command.dispatch_task:

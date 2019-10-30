@@ -1,5 +1,7 @@
 from asyncio import AbstractEventLoop, CancelledError
+from functools import wraps
 from pathlib import Path
+from typing import Optional
 from uuid import UUID
 
 from .commands import CommandRoot
@@ -14,11 +16,35 @@ DATA_DIR = Path(cfg["data/directory"])
 def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     from ezipc.server import Server
 
+    server: Optional[Server] = None
+
     st = Spacetime()
     # space = st.space
 
+    def needs_server(func):
+        @wraps(func)
+        def wrapped(*a, **kw):
+            if server is None:
+                raise RuntimeError("Command requires Active Host.")
+            else:
+                return func(*a, **kw)
+
+        return wrapped
+
+    def needs_no_server(func):
+        @wraps(func)
+        def wrapped(*a, **kw):
+            if server is None:
+                return func(*a, **kw)
+            else:
+                raise RuntimeError("Command cannot be used while Hosting.")
+
+        return wrapped
+
     @cmd("open", task=True)
+    @needs_no_server
     async def host():
+        nonlocal server
         server = Server(
             cfg.get("connection/address", "127.0.0.1"),
             cfg.get("connection/port", required=True),
@@ -28,23 +54,17 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         run = loop.create_task(server.run(loop))  # Start the Server.
         world = loop.create_task(st.run(echo=cli.echo))  # Start the World.
 
-        @cmd
-        def close():
-            server.server.close()
-
-        del cmd.commands["open"]
-
-        @server.hook_request("CD")
+        @server.hook_request("CMD.CD")
         async def cd(data):
             cli.echo(repr(data))
             return [True]
 
-        @server.hook_request("LOGIN")
+        @server.hook_request("CMD.LOGIN")
         async def login(data):
             cli.echo(repr(data))
             return [name.lower().replace(" ", "") for name in data]
 
-        @server.hook_request("SYNC")
+        @server.hook_request("CMD.SYNC")
         async def sync(_data):
             return dict(username="nobody", hostname="ingress", path="/login")
 
@@ -61,10 +81,13 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             world.cancel()
             await server.terminate()
 
-            cmd.add(host)
-            del cmd.commands["close"]
             if st.world:
                 st.world.save()
+
+    @cmd
+    @needs_server
+    def close():
+        server.server.close()
 
     @cmd
     def g():
