@@ -43,32 +43,4 @@ def get_client(loop: AbstractEventLoop) -> Tuple[Interface, CommandRoot]:
     def test(*text):
         yield from map(repr, text)
 
-    @cmd
-    async def check_future_bad():
-        fut = loop.create_future()
-        yield "Future Created"
-
-        fut.set_exception(RuntimeError)
-        yield "Exception Added"
-
-        await fut  # Exception should raise here.
-        yield "Awaited"
-
-        yield fut.result()
-        yield "Result Yielded"
-
-    @cmd
-    async def check_future_good():
-        fut = loop.create_future()
-        yield "Future Created"
-
-        fut.set_result(dict(asdf="qwert",zx="cv"))
-        yield "Result Set"
-
-        yield str(await fut)
-        yield "Awaited"
-
-        yield fut.result()
-        yield "Result Yielded"
-
     return cli, cmd

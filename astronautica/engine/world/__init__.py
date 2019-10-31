@@ -1,6 +1,6 @@
 from pathlib import Path
 from secrets import choice
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 from uuid import UUID, uuid4
 
 import numpy as np
@@ -62,7 +62,7 @@ class Galaxy(object):
                         x, y, z, h = line.strip("\n").replace(" ", "").split(DELIM)
                         yield (float(x), float(y), float(z), UUID(hex=h).int)
 
-        stars = np.array(stream())
+        stars = np.array(list(stream()))
         return cls(stars, path, UUID(hex=data["uuid"]))
 
     @classmethod

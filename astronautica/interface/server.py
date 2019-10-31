@@ -27,7 +27,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     cli.console_header = lambda: " :: ".join(
         (
-            f"Clients: {len(server.remotes) if server else None}",
+            f"Clients: {len(server.remotes)}" if server else "Server Offline",
             "Galaxy: {}".format(
                 f"{len(st.world.loaded)}/{st.world.stars.shape[0]}"
                 if st.world and st.world.stars.shape
@@ -35,6 +35,17 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             ),
         )
     )
+
+    def hostup():
+        if st.world and st.world.gdir:
+            cli.prompt.hostname = st.world.gdir.stem
+            cli.prompt.path = Path("/")
+        else:
+            cli.prompt.hostname = "NONE"
+            cli.prompt.path = Path("~")
+
+    hostup()
+    cli.prompt.username = "host"
 
     def needs_server(func):
         @wraps(func)
@@ -68,6 +79,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     async def new():
         yield "Generating..."
         st.world = Galaxy.generate((1.4, 1, 0.2), arms=3)
+        hostup()
         yield "New Galaxy Generated."
 
     @galaxy.sub
@@ -78,7 +90,8 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         except NotADirectoryError:
             yield "Galaxy Directory not found."
         else:
-            yield f"Loaded {st.world.stars.shape} stars."
+            hostup()
+            yield f"Loaded {st.world.stars.shape[0]} stars."
 
     @galaxy.sub
     async def rename(path: str = None):
@@ -86,6 +99,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         if path.parent != DATA_DIR:
             return "Galaxy Directory must be a simple name."
         st.world.rename(path)
+        hostup()
         return f"Galaxy Renamed. New location: {path}"
 
     @galaxy.sub

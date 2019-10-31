@@ -19,7 +19,13 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     cli.console_header = (
         lambda: " :: ".join(
-            (f"Server: {client.remote.id}", f"Commands: {len(cmd.commands)}")
+            (
+                f"Server: {client.remote.id}",
+                f"Commands: {len(cmd.commands)}",
+                "Secure"
+                if client and client.remote and client.remote.is_secure
+                else "NOT SECURE",
+            )
         )
         if client is not None and client.remote is not None
         else "[ NOT CONNECTED ]"
@@ -54,13 +60,6 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             return await resp
         else:
             return resp
-
-    @cmd
-    async def cd(path: str):
-        result = await send_command("CD", [path])
-        if result and True in result:
-            cli.prompt.path /= path
-            cli.prompt.path = cli.prompt.path.resolve()
 
     @cmd
     async def login(username: str, password: str):
@@ -121,7 +120,7 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             client = None
             cli.prompt.username = cfg["interface/initial/user"]
             cli.prompt.hostname = cfg["interface/initial/host"]
-            cli.prompt.path = cfg["interface/initial/wdir"]
+            cli.prompt.path = Path(cfg["interface/initial/wdir"])
 
     @cmd
     @needs_remote
