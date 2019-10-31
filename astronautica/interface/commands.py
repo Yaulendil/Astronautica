@@ -11,7 +11,7 @@ from inspect import (
 )
 
 from prompt_toolkit.buffer import Buffer
-from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.completion import Completer, Completion, CompleteEvent
 from prompt_toolkit.document import Document
 from shlex import shlex
 from typing import (
@@ -95,9 +95,7 @@ class Command(object):
     def is_async(self):
         true = unwrap(self._func)
         return (
-            iscoroutinefunction(true)
-            or isasyncgenfunction(true)
-            or isawaitable(true)
+            iscoroutinefunction(true) or isasyncgenfunction(true) or isawaitable(true)
         )
 
     def __call__(self, tokens: Sequence[str] = None):
@@ -169,7 +167,7 @@ class CommandRoot(Completer):
             if path:
                 cmd, args = self.get_command(path)
                 if cmd and args:
-                    path = path[:-len(args)]
+                    path = path[: -len(args)]
 
                 full = " ".join(path).upper()
                 if cmd:
@@ -242,8 +240,11 @@ class CommandRoot(Completer):
         return self.get_command(self.split(line))
 
     def get_completions(
-        self, document: Document, complete_event
+        self, document: Document, complete_event: CompleteEvent
     ) -> Iterator[Completion]:
+        if complete_event.text_inserted:
+            return
+
         line = document.text_before_cursor
 
         # most, word = line.rsplit(" ", 1)

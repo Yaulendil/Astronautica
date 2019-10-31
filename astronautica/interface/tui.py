@@ -17,7 +17,12 @@ from prompt_toolkit.layout.containers import (
 )
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
-from prompt_toolkit.layout.processors import BeforeInput, PasswordProcessor, Processor
+from prompt_toolkit.layout.processors import (
+    BeforeInput,
+    PasswordProcessor,
+    Processor,
+    HighlightMatchingBracketProcessor,
+)
 from prompt_toolkit.widgets import Frame, HorizontalLine, VerticalLine
 from ptterm import Terminal
 
@@ -154,17 +159,21 @@ class Interface(object):
         )
         self.cmd = Buffer(
             accept_handler=self.enter,
+            # complete_while_typing=True,
             completer=command_handler,
             multiline=False,
-            read_only=Condition(self.busy),
             on_text_changed=command_handler.change,
+            read_only=Condition(self.busy),
         )
         self.term = Terminal(sim_prompt=True)
         self.console = self.term.terminal_control.process.terminal
         self.console_header = lambda: ""
 
         self.floats = []
-        self.procs: List[Processor] = [self.prompt.processor]
+        self.procs: List[Processor] = [
+            self.prompt.processor,
+            HighlightMatchingBracketProcessor(),
+        ]
 
         self.scope_topdown = FormattedTextControl(text="TopDown")
         self.scope_horizon = FormattedTextControl(text="Horizon")
@@ -281,7 +290,7 @@ class Interface(object):
                     (
                         self.term,
                         ConditionalContainer(
-                            Window(
+                            Window(  # Command Prompt.
                                 BufferControl(self.cmd, self.procs),
                                 dont_extend_height=True,
                                 # height=1,
@@ -290,13 +299,18 @@ class Interface(object):
                             Condition(lambda: not self.busy()),
                         ),
                         ConditionalContainer(
-                            Window(FormattedTextControl("..."), height=1),
+                            Window(  # "Busy" Prompt, blocks Commands.
+                                FormattedTextControl("..."),
+                                height=1,
+                                ignore_content_width=True,
+                            ),
                             Condition(self.busy),
                         ),
                         ConditionalContainer(
-                            Window(
+                            Window(  # Completion Bar.
                                 FormattedTextControl(lambda: self.handler.completion),
                                 height=1,
+                                ignore_content_width=True,
                                 style="ansigray bold reverse",
                             ),
                             Condition(lambda: self.handler.completion),
@@ -304,7 +318,14 @@ class Interface(object):
                     )
                 ),
                 ConditionalContainer(  # Vertical Line.
-                    VerticalLine(), Condition(lambda: self.state is not Mode.OFF)
+                    HSplit(
+                        (
+                            VerticalLine(),
+                            Window(FormattedTextControl("├"), width=1, height=1),
+                            VerticalLine(),
+                        )
+                    ),
+                    Condition(lambda: self.state is not Mode.OFF),
                 ),
                 ConditionalContainer(  # Scopes Panel. Visualizes nearby Space.
                     HSplit(
