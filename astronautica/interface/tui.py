@@ -171,9 +171,8 @@ class Interface(object):
 
         # Register the Command Handler.
         self.handler = command_handler
-        self._app: Optional[Application] = None
-
         self.job: Optional[Task] = None
+        self._app: Optional[Application] = None
 
         # self.echo("Ready.", start="")
 

@@ -23,7 +23,7 @@ def handle_return(echo: EchoType, result):
         echo(str(result))
 
 
-async def handle_async(line, echo: EchoType, result, dispatched: bool = False):
+async def handle_async(line: str, echo: EchoType, result, dispatched: bool = False):
     """We have received...something. So long as it is a Coroutine, replace it
         with the result of awaiting it. If it is an Asynchronous Iterator,
         loop through it and Echo each element. If it is anything else, simply
@@ -94,18 +94,9 @@ def execute_function(
 
                 if not command.dispatch_task:
                     set_job(task)
-
-                # if command.dispatch_task:
-                #     # This Command is meant to run in the background. Return
-                #     #   control to the User now.
-                #     handler.client.cmd_show()
+                    task.add_done_callback(lambda *_: set_job(None))
                 # else:
-                #     # This Command, while Asynchronous, is meant to block
-                #     #   further User Input. Register a Callback to return
-                #     #   control after it is done.
-                #     task.add_done_callback(handler.client.cmd_show)
-
-                # echo("Asynchronous Task dispatched.")
+                #     echo("Asynchronous Task dispatched.")
             else:
                 # This Command Function is Synchronous. We have no choice but to
                 #   accept the blocking.
