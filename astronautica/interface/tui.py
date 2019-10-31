@@ -127,17 +127,25 @@ class Interface(object):
         def hist_last(*_) -> None:
             self.cmd.go_to_history(len(self.cmd.history.get_strings()))
 
+        @self.kb.add("c-c")
+        def interrupt(*_):
+            """Ctrl-C: Interrupt running Job."""
+            self.echo("^C")
+            if self.job and not self.job.done():
+                self.job.cancel()
+            self.job = None
+
         # Create a Prompt Object with initial values.
         self.prompt = Prompt(
             cfg["interface/initial/user", "nobody"],
-            cfg["interface/initial/host", "ingress"],
-            cfg["interface/initial/wdir", "/login"],
+            cfg["interface/initial/host", "local"],
+            cfg["interface/initial/wdir", "~"],
         )
 
         # Build the UI.
         self.bar = FormattedTextControl(
             lambda: "{left:{pad}^{half}}│{right:{pad}^{half}}".format(
-                left="Panel Display: CONSOLE",
+                left=self.console_header(),
                 right=f"Panel Display: {self.state.value} [Shift-Tab]",
                 half=(int(T.width / 2)),
                 pad="",
@@ -152,6 +160,7 @@ class Interface(object):
         )
         self.term = Terminal(sim_prompt=True)
         self.console = self.term.terminal_control.process.terminal
+        self.console_header = lambda: ""
 
         self.procs: List[Processor] = [self.prompt.processor]
 

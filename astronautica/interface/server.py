@@ -25,6 +25,17 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     # space = st.space
     P.verbosity = 3
 
+    cli.console_header = lambda: " :: ".join(
+        (
+            f"Clients: {len(server.remotes) if server else None}",
+            "Galaxy: {}".format(
+                f"{len(st.world.loaded)}/{st.world.stars.shape[0]}"
+                if st.world and st.world.stars.shape
+                else None
+            ),
+        )
+    )
+
     def needs_server(func):
         @wraps(func)
         def wrapped(*a, **kw):
@@ -102,7 +113,15 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         @server.hook_connect
         async def sync(remote: Remote):
-            await remote.notif("SYNC", dict(username="nobody", hostname="ingress", path="/login"))
+            await remote.notif(
+                "USR.SYNC", dict(username="nobody", hostname="ingress", path="/login")
+            )
+
+        @server.hook_connect
+        async def welcome(remote: Remote):
+            await remote.notif(
+                "ETC.PRINT", ["Connected to FleetNet.", "Use LOGIN to Authenticate."]
+            )
 
         ###===---
         # REQUEST HOOKS: All "incoming" Commands from Remote Clients go here.
@@ -114,9 +133,16 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             return [True]
 
         @server.hook_request("CMD.LOGIN")
-        async def login(data):
-            cli.echo(repr(data))
-            return [name.lower().replace(" ", "") for name in data]
+        async def login(data, remote):
+            name, pw = data
+            if name == pw:
+                await remote.notif(
+                    "USR.SYNC",
+                    dict(username=name, hostname="ingress", path="/ships"),
+                )
+                return [True]
+            else:
+                return [False]
 
         ###===---
 

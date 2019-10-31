@@ -1,11 +1,8 @@
 from asyncio import AbstractEventLoop, CancelledError, Future
 from functools import wraps
-from inspect import isawaitable
 from pathlib import Path
 from re import compile
 from typing import Union, Optional
-
-from ezipc.remote import Remote
 
 from .commands import CommandRoot
 from .tui import Interface
@@ -19,6 +16,14 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     from ezipc.client import Client
 
     client: Optional[Client] = None
+
+    cli.console_header = (
+        lambda: " :: ".join(
+            (f"Server: {client.remote.id}", f"Commands: {len(cmd.commands)}")
+        )
+        if client is not None and client.remote is not None
+        else "[ NOT CONNECTED ]"
+    )
 
     def needs_remote(func):
         @wraps(func)
@@ -42,16 +47,15 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     @needs_remote
     async def send_command(
-        meth: str, data: Union[list, dict] = None, default=None, wait: bool = True
+        meth: str, data: Union[list, dict] = None, wait: bool = True
     ) -> Union[dict, Future, list]:
         resp = await client.remote.request(f"CMD.{meth}", [] if data is None else data)
         if wait:
-            await resp
-
-        return resp
+            return await resp
+        else:
+            return resp
 
     @cmd
-    @needs_remote
     async def cd(path: str):
         result = await send_command("CD", [path])
         if result and True in result:
@@ -59,34 +63,12 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             cli.prompt.path = cli.prompt.path.resolve()
 
     @cmd
-    @needs_remote
-    async def login(username: str):
-        result = await send_command("LOGIN", [username])
-        if result:
-            cli.prompt.username = result[0]
-
-    @cmd
-    @needs_remote
-    async def sync():
-        result = await send_command("SYNC", [], {})
-        while isawaitable(result):
-            result = await result
-
-        cli.prompt.username = result.get("username", cli.prompt.username)
-        cli.prompt.hostname = result.get("hostname", cli.prompt.hostname)
-        cli.prompt.path = Path(result.get("path", cli.prompt.path))
-
-    @cmd
-    @needs_remote
-    async def ping(*a):
-        result = await send_command("PING", list(a))
-        cli.echo(repr(result))
-
-    @cmd
-    @needs_remote
-    async def time():
-        result = await send_command("TIME", [])
-        cli.echo(repr(result))
+    async def login(username: str, password: str):
+        result = await send_command("LOGIN", [username, password])
+        if result and result[0]:
+            cli.echo("Login Accepted.")
+        else:
+            cli.echo("Authentication Failure.")
 
     @cmd(task=True)
     @needs_no_remote
@@ -110,16 +92,16 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         client = Client(addr, int(port))
         await client.connect(loop)
 
-        # cmd(client.disconnect)
-        # del cmd.commands["connect"]
+        @client.hook_notif("ETC.PRINT")
+        async def _print(data: list):
+            for line in data:
+                cli.echo(f"{client.remote}: {line}")
 
-        @client.remote.hook_notif("SYNC")
-        def set_id(data: dict, _conn: Remote):
-            params = data.get("params")
-            if isinstance(params, dict):
-                cli.prompt.username = params.get("username", cli.prompt.username)
-                cli.prompt.hostname = params.get("hostname", cli.prompt.hostname)
-                cli.prompt.path = Path(params.get("path", cli.prompt.path))
+        @client.hook_notif("USR.SYNC")
+        async def set_id(data: dict):
+            cli.prompt.username = data.get("username", cli.prompt.username)
+            cli.prompt.hostname = data.get("hostname", cli.prompt.hostname)
+            cli.prompt.path = Path(data.get("path", cli.prompt.path))
 
         try:
             cli.redraw()
@@ -137,6 +119,9 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             if client and client.alive:
                 await client.terminate()
             client = None
+            cli.prompt.username = cfg["interface/initial/user"]
+            cli.prompt.hostname = cfg["interface/initial/host"]
+            cli.prompt.path = cfg["interface/initial/wdir"]
 
     @cmd
     @needs_remote
