@@ -82,8 +82,6 @@ def execute_function(
             if command is None:
                 raise CommandNotFound(f"Command {tokens_[0].upper()!r} not found.")
 
-            handler.client.cmd_hide()
-
             if command.is_async:
                 # This Command Function is Asynchronous. Dispatch a Task to run
                 #   and manage it.
@@ -101,7 +99,6 @@ def execute_function(
                 # This Command Function is Synchronous. We have no choice but to
                 #   accept the blocking.
                 handle_return(echo, command(args))
-                # handler.client.cmd_show()
 
         except Exception as exc:
             echo(
@@ -109,4 +106,3 @@ def execute_function(
                 if str(exc)
                 else f"Error: {T.bold(line)}: {type(exc).__name__!r}"
             )
-            # handler.client.cmd_show()

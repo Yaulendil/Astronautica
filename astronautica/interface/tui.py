@@ -8,6 +8,7 @@ from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import FormattedText, fragment_list_to_text
+from prompt_toolkit.layout import Float, FloatContainer
 from prompt_toolkit.layout.containers import (
     ConditionalContainer,
     HSplit,
@@ -16,8 +17,8 @@ from prompt_toolkit.layout.containers import (
 )
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
-from prompt_toolkit.layout.processors import BeforeInput, Processor
-from prompt_toolkit.widgets import HorizontalLine, VerticalLine
+from prompt_toolkit.layout.processors import BeforeInput, PasswordProcessor, Processor
+from prompt_toolkit.widgets import Frame, HorizontalLine, VerticalLine
 from ptterm import Terminal
 
 from .commands import CommandRoot
@@ -162,6 +163,7 @@ class Interface(object):
         self.console = self.term.terminal_control.process.terminal
         self.console_header = lambda: ""
 
+        self.floats = []
         self.procs: List[Processor] = [self.prompt.processor]
 
         self.scope_topdown = FormattedTextControl(text="TopDown")
@@ -183,20 +185,40 @@ class Interface(object):
         self.job = job
         self.redraw()
 
-    def cmd_hide(self):
-        """Make the Command Prompt invisible, and then update the display."""
-        self.read_only = True
-        self.redraw()
+    async def get_input(self, title: str = "", hide: bool = False) -> str:
+        try:
+            fut = self.LOOP.create_future()
 
-    def cmd_show(self, *_):
-        """Make the Command Prompt visible, and then update the display.
+            def finish(_buf: Buffer):
+                fut.set_result(_buf.text)
 
-        This must take an Argument, because it may be used as a Callback from a
-            Task. However, we do not need to do anything with it, because no
-            matter what, the Prompt MUST be reenabled after a Command completes.
-        """
-        self.read_only = False
-        self.redraw()
+            buf = Buffer(accept_handler=finish, multiline=False)
+            self.floats[:] = [
+                Float(
+                    Frame(
+                        Window(
+                            BufferControl(
+                                buf,
+                                input_processors=[
+                                    PasswordProcessor(),
+                                    BeforeInput("   "),
+                                ]
+                                if hide
+                                else [BeforeInput("   ")],
+                            ),
+                            get_horizontal_scroll=(lambda *_: 0),
+                        ),
+                        title=title,
+                    ),
+                    width=35,
+                    height=3,
+                )
+            ]
+            self._app.layout.focus(buf)
+            return await fut
+        finally:
+            self._app.layout.focus(self.cmd)
+            self.floats.clear()
 
     def echo(self, *text, sep: str = "\r\n", start: str = "\r\n"):
         """Print Text to the Console Output, and then update the display."""
@@ -232,7 +254,12 @@ class Interface(object):
                 if hide:
                     self.read_only = True
                 execute_function(
-                    line.strip(), self.echo, self.handler, self.LOOP, self.TASKS, self.set_job
+                    line.strip(),
+                    self.echo,
+                    self.handler,
+                    self.LOOP,
+                    self.TASKS,
+                    self.set_job,
                 )
             else:
                 self.echo("No handler.")
@@ -247,75 +274,73 @@ class Interface(object):
 
     def __enter__(self) -> Application:
         """Build a Layout and instantiate an Application around it."""
+        main = VSplit(
+            (
+                # Command History on most of the left panel, Prompt at the bottom.
+                HSplit(
+                    (
+                        self.term,
+                        ConditionalContainer(
+                            Window(
+                                BufferControl(self.cmd, self.procs),
+                                dont_extend_height=True,
+                                # height=1,
+                                wrap_lines=True,
+                            ),
+                            Condition(lambda: not self.busy()),
+                        ),
+                        ConditionalContainer(
+                            Window(FormattedTextControl("..."), height=1),
+                            Condition(self.busy),
+                        ),
+                        ConditionalContainer(
+                            Window(
+                                FormattedTextControl(lambda: self.handler.completion),
+                                height=1,
+                                style="ansigray bold reverse",
+                            ),
+                            Condition(lambda: self.handler.completion),
+                        ),
+                    )
+                ),
+                ConditionalContainer(  # Vertical Line.
+                    VerticalLine(), Condition(lambda: self.state is not Mode.OFF)
+                ),
+                ConditionalContainer(  # Scopes Panel. Visualizes nearby Space.
+                    HSplit(
+                        (
+                            # Top-down visualization on the upper panel.
+                            Window(
+                                self.scope_topdown,
+                                ignore_content_height=True,
+                                ignore_content_width=True,
+                            ),
+                            HorizontalLine(),
+                            # Visualization from behind on the lower panel.
+                            Window(
+                                self.scope_horizon,
+                                ignore_content_height=True,
+                                ignore_content_width=True,
+                            ),
+                        )
+                    ),
+                    Condition(lambda: self.state is Mode.SCOPES),
+                ),
+                ConditionalContainer(  # Scans Panel. Lists nearby Objects.
+                    Window(self.scans, ignore_content_width=True),
+                    Condition(lambda: self.state is Mode.SCANS),
+                ),
+                ConditionalContainer(  # Orders Panel. Shows future actions.
+                    Window(self.orders, ignore_content_width=True),
+                    Condition(lambda: self.state is Mode.ORDERS),
+                ),
+            )
+        )
         root = Layout(
             HSplit(
                 (
                     Window(self.bar, height=1, style="ansigray bold reverse"),
-                    VSplit(
-                        (
-                            # Command History on most of the left panel, Prompt at the bottom.
-                            HSplit(
-                                (
-                                    self.term,
-                                    ConditionalContainer(
-                                        Window(
-                                            BufferControl(self.cmd, self.procs),
-                                            dont_extend_height=True,
-                                            # height=1,
-                                            wrap_lines=True,
-                                        ),
-                                        Condition(lambda: not self.busy()),
-                                    ),
-                                    ConditionalContainer(
-                                        Window(FormattedTextControl("..."), height=1),
-                                        Condition(self.busy),
-                                    ),
-                                    ConditionalContainer(
-                                        Window(
-                                            FormattedTextControl(
-                                                lambda: self.handler.completion
-                                            ),
-                                            height=1,
-                                            style="ansigray bold reverse",
-                                        ),
-                                        Condition(lambda: self.handler.completion),
-                                    ),
-                                )
-                            ),
-                            ConditionalContainer(  # Vertical Line.
-                                VerticalLine(),
-                                Condition(lambda: self.state is not Mode.OFF),
-                            ),
-                            ConditionalContainer(  # Scopes Panel. Visualizes nearby Space.
-                                HSplit(
-                                    (
-                                        # Top-down visualization on the upper panel.
-                                        Window(
-                                            self.scope_topdown,
-                                            ignore_content_height=True,
-                                            ignore_content_width=True,
-                                        ),
-                                        HorizontalLine(),
-                                        # Visualization from behind on the lower panel.
-                                        Window(
-                                            self.scope_horizon,
-                                            ignore_content_height=True,
-                                            ignore_content_width=True,
-                                        ),
-                                    )
-                                ),
-                                Condition(lambda: self.state is Mode.SCOPES),
-                            ),
-                            ConditionalContainer(  # Scans Panel. Lists nearby Objects.
-                                Window(self.scans, ignore_content_width=True),
-                                Condition(lambda: self.state is Mode.SCANS),
-                            ),
-                            ConditionalContainer(  # Orders Panel. Shows future actions.
-                                Window(self.orders, ignore_content_width=True),
-                                Condition(lambda: self.state is Mode.ORDERS),
-                            ),
-                        )
-                    ),
+                    FloatContainer(main, self.floats),
                 )
             )
         )

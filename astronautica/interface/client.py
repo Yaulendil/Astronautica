@@ -62,8 +62,19 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             return resp
 
     @cmd
-    async def login(username: str, password: str):
-        result = await send_command("LOGIN", [username, password])
+    @needs_remote
+    async def login(username: str = None):
+        # if username is None:
+        #     username = await cli.get_input("Enter Username")
+        # passwd = await cli.get_input("Enter Password")
+
+        result = await send_command(
+            "LOGIN",
+            [
+                username or await cli.get_input("Enter Username"),
+                await cli.get_input("Enter Password", hide=True),
+            ],
+        )
         if result and result[0]:
             cli.echo("Login Accepted.")
         else:
