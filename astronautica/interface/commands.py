@@ -269,7 +269,7 @@ class CommandRoot(Completer):
 
         keys = [p for p in sorted(cmd_dict.keys()) if p.startswith(word)]
         if len(keys) > 1:
-            self.completion = "<TAB> ::  " + ", ".join(keys)
+            self.completion = "<TAB> / " + ", ".join(keys)
             yield from (Completion(possible[len(word) :]) for possible in keys)
         else:
             self.completion = ""

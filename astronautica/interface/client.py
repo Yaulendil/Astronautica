@@ -140,3 +140,9 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         await client.terminate()
         client = None
+
+    async def cleanup():
+        if client:
+            await disconnect()
+
+    return cleanup

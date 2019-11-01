@@ -183,5 +183,11 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     async def close():
         nonlocal server
 
-        server.server.close()
+        await server.terminate()
         server = None
+
+    async def cleanup():
+        if server:
+            await close()
+
+    return cleanup

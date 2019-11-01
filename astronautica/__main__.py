@@ -30,26 +30,30 @@ loop: AbstractEventLoop = get_event_loop()
 use_asyncio_event_loop(loop)
 
 
-client, commands = get_client(loop)
+cli, commands = get_client(loop)
 if HOST:
-    setup_host(client, commands, loop)
+    cleanup = setup_host(cli, commands, loop)
 else:
-    setup_client(client, commands, loop)
+    cleanup = setup_client(cli, commands, loop)
 
 
 try:
-    with client as app:
+    with cli as app:
         loop.run_until_complete(app.run_async().to_asyncio_future())
 
 except (EOFError, KeyboardInterrupt):
     pass
+
 finally:
     try:
+        if cleanup:
+            loop.run_until_complete(cleanup())
+
         loop.run_until_complete(
             wait_for(
                 gather(
                     loop.shutdown_asyncgens(),
-                    *filter((lambda task: not task.done()), client.TASKS),
+                    *filter((lambda task: not task.done()), cli.TASKS),
                     loop=loop,
                     return_exceptions=True
                 ),
