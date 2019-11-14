@@ -69,12 +69,8 @@ class Galaxy(object):
     def generate(cls, *a, name: str = None, **kw) -> "Galaxy":
         uuid = uuid4()
 
-        galaxy = generate_galaxy(*a, **kw)
-        # print(*(x.shape for x in galaxy))
-        stars = np.concatenate(galaxy)
-
-        system_ids = [[uuid4().int] for _ in stars]
-        stars = np.concatenate((stars, system_ids), 1)
+        stars = np.concatenate(generate_galaxy(*a, **kw))
+        stars = np.concatenate((stars, [[uuid4().int] for _ in stars]), 1)
 
         return cls(stars, Path(cfg["data/directory"], name or uuid.hex), uuid)
 

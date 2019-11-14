@@ -17,9 +17,9 @@ class Vessel(object):
 
         self.sections: Dict[str, Section] = {}
         for sys in sections:
-            name__ = type(sys).__name__
+            # name__ = type(sys).__name__
 
-            if name__ in self.sections:
+            if (name__ := type(sys).__name__) in self.sections:
                 raise ValueError("Multiple {!r} Subsystems".format(name__))
             else:
                 self.sections[name__] = sys

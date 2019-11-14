@@ -196,11 +196,14 @@ class Interface(object):
 
     async def get_input(self, title: str = "", hide: bool = False) -> str:
         try:
+            # Create a new Future.
             fut = self.LOOP.create_future()
 
             def finish(_buf: Buffer):
                 fut.set_result(_buf.text)
 
+            # Create a Buffer, and assign its Handler to set the Result of the
+            #   Future created above.
             buf = Buffer(accept_handler=finish, multiline=False)
             self.floats[:] = [
                 Float(
@@ -224,6 +227,7 @@ class Interface(object):
                 )
             ]
             self._app.layout.focus(buf)
+            # Open a popup Float, and wait for the Future to be fulfilled.
             return await fut
         finally:
             self._app.layout.focus(self.cmd)
