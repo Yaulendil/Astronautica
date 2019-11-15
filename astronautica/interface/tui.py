@@ -159,7 +159,7 @@ class Interface(object):
         )
         self.cmd = Buffer(
             accept_handler=self.enter,
-            # complete_while_typing=True,
+            complete_while_typing=True,
             completer=command_handler,
             multiline=False,
             on_text_changed=command_handler.change,

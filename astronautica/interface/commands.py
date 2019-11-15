@@ -20,6 +20,7 @@ from typing import (
     Dict,
     Iterator,
     List,
+    MutableSet,
     Optional,
     Sequence,
     Set,
@@ -34,6 +35,10 @@ CmdType: Type[Callable] = Callable[..., Any]
 
 class CommandError(Exception):
     """Base Class for problems with Commands."""
+
+
+class CommandNotAvailable(CommandError):
+    """Command cannot be used."""
 
 
 class CommandNotFound(CommandError):
@@ -105,9 +110,9 @@ class Command(object):
         # return self._func(*args, **opts)
 
         if tokens:
-            func = self.subcommands.get(tokens[0].lower())
-            if func:
-                return func(tokens[1:])
+            subcmd = self.subcommands.get(tokens[0].lower())
+            if subcmd:
+                return subcmd(tokens[1:])
             else:
                 return self._func(*tokens)
         else:
@@ -161,6 +166,9 @@ class CommandRoot(Completer):
         self.commands: Dict[str, Command] = {}
 
         self.completion: str = ""
+        self.disabled: MutableSet[str] = set()
+
+        self._len = 0
 
         @self("help")
         def _help(*path: str):
@@ -171,11 +179,14 @@ class CommandRoot(Completer):
 
                 full = " ".join(path).upper()
                 if cmd:
-                    doc = cmd.doc
                     yield "{} :: {}".format(
                         full,
-                        "\n\r    ".join(filter(None, map(str.strip, doc.split("\n"))))
-                        if doc
+                        "\n\r    ".join(
+                            sline
+                            for line in doc.splitlines()
+                            if (sline := line.strip())
+                        )
+                        if (doc := cmd.doc)
                         else "No Help available.",
                     )
 
@@ -214,17 +225,30 @@ class CommandRoot(Completer):
         else:
             self.commands[command.keyword] = command
 
+    def cap_set(self, *, disable: Sequence[str] = None, enable: Sequence[str] = None):
+        if disable:
+            self.disabled |= set(disable)  # Add every Disabling String.
+        if enable:
+            self.disabled -= set(enable)  # Remove all Enabling Strings.
+
     def change(self, buf: Buffer):
-        if buf.text.endswith(" "):
+        l = len(buf.text)
+
+        # if buf.text.endswith(" "):
+        if l < self._len:
+            # Empty the Completion if the Buffer has decreased in length.
             self.completion = ""
+
+        self._len = l
 
     def get_command(
         self, tokens: Union[List[str], Tuple[str, ...]]
     ) -> Tuple[Optional[Command], Sequence[str]]:
-        cmd_dict, here = self.commands, None
+        cmd_dict = self.commands
+        cmd = here = None
 
-        while tokens and tokens[0].lower() in cmd_dict:
-            here = cmd_dict[tokens[0].lower()]
+        while tokens and (cmd := cmd_dict.get(tokens[0].lower())):
+            here = cmd
             cmd_dict = here.subcommands
             tokens = tokens[1:]
 
@@ -243,11 +267,10 @@ class CommandRoot(Completer):
         self, document: Document, complete_event: CompleteEvent
     ) -> Iterator[Completion]:
         if complete_event.text_inserted:
+            self.completion = ""
             return
 
         line = document.text_before_cursor
-
-        # most, word = line.rsplit(" ", 1)
         tokens = self.split(line)
 
         if line.endswith(" "):
@@ -260,7 +283,7 @@ class CommandRoot(Completer):
 
         if most:
             cmd = self.get_command(most)[0]
-            if not cmd:
+            if not cmd or cmd.keyword in self.disabled:
                 return
             cmd_dict = cmd.subcommands
         else:

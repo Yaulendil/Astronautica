@@ -5,7 +5,7 @@
 from asyncio import AbstractEventLoop, Task
 from typing import AsyncIterator, Coroutine, Iterator, List, Sequence
 
-from .commands import CommandNotFound, CommandRoot
+from .commands import CommandNotAvailable, CommandNotFound, CommandRoot
 from .etc import EchoType, T
 
 
@@ -67,10 +67,9 @@ def execute_function(
         handle the process of either retrieving its output, or dispatching a
         Task to do so.
     """
-    tokens = handler.split(line)
     comseq: List[List[str]] = [[]]
 
-    for token in tokens:
+    for token in handler.split(line):
         if token == ";" or token == "&&":
             comseq.append([])
         else:
@@ -81,6 +80,8 @@ def execute_function(
         try:
             if command is None:
                 raise CommandNotFound(f"Command {tokens_[0].upper()!r} not found.")
+            elif command.keyword in handler.disabled:
+                raise CommandNotAvailable(f"Command {tokens_[0].upper()!r} not available.")
 
             if command.is_async:
                 # This Command Function is Asynchronous. Dispatch a Task to run

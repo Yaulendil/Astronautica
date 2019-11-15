@@ -112,6 +112,7 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             cli.prompt.username = data.get("username", cli.prompt.username)
             cli.prompt.hostname = data.get("hostname", cli.prompt.hostname)
             cli.prompt.path = Path(data.get("path", cli.prompt.path))
+            cmd.cap_set(disable=data.get("disable"), enable=data.get("enable"))
 
         try:
             cli.redraw()
