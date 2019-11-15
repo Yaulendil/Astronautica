@@ -122,7 +122,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         )
         server.setup()
 
-        run = loop.create_task(server.run(loop))  # Start the Server.
+        run = await server.run(loop)  # Start the Server.
         world = loop.create_task(st.run())  # Start the World.
 
         @server.hook_connect

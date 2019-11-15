@@ -3,9 +3,9 @@ from sys import exit
 from typing import Tuple
 
 from blessings import Terminal
-from matplotlib import use
+# from matplotlib import use
 
-use("GTK3Cairo")
+# use("GTK3Cairo")
 
 from matplotlib import pyplot
 from mpl_toolkits.mplot3d import Axes3D

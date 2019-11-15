@@ -118,12 +118,15 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             if client.listening:
                 cli.TASKS.append(client.listening)
                 await client.listening
+                # client.report()
 
         except CancelledError:
             cli.echo("Connection closed.")
+            # client.report()
 
         except Exception as e:
             cli.echo(f"Connection failed with {type(e).__name__!r}: {e}")
+            # client.report()
 
         finally:
             # CLEANUP
