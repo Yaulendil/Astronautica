@@ -1,16 +1,20 @@
+from typing import List
+
 from astropy import units as u
 
 from ..serial import Node
 
 
 class Orbit(object):
-    def __init__(self, master: Node, slave: Node):
-        self.master: Node = master
-        self.slave: Node = slave
+    __slots__ = ("primary", "satellite")
+
+    def __init__(self, primary: Node, satellite: Node):
+        self.primary: Node = primary
+        self.satellite: Node = satellite
 
 
-class MultiSystem(set, Node):
-    """Representation of a Gravitational System without any clear "Master".
+class MultiSystem(List[Node], Node):
+    """Representation of a Gravitational System without any clear Primary.
         Typically the case for Stars near each other.
     """
 
@@ -19,20 +23,15 @@ class MultiSystem(set, Node):
             raise ValueError("A Multi System must have at least two Objects.")
 
         super().__init__(self, bodies)
-        # self.slaves: Tuple[Node, ...] = bodies
 
     @property
     def mass(self):
         return sum((o.mass for o in self), u.kg * 0)
 
-    # @property
-    # def units(self):
-    #     return tuple(self)[0].units
-
     def serialize(self):
         return dict(
             type=type(self).__name__,
-            subs=dict(bodies=list(filter(None, (o.serialize() for o in self)))),
+            subs=dict(bodies=[s for o in self if (s := o.serialize())]),
         )
 
     @classmethod
@@ -40,34 +39,31 @@ class MultiSystem(set, Node):
         return cls(*subs["bodies"])
 
 
-class System(set, Node):
-    """Representation of a Gravitational System with a clear "Master". Typically
+class System(List[Node], Node):
+    """Representation of a Gravitational System with a clear Primary. Typically
         the case for Planetary Systems orbiting a single Star.
     """
 
-    def __init__(self, master: Node, *slaves: Node):
-        self.master: Node = master
+    __slots__ = ("primary",)
 
-        super().__init__(self, slaves)
-        # self.slaves: Set[Node] = {*slaves}
+    def __init__(self, primary: Node, *satellites: Node):
+        self.primary: Node = primary
+
+        super().__init__(self, satellites)
 
     @property
     def mass(self):
-        return sum((o.mass for o in self), self.master.mass)
-
-    # @property
-    # def units(self):
-    #     return self.master.units
+        return sum((o.mass for o in self), self.primary.mass)
 
     def serialize(self):
         return dict(
             type=type(self).__name__,
             subs=dict(
-                master=self.master.serialize(),
-                slaves=list(filter(None, (o.serialize() for o in self))),
+                primary=self.primary.serialize(),
+                slaves=[s for o in self if (s := o.serialize())]
             ),
         )
 
     @classmethod
     def from_serial(cls, data, subs):
-        return cls(subs["master"], *subs["slaves"])
+        return cls(subs["primary"], *subs["satellites"])
