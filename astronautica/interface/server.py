@@ -10,7 +10,7 @@ from ezipc.util import P
 from .commands import CommandRoot
 from .tui import Interface
 from config import cfg
-from engine import Galaxy, Spacetime
+from engine import CB_POST_TICK, Galaxy, Spacetime
 
 
 DATA_DIR = Path(cfg["data/directory"])
@@ -160,6 +160,9 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         ###===---
 
+        bcast = lambda: server.bcast_notif("ETC.PRINT", ["New Telemetry available."])
+        CB_POST_TICK.append(bcast)
+
         try:
             await run
 
@@ -171,6 +174,9 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         finally:
             # CLEANUP
+            if bcast in CB_POST_TICK:
+                CB_POST_TICK.remove(bcast)
+
             if world.cancel():
                 await world
 

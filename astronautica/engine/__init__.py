@@ -23,8 +23,8 @@ from .space import Coordinates, LocalSpace, Space
 from .world import Clock, Galaxy, MultiSystem, System
 
 
-CB_PRE_TICK = set()
-CB_POST_TICK = set()
+CB_PRE_TICK = []
+CB_POST_TICK = []
 
 
 def is_power_of_2(n: int) -> bool:
@@ -45,9 +45,7 @@ async def run_iter(it: Iterable):
             while isawaitable(result):
                 result = await result
         except Exception as e:
-            print(
-                f"Callback {func!r} raised {type(e).__name__!r}:\n    {e}", file=stderr
-            )
+            echo(f"Callback {func!r} raised {type(e).__name__!r}:\n    {e}")
 
 
 class RealTime(Clock):
