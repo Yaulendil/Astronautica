@@ -9,6 +9,9 @@ from inspect import (
     Signature,
     unwrap,
 )
+from re import compile
+from string import ascii_lowercase
+from unicodedata import normalize
 
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import Completer, Completion, CompleteEvent
@@ -30,7 +33,19 @@ from typing import (
 )
 
 
+_no_repeat = partial(compile(r"-{2,}").sub, "-")
+_to_dashes = partial(compile(r"[\s_]").sub, "-")
+_del_extra = partial(compile(fr"[^{ascii_lowercase}-]").sub, "")
 CmdType: Type[Callable] = Callable[..., Any]
+
+
+# Command Keyword Specifications:
+#   Keyword is composed of lower case ASCII letters and dashes.
+#   Keyword does NOT begin OR end with a dash.
+#   Keyword does NOT contain multiple dashes consecutively.
+simplify = lambda word: _no_repeat(
+    _del_extra(_to_dashes(normalize("NFKD", word.casefold()))).strip("-")
+)
 
 
 class CommandError(Exception):
@@ -56,10 +71,9 @@ class Command(object):
 
     def __init__(self, func: CmdType, keyword: str, client, task: bool = False):
         self._func: CmdType = func
-        keyword = keyword.replace("_", "-")
 
-        self.keyword: str = keyword.lower()
-        self.KEYWORD: str = keyword.upper()
+        self.keyword: str = simplify(keyword)
+        self.KEYWORD: str = self.keyword.upper()
         self.client = client
         self.dispatch_task: bool = task
 

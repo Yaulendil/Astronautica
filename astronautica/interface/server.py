@@ -112,9 +112,9 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     async def rand():
         yield repr(st.world.get_system(UUID(int=st.world.system_random()[3])))
 
-    @cmd("open", task=True)
+    @cmd(task=True)
     @needs_no_server
-    async def host():
+    async def _open():
         nonlocal server
         server = Server(
             cfg.get("connection/address", "127.0.0.1"),
