@@ -4,7 +4,7 @@ from pathlib import Path
 from re import compile
 from typing import Union, Optional
 
-from .commands import CommandRoot
+from .commands import CommandNotAvailable, CommandRoot
 from .tui import Interface
 from config import cfg
 
@@ -35,7 +35,7 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         @wraps(func)
         def wrapped(*a, **kw):
             if client is None:
-                raise RuntimeError("Command requires Connection.")
+                raise CommandNotAvailable("Command requires Connection.")
             else:
                 return func(*a, **kw)
 
@@ -47,7 +47,7 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             if client is None:
                 return func(*a, **kw)
             else:
-                raise RuntimeError("Command cannot be used while Connected.")
+                raise CommandNotAvailable("Command cannot be used while Connected.")
 
         return wrapped
 

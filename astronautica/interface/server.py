@@ -7,7 +7,7 @@ from uuid import UUID
 from ezipc.remote import Remote
 from ezipc.util import P
 
-from .commands import CommandRoot
+from .commands import CommandNotAvailable, CommandRoot
 from .tui import Interface
 from config import cfg
 from engine import CB_POST_TICK, Galaxy, Spacetime
@@ -51,7 +51,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         @wraps(func)
         def wrapped(*a, **kw):
             if server is None:
-                raise RuntimeError("Command requires Active Host.")
+                raise CommandNotAvailable("Command requires Active Host.")
             else:
                 return func(*a, **kw)
 
@@ -63,7 +63,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             if server is None:
                 return func(*a, **kw)
             else:
-                raise RuntimeError("Command cannot be used while Hosting.")
+                raise CommandNotAvailable("Command cannot be used while Hosting.")
 
         return wrapped
 
@@ -80,7 +80,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         yield "Generating..."
         st.world = Galaxy.generate((1.4, 1, 0.2), arms=3)
         hostup()
-        yield "New Galaxy Generated."
+        yield f"New Galaxy of {st.world.stars.shape[0]} stars generated."
 
     @galaxy.sub
     async def load(path: str):
