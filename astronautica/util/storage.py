@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 import pickle
 import shutil
-from typing import Union
+from typing import Union, Literal
 
 
 class PersistentDict(dict):
@@ -32,7 +32,7 @@ class PersistentDict(dict):
         filepath: Union[Path, str],
         flag: str = "c",
         mode: int = None,
-        fmt: str = "pickle",
+        fmt: Literal["csv", "json", "pickle"] = "pickle",
         *a,
         **kw,
     ):

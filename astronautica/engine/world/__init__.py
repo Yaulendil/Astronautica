@@ -72,7 +72,7 @@ class Galaxy(object):
         stars = np.concatenate(generate_galaxy(*a, **kw))
         stars = np.concatenate((stars, [[uuid4().int] for _ in stars]), 1)
 
-        return cls(stars, Path(cfg["data/directory"], name or uuid.hex), uuid)
+        return cls(stars, Path(cfg["data/directory"], "world", name or uuid.hex), uuid)
 
     def __init__(self, stars: np.ndarray, gdir: Path, gid: UUID):
         self.stars = stars
@@ -104,7 +104,6 @@ class Galaxy(object):
 
         dat = self.system_by_uuid(uuid)
 
-        # if uuid_i in self.stars[..., 3]:
         if dat:
             systems = self.gdir / "systems"
             systems.mkdir(exist_ok=True)

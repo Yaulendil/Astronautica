@@ -86,7 +86,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     async def load(path: str):
         yield "Loading..."
         try:
-            st.world = Galaxy.from_file(DATA_DIR / path)
+            st.world = Galaxy.from_file(DATA_DIR / "world" / path)
         except NotADirectoryError:
             yield "Galaxy Directory not found."
         else:
