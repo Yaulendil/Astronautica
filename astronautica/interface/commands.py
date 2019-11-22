@@ -83,29 +83,26 @@ class Command(object):
         self.shorts: str = ""
         self.longs: List[str] = []
         self.bools: Set[str] = set()
+        self.opts = []
 
         for opt, parameter in self.sig.parameters.items():
             if parameter.kind is parameter.KEYWORD_ONLY:
                 if len(opt) > 1:
                     # Long Opt.
-                    if (
-                        parameter.annotation is not bool
-                        and type(parameter.default) is not bool
-                    ):
-                        self.longs.append(f"{opt}=")
-                    else:
+                    self.opts.append(f"--{opt}")
+                    if parameter.annotation is bool or type(parameter.default) is bool:
                         self.longs.append(opt)
                         self.bools.add(opt)
+                    else:
+                        self.longs.append(f"{opt}=")
                 else:
                     # Short Opt.
+                    self.opts.append(f"-{opt}")
                     self.shorts += opt
-                    if (
-                        parameter.annotation is not bool
-                        and type(parameter.default) is not bool
-                    ):
-                        self.shorts += ":"
-                    else:
+                    if parameter.annotation is bool or type(parameter.default) is bool:
                         self.bools.add(opt)
+                    else:
+                        self.shorts += ":"
 
     @property
     def doc(self) -> str:
@@ -127,10 +124,13 @@ class Command(object):
                 return subcmd(tokens[1:])
 
             else:
-                opts, args = getopt(tokens, self.shorts, self.longs)
-                opts = {k.strip("-"): self._cast(k.strip("-"), v) for k, v in opts}
+                if self.opts:
+                    opts, args = getopt(tokens, self.shorts, self.longs)
+                    opts = {k.strip("-"): self._cast(k.strip("-"), v) for k, v in opts}
 
-                return self._func(*args, **opts)
+                    return self._func(*args, **opts)
+                else:
+                    return self._func(*tokens)
         else:
             return self._func()
 
@@ -142,7 +142,6 @@ class Command(object):
             return True
         else:
             wanted: Type = self.sig.parameters[key].annotation
-            # if wanted is not Signature.empty and not issubclass(wanted, str):
             if (
                 isinstance(wanted, type)
                 and not issubclass(wanted, str)
@@ -226,7 +225,7 @@ class CommandRoot(Completer):
                 if cmd:
                     yield "{} :: {}".format(
                         full,
-                        "\n\r    ".join(
+                        "\r\n    ".join(
                             sline
                             for line in doc.splitlines()
                             if (sline := line.strip())
@@ -235,8 +234,20 @@ class CommandRoot(Completer):
                         else "No Help available.",
                     )
 
+                    if cmd.opts:
+                        yield "\r\nOptions:"
+
+                        for opt, param in cmd.sig.parameters.items():
+                            if param.kind is param.KEYWORD_ONLY:
+                                yield "{:>10} :: {}".format(
+                                    f"--{opt}" if len(opt) > 1 else f"-{opt}",
+                                    "str"
+                                    if param.annotation is Signature.empty
+                                    else param.annotation.__name__
+                                )
+
                     if cmd.subcommands:
-                        yield "\n\rSubcommands:"
+                        yield "\r\nSubcommands:"
                         for sub in sorted(cmd.subcommands):
                             yield f"    {full} {sub.upper()}"
                 else:
@@ -279,10 +290,10 @@ class CommandRoot(Completer):
     def change(self, buf: Buffer):
         l = len(buf.text)
 
-        # if buf.text.endswith(" "):
-        if l < self._len:
-            # Empty the Completion if the Buffer has decreased in length.
-            self.completion = ""
+        # # if buf.text.endswith(" "):
+        # if l < self._len:
+        #     # Empty the Completion if the Buffer has decreased in length.
+        #     self.completion = ""
 
         self._len = l
 
@@ -332,10 +343,18 @@ class CommandRoot(Completer):
                 return
             cmd_dict = cmd.subcommands
         else:
+            cmd = None
             word = line
             cmd_dict = self.commands
 
-        keys = [p for p in sorted(cmd_dict.keys()) if p.startswith(word)]
+        if word.startswith("-"):
+            if cmd:
+                keys = [p for p in cmd.opts if p.startswith(word) and p not in most]
+            else:
+                keys = []
+        else:
+            keys = [p for p in sorted(cmd_dict.keys()) if p.startswith(word)]
+
         if len(keys) > 1:
             self.completion = "<TAB> / " + ", ".join(keys)
             yield from (Completion(possible[len(word) :]) for possible in keys)

@@ -1,6 +1,5 @@
 """Interface Package: Command line Client and all integrations with Engine."""
 from asyncio import AbstractEventLoop, sleep
-from time import sleep as sleep2
 from typing import Tuple
 
 from ezipc.util import P
@@ -19,13 +18,14 @@ def get_client(loop: AbstractEventLoop) -> Tuple[Interface, CommandRoot]:
     P.output_line = cli.echo
 
     @cmd
-    def asdf(*words):
+    async def asdf(*words, no_echo: bool = False, wait: float = 3):
         """Test command.
 
         Does nothing interesting.
         """
-        sleep2(3)
-        yield from words
+        await sleep(wait)
+        if not no_echo:
+            return words
 
     @asdf.sub(task=True)
     async def qwert(*words):
