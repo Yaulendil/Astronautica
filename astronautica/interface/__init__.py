@@ -34,6 +34,10 @@ def get_client(loop: AbstractEventLoop) -> Tuple[Interface, CommandRoot]:
             yield f"QWERT {word}"
 
     @asdf.sub
+    async def qwerty(*words, zxcv: int = 5, b: bool = "z", f: str = "", g=None):
+        return (f" {type(x).__name__!r:<12} : {x!r}" for x in (words, zxcv, b, f, g))
+
+    @asdf.sub
     async def qwertz(*words):
         for word in words:
             await sleep(1)

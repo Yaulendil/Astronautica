@@ -1,11 +1,9 @@
 from functools import partial, update_wrapper
-
-# from getopt import getopt
+from getopt import getopt
 from inspect import (
     isasyncgenfunction,
     isawaitable,
     iscoroutinefunction,
-    Parameter,
     Signature,
     unwrap,
 )
@@ -25,6 +23,7 @@ from typing import (
     List,
     MutableSet,
     Optional,
+    overload,
     Sequence,
     Set,
     Tuple,
@@ -85,26 +84,28 @@ class Command(object):
         self.longs: List[str] = []
         self.bools: Set[str] = set()
 
-        self.params: List[Tuple[str, Parameter]] = self.sig.parameters.items()
-
-        # for k, p in self.params:
-        #     if p.kind is p.KEYWORD_ONLY:
-        #         if len(k) > 1:
-        #             # Long Opt.
-        #             if p.annotation is not bool and type(p.default) is not bool:
-        #                 self.longs.append(f"{k}=")
-        #             else:
-        #                 self.longs.append(k)
-        #                 self.bools.add(k)
-        #         else:
-        #             # Short Opt.
-        #             self.shorts += k
-        #             if p.annotation is not bool and type(p.default) is not bool:
-        #                 self.shorts += ":"
-        #             else:
-        #                 self.bools.add(k)
-        #     else:
-        #         pass
+        for opt, parameter in self.sig.parameters.items():
+            if parameter.kind is parameter.KEYWORD_ONLY:
+                if len(opt) > 1:
+                    # Long Opt.
+                    if (
+                        parameter.annotation is not bool
+                        and type(parameter.default) is not bool
+                    ):
+                        self.longs.append(f"{opt}=")
+                    else:
+                        self.longs.append(opt)
+                        self.bools.add(opt)
+                else:
+                    # Short Opt.
+                    self.shorts += opt
+                    if (
+                        parameter.annotation is not bool
+                        and type(parameter.default) is not bool
+                    ):
+                        self.shorts += ":"
+                    else:
+                        self.bools.add(opt)
 
     @property
     def doc(self) -> str:
@@ -119,18 +120,40 @@ class Command(object):
 
     def __call__(self, tokens: Sequence[str] = None):
         """Execute the Command. Takes a Sequence of Strings."""
-        # opts, args = getopt(tokens, self.shorts, self.longs)
-        # opts = {k: (True if k in self.bools else v) for k, v in opts}
-        # return self._func(*args, **opts)
-
         if tokens:
-            subcmd = self.subcommands.get(tokens[0].lower())
+            subcmd = self.subcommands.get(tokens[0].casefold())
+
             if subcmd:
                 return subcmd(tokens[1:])
+
             else:
-                return self._func(*tokens)
+                opts, args = getopt(tokens, self.shorts, self.longs)
+                opts = {k.strip("-"): self._cast(k.strip("-"), v) for k, v in opts}
+
+                return self._func(*args, **opts)
         else:
             return self._func()
+
+    def _cast(self, key: str, value: Optional[str]):
+        """Given a Key and a Value, cast the Value to the Type annotated for the
+            Keyword Argument of the Key.
+        """
+        if key in self.bools:
+            return True
+        else:
+            wanted: Type = self.sig.parameters[key].annotation
+            # if wanted is not Signature.empty and not issubclass(wanted, str):
+            if (
+                isinstance(wanted, type)
+                and not issubclass(wanted, str)
+                and wanted is not Signature.empty
+            ):
+                try:
+                    return wanted(value)
+                except Exception as e:
+                    raise ValueError(f"Option cannot be cast: {e}") from e
+            else:
+                return value
 
     def add(self, command: "Command") -> None:
         if command.keyword in self.subcommands:
@@ -142,6 +165,14 @@ class Command(object):
         self.client = client
         for cmd in self.subcommands.values():
             cmd.set_client(client)
+
+    @overload
+    def sub(self, name: str) -> Callable[[CmdType], "Command"]:
+        ...
+
+    @overload
+    def sub(self, func: Callable, name: str = None, task: bool = False) -> "Command":
+        ...
 
     def sub(
         self, func: Union[Callable, str] = None, name: str = None, task: bool = False
@@ -261,7 +292,7 @@ class CommandRoot(Completer):
         cmd_dict = self.commands
         cmd = here = None
 
-        while tokens and (cmd := cmd_dict.get(tokens[0].lower())):
+        while tokens and (cmd := cmd_dict.get(tokens[0].casefold())):
             here = cmd
             cmd_dict = here.subcommands
             tokens = tokens[1:]

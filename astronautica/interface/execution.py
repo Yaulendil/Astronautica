@@ -45,9 +45,9 @@ async def handle_async(line: str, echo: EchoType, result, dispatched: bool = Fal
 
     except Exception as exc:
         echo(
-            f"Error: {T.bold(line)}: {type(exc).__name__!r}\n\r    {exc}"
+            f"Error: {T.bold(line)}\r\n    {type(exc).__name__!r}: {exc}"
             if str(exc)
-            else f"Error: {T.bold(line)}: {type(exc).__name__!r}"
+            else f"Error: {T.bold(line)}\r\n    {type(exc).__name__!r}"
         )
 
     finally:
@@ -81,7 +81,9 @@ def execute_function(
             if command is None:
                 raise CommandNotFound(f"Command {tokens_[0].upper()!r} not found.")
             elif command.keyword in handler.disabled:
-                raise CommandNotAvailable(f"Command {tokens_[0].upper()!r} not available.")
+                raise CommandNotAvailable(
+                    f"Command {tokens_[0].upper()!r} not available."
+                )
 
             if command.is_async:
                 # This Command Function is Asynchronous. Dispatch a Task to run
@@ -103,7 +105,7 @@ def execute_function(
 
         except Exception as exc:
             echo(
-                f"Error: {T.bold(line)}: {type(exc).__name__!r}\n\r    {exc}"
+                f"Error: {T.bold(line)}\r\n    {type(exc).__name__!r}: {exc}"
                 if str(exc)
-                else f"Error: {T.bold(line)}: {type(exc).__name__!r}"
+                else f"Error: {T.bold(line)}\r\n    {type(exc).__name__!r}"
             )

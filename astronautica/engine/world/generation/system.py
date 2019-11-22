@@ -9,4 +9,5 @@ __all__ = ["generate_system"]
 
 
 def generate_system(system: PersistentDict):
-    ...
+    if system:
+        raise ValueError("System is not empty.")
