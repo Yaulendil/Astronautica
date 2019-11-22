@@ -12,7 +12,7 @@ from string import ascii_lowercase
 from unicodedata import normalize
 
 from prompt_toolkit.buffer import Buffer
-from prompt_toolkit.completion import Completer, Completion, CompleteEvent
+from prompt_toolkit.completion import CompleteEvent, Completer, Completion
 from prompt_toolkit.document import Document
 from shlex import shlex
 from typing import (
@@ -32,9 +32,9 @@ from typing import (
 )
 
 
+_del_extra = partial(compile(fr"[^{ascii_lowercase}-]").sub, "")
 _no_repeat = partial(compile(r"-{2,}").sub, "-")
 _to_dashes = partial(compile(r"[\s_]").sub, "-")
-_del_extra = partial(compile(fr"[^{ascii_lowercase}-]").sub, "")
 CmdType: Type[Callable] = Callable[..., Any]
 
 
@@ -68,6 +68,20 @@ class Command(object):
         interface for Subcommands.
     """
 
+    __slots__ = (
+        "_func",
+        "bools",
+        "client",
+        "dispatch_task",
+        "keyword",
+        "KEYWORD",
+        "longs",
+        "opts",
+        "shorts",
+        "sig",
+        "subcommands",
+    )
+
     def __init__(self, func: CmdType, keyword: str, client, task: bool = False):
         self._func: CmdType = func
 
@@ -83,13 +97,14 @@ class Command(object):
         self.shorts: str = ""
         self.longs: List[str] = []
         self.bools: Set[str] = set()
-        self.opts = []
+        self.opts: List[str] = []
 
         for opt, parameter in self.sig.parameters.items():
             if parameter.kind is parameter.KEYWORD_ONLY:
                 if len(opt) > 1:
                     # Long Opt.
                     self.opts.append(f"--{opt}")
+
                     if parameter.annotation is bool or type(parameter.default) is bool:
                         self.longs.append(opt)
                         self.bools.add(opt)
@@ -98,6 +113,7 @@ class Command(object):
                 else:
                     # Short Opt.
                     self.opts.append(f"-{opt}")
+
                     self.shorts += opt
                     if parameter.annotation is bool or type(parameter.default) is bool:
                         self.bools.add(opt)
@@ -205,6 +221,14 @@ class Command(object):
 
 
 class CommandRoot(Completer):
+    __slots__ = (
+        "_len",
+        "client",
+        "commands",
+        "completion",
+        "disabled",
+    )
+
     def __init__(self, client=None):
         self.client = client
         self.commands: Dict[str, Command] = {}
@@ -212,7 +236,7 @@ class CommandRoot(Completer):
         self.completion: str = ""
         self.disabled: MutableSet[str] = set()
 
-        self._len = 0
+        self._len: int = 0
 
         @self("help")
         def _help(*path: str):
