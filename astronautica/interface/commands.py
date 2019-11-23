@@ -69,9 +69,11 @@ class Command(object):
     """
 
     __slots__ = (
+        "__dict__",
         "_func",
         "bools",
         "client",
+        "completions",
         "dispatch_task",
         "keyword",
         "KEYWORD",
@@ -91,6 +93,7 @@ class Command(object):
         self.dispatch_task: bool = task
 
         self.subcommands: Dict[str, Command] = {}
+        self.completions = self.subcommands
 
         self.sig: Signature = Signature.from_callable(self._func)
 
@@ -281,6 +284,8 @@ class CommandRoot(Completer):
                 for cmd in sorted(self.commands.values(), key=lambda x: x.keyword):
                     yield f"    {cmd.KEYWORD}"
 
+        _help.completions = self.commands
+
     def __call__(
         self, func: Union[Callable, str] = None, name: str = None, task: bool = False
     ) -> Union[Callable[[CmdType], Command], Command]:
@@ -322,14 +327,14 @@ class CommandRoot(Completer):
         self._len = l
 
     def get_command(
-        self, tokens: Union[List[str], Tuple[str, ...]]
+        self, tokens: Union[List[str], Tuple[str, ...]], *, completing: bool = False,
     ) -> Tuple[Optional[Command], Sequence[str]]:
         cmd_dict = self.commands
         cmd = here = None
 
         while tokens and (cmd := cmd_dict.get(tokens[0].casefold())):
             here = cmd
-            cmd_dict = here.subcommands
+            cmd_dict = here.completions if completing else here.subcommands
             tokens = tokens[1:]
 
         return here, tokens
@@ -362,22 +367,31 @@ class CommandRoot(Completer):
             most, word = [], line
 
         if most:
-            cmd = self.get_command(most)[0]
+            cmd, trail = self.get_command(most, completing=True)
             if not cmd or cmd.keyword in self.disabled:
                 return
-            cmd_dict = cmd.subcommands
+            cmd_dict = cmd.completions
         else:
-            cmd = None
+            cmd = trail = None
             word = line
             cmd_dict = self.commands
 
         if word.startswith("-"):
-            if cmd:
+            # User has started with a dash. Complete --Options, not Subcommands.
+            if cmd and all(t.startswith("-") for t in trail):
                 keys = [p for p in cmd.opts if p.startswith(word) and p not in most]
             else:
                 keys = []
-        else:
+
+        elif not trail:
+            # User has not started with a dash, and has not entered any other
+            #   Arguments after the last Command Term. Complete Subcommands.
             keys = [p for p in sorted(cmd_dict.keys()) if p.startswith(word)]
+
+        else:
+            # User has entered some input beyond the last Command Term. Do not
+            #   perform Completion.
+            return
 
         if len(keys) > 1:
             self.completion = "<TAB> / " + ", ".join(keys)
