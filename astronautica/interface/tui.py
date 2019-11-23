@@ -19,9 +19,9 @@ from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.layout.processors import (
     BeforeInput,
+    HighlightMatchingBracketProcessor,
     PasswordProcessor,
     Processor,
-    HighlightMatchingBracketProcessor,
 )
 from prompt_toolkit.widgets import Frame, HorizontalLine, VerticalLine
 from ptterm import Terminal
@@ -40,6 +40,16 @@ class Mode(Enum):
 
 
 class Prompt(object):
+    __slots__ = (
+        "char",
+        "hostname",
+        "namestyle",
+        "path",
+        "prefix",
+        "processor",
+        "username",
+    )
+
     def __init__(
         self,
         username: str,
@@ -110,12 +120,34 @@ class Prompt(object):
 
 
 class Interface(object):
+    __slots__ = {
+        "LOOP",
+        "TASKS",
+        "first",
+        "kb",
+        "state",
+        "prompt",
+        "header_bar",
+        "command_buffer",
+        "terminal",
+        "console_display",
+        "console_header",
+        "floating_elems",
+        "procs",
+        "scope_topdown",
+        "scope_horizon",
+        "scans",
+        "orders",
+        "handler",
+        "current_job",
+        "_app",
+    }
+
     def __init__(self, loop: AbstractEventLoop, command_handler: CommandRoot = None):
         self.LOOP: AbstractEventLoop = loop
         self.TASKS: List[Task] = []
 
         self.first = True
-        self.read_only = False
         self.kb = keys(self)
         # noinspection PyTypeChecker
         mode = cycle(Mode)
@@ -127,19 +159,21 @@ class Interface(object):
 
         @self.kb.add("pageup")
         def hist_first(*_) -> None:
-            self.cmd.go_to_history(0)
+            self.command_buffer.go_to_history(0)
 
         @self.kb.add("pagedown")
         def hist_last(*_) -> None:
-            self.cmd.go_to_history(len(self.cmd.history.get_strings()))
+            self.command_buffer.go_to_history(
+                len(self.command_buffer.history.get_strings())
+            )
 
         @self.kb.add("c-c")
         def interrupt(*_):
             """Ctrl-C: Interrupt running Job."""
             self.echo("^C")
-            if self.job and not self.job.done():
-                self.job.cancel()
-            self.job = None
+            if self.current_job and not self.current_job.done():
+                self.current_job.cancel()
+            self.current_job = None
 
         # Create a Prompt Object with initial values.
         self.prompt = Prompt(
@@ -149,7 +183,7 @@ class Interface(object):
         )
 
         # Build the UI.
-        self.bar = FormattedTextControl(
+        self.header_bar = FormattedTextControl(
             lambda: "{left:{pad}^{half}}│{right:{pad}^{half}}".format(
                 left=self.console_header(),
                 right=f"Panel Display: {self.state.value} [Shift-Tab]",
@@ -157,7 +191,7 @@ class Interface(object):
                 pad="",
             )
         )
-        self.cmd = Buffer(
+        self.command_buffer = Buffer(
             accept_handler=self.enter,
             complete_while_typing=True,
             completer=command_handler,
@@ -165,11 +199,12 @@ class Interface(object):
             on_text_changed=command_handler.change,
             read_only=Condition(self.busy),
         )
-        self.term = Terminal(sim_prompt=True)
-        self.console = self.term.terminal_control.process.terminal
+
+        self.terminal = Terminal(sim_prompt=True)
+        self.console_display = self.terminal.terminal_control.process.terminal
         self.console_header = lambda: ""
 
-        self.floats = []
+        self.floating_elems = []
         self.procs: List[Processor] = [
             self.prompt.processor,
             HighlightMatchingBracketProcessor(),
@@ -182,16 +217,17 @@ class Interface(object):
 
         # Register the Command Handler.
         self.handler = command_handler
-        self.job: Optional[Task] = None
+        self.current_job: Optional[Task] = None
         self._app: Optional[Application] = None
 
         # self.echo("Ready.", start="")
 
     def busy(self) -> bool:
-        return self.job is not None and not self.job.done()
+        return not (self.current_job is None or self.current_job.done())
+        # return self.current_job is not None and not self.current_job.done()
 
     def set_job(self, job: Task):
-        self.job = job
+        self.current_job = job
         self.redraw()
 
     async def get_input(self, title: str = "", hide: bool = False) -> str:
@@ -205,7 +241,7 @@ class Interface(object):
             # Create a Buffer, and assign its Handler to set the Result of the
             #   Future created above.
             buf = Buffer(accept_handler=finish, multiline=False)
-            self.floats[:] = [
+            self.floating_elems[:] = [
                 Float(
                     Frame(
                         Window(
@@ -230,12 +266,12 @@ class Interface(object):
             # Open a popup Float, and wait for the Future to be fulfilled.
             return await fut
         finally:
-            self._app.layout.focus(self.cmd)
-            self.floats.clear()
+            self._app.layout.focus(self.command_buffer)
+            self.floating_elems.clear()
 
     def echo(self, *text, sep: str = "\r\n", start: str = "\r\n"):
         """Print Text to the Console Output, and then update the display."""
-        self.console.write_text(
+        self.console_display.write_text(
             ("" if self.first else start)
             + sep.join(
                 fragment_list_to_text(line)
@@ -256,7 +292,7 @@ class Interface(object):
         buffer.reset(append_to_history=True)
         self.execute(command)
 
-    def execute(self, line: str, hide: bool = True) -> None:
+    def execute(self, line: str) -> None:
         """A Command is being run. Print it alongside the Prompt, and then pass
             it to the Handler.
         """
@@ -264,8 +300,6 @@ class Interface(object):
 
         if line:
             if self.handler:
-                if hide:
-                    self.read_only = True
                 execute_function(
                     line.strip(),
                     self.echo,
@@ -281,7 +315,7 @@ class Interface(object):
         """Signal the Console to run its Callbacks, and then rerun the Renderer
             of the Application, if we have one.
         """
-        self.console.ready()
+        self.console_display.ready()
         if self._app:
             self._app.renderer.render(self._app, self._app.layout)
 
@@ -292,10 +326,10 @@ class Interface(object):
                 # Command History on most of the left panel, Prompt at the bottom.
                 HSplit(
                     (
-                        self.term,
+                        self.terminal,
                         ConditionalContainer(
                             Window(  # Command Prompt.
-                                BufferControl(self.cmd, self.procs),
+                                BufferControl(self.command_buffer, self.procs),
                                 dont_extend_height=True,
                                 # height=1,
                                 wrap_lines=True,
@@ -364,12 +398,12 @@ class Interface(object):
         root = Layout(
             HSplit(
                 (
-                    Window(self.bar, height=1, style="ansigray bold reverse"),
-                    FloatContainer(main, self.floats),
+                    Window(self.header_bar, height=1, style="ansigray bold reverse"),
+                    FloatContainer(main, self.floating_elems),
                 )
             )
         )
-        root.focus(self.cmd)
+        root.focus(self.command_buffer)
         self._app = Application(root, STYLE, full_screen=True, key_bindings=self.kb)
         return self._app
 
