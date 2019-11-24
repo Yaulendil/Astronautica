@@ -10,7 +10,6 @@ from asyncio import CancelledError, sleep
 from collections import defaultdict
 from datetime import datetime as dt, timedelta as td
 from inspect import isawaitable
-from sys import stderr
 from time import time
 from typing import Dict, Iterable, List, Tuple
 
@@ -27,15 +26,7 @@ CB_PRE_TICK = []
 CB_POST_TICK = []
 
 
-def is_power_of_2(n: int) -> bool:
-    i = 0
-    p = 0
-
-    while n > p:
-        p = 2 ** i
-        i += 1
-
-    return n == p
+is_power_of_2 = lambda n: n == 2 ** (n.bit_length() - 1)
 
 
 async def run_iter(it: Iterable):

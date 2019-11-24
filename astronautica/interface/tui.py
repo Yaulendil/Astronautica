@@ -130,7 +130,7 @@ class Interface(object):
         "header_bar",
         "command_buffer",
         "terminal",
-        "console_display",
+        "console_backend",
         "console_header",
         "floating_elems",
         "procs",
@@ -201,7 +201,7 @@ class Interface(object):
         )
 
         self.terminal = Terminal(sim_prompt=True)
-        self.console_display = self.terminal.terminal_control.process.terminal
+        self.console_backend = self.terminal.terminal_control.process.terminal
         self.console_header = lambda: ""
 
         self.floating_elems = []
@@ -271,7 +271,7 @@ class Interface(object):
 
     def echo(self, *text, sep: str = "\r\n", start: str = "\r\n"):
         """Print Text to the Console Output, and then update the display."""
-        self.console_display.write_text(
+        self.console_backend.write_text(
             ("" if self.first else start)
             + sep.join(
                 fragment_list_to_text(line)
@@ -315,7 +315,7 @@ class Interface(object):
         """Signal the Console to run its Callbacks, and then rerun the Renderer
             of the Application, if we have one.
         """
-        self.console_display.ready()
+        self.console_backend.ready()
         if self._app:
             self._app.renderer.render(self._app, self._app.layout)
 
@@ -359,7 +359,13 @@ class Interface(object):
                     HSplit(
                         (
                             VerticalLine(),
-                            Window(FormattedTextControl("├"), width=1, height=1),
+                            Window(
+                                FormattedTextControl(
+                                    lambda: "├" if self.state is Mode.SCOPES else "│"
+                                ),
+                                width=1,
+                                height=1,
+                            ),
                             VerticalLine(),
                         )
                     ),

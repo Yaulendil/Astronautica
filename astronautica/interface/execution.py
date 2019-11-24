@@ -45,9 +45,9 @@ async def handle_async(line: str, echo: EchoType, result, dispatched: bool = Fal
 
     except Exception as exc:
         echo(
-            f"Error: {T.bold(line)}\r\n    {type(exc).__name__!r}: {exc}"
+            f"Error: {T.bold(line)}\r\n    {type(exc).__name__}: {exc}"
             if str(exc)
-            else f"Error: {T.bold(line)}\r\n    {type(exc).__name__!r}"
+            else f"Error: {T.bold(line)}\r\n    {type(exc).__name__}"
         )
 
     finally:
@@ -105,7 +105,7 @@ def execute_function(
 
         except Exception as exc:
             echo(
-                f"Error: {T.bold(line)}\r\n    {type(exc).__name__!r}: {exc}"
+                f"Error: {T.bold(line)}\r\n    {type(exc).__name__}: {exc}"
                 if str(exc)
-                else f"Error: {T.bold(line)}\r\n    {type(exc).__name__!r}"
+                else f"Error: {T.bold(line)}\r\n    {type(exc).__name__}"
             )

@@ -6,6 +6,7 @@ from uuid import UUID
 
 from ezipc.remote import Remote
 from ezipc.util import P
+from users import new_keys
 
 from .commands import CommandNotAvailable, CommandRoot
 from .tui import Interface
@@ -183,6 +184,14 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             if server:
                 await server.terminate()
                 server = None
+
+    @cmd
+    async def keys():
+        ...
+
+    @keys.sub
+    async def generate(number: int = 1):
+        return new_keys(number)
 
     @cmd
     @needs_server

@@ -7,6 +7,7 @@ from inspect import (
     Signature,
     unwrap,
 )
+from itertools import repeat
 from re import compile
 from string import ascii_lowercase
 from unicodedata import normalize
@@ -147,19 +148,34 @@ class Command(object):
                     opts, args = getopt(tokens, self.shorts, self.longs)
                     opts = {k.strip("-"): self._cast(k.strip("-"), v) for k, v in opts}
 
-                    return self._func(*args, **opts)
+                    return self._func(*self._cast_args(args), **opts)
                 else:
-                    return self._func(*tokens)
+                    return self._func(*self._cast_args(tokens))
         else:
             return self._func()
+
+    @property
+    def _arguments(self) -> Iterator[str]:
+        for arg, param in self.sig.parameters.items():
+            if (
+                param.kind is param.POSITIONAL_ONLY
+                or param.kind is param.POSITIONAL_OR_KEYWORD
+            ):
+                yield arg
+
+            elif param.kind is param.VAR_POSITIONAL:
+                yield from repeat(arg)
+                return
+
+        yield from repeat(None)
 
     def _cast(self, key: str, value: Optional[str]):
         """Given a Key and a Value, cast the Value to the Type annotated for the
             Keyword Argument of the Key.
         """
         if key in self.bools:
-            return True
-        else:
+            return bool(value)
+        elif key in self.sig.parameters:
             wanted: Type = self.sig.parameters[key].annotation
             if (
                 isinstance(wanted, type)
@@ -169,9 +185,17 @@ class Command(object):
                 try:
                     return wanted(value)
                 except Exception as e:
-                    raise ValueError(f"Option cannot be cast: {e}") from e
+                    raise TypeError(
+                        f"Value for Argument {key!r} cannot be cast to"
+                        f" {wanted.__name__}: {value!r}"
+                    ) from e
             else:
                 return value
+        else:
+            return value
+
+    def _cast_args(self, args: Sequence[str]) -> Sequence:
+        return tuple(self._cast(a, b) for a, b in zip(self._arguments, args))
 
     def add(self, command: "Command") -> None:
         if command.keyword in self.subcommands:
@@ -355,7 +379,7 @@ class CommandRoot(Completer):
             self.completion = ""
             return
 
-        line = document.text_before_cursor
+        line = document.text_before_cursor.lstrip()
         tokens = self.split(line)
 
         if line.endswith(" "):
