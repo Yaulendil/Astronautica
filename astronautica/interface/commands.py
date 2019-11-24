@@ -186,8 +186,8 @@ class Command(object):
                     return wanted(value)
                 except Exception as e:
                     raise TypeError(
-                        f"Value for Argument {key!r} cannot be cast to"
-                        f" {wanted.__name__}: {value!r}"
+                        # f"Cannot Cast {wanted.__name__}({value!r}) for {key!r}."
+                        f"Value {value!r} cannot be cast into {wanted.__name__}."
                     ) from e
             else:
                 return value
