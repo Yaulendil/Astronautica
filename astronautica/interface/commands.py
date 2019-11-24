@@ -234,6 +234,30 @@ class Command(object):
             self.add(cmd)
             return cmd
 
+    def usage(self, pre: str = None, *, sep: str = "  ") -> str:
+        helpstr = [pre or self.KEYWORD]
+
+        if self.opts:
+            helpstr.append("[options]")
+
+        for arg, param in self.sig.parameters.items():
+            ptype = param.annotation
+            rep = (
+                "<{name}>" if ptype is param.empty else "<{type}:{name}>"
+            ).format(name=arg.upper(), type=ptype.__name__)
+
+            if (
+                param.kind is param.POSITIONAL_ONLY
+                or param.kind is param.POSITIONAL_OR_KEYWORD
+            ):
+                helpstr.append(rep if param.default is param.empty else f"[{rep}]")
+
+            elif param.kind is param.VAR_POSITIONAL:
+                helpstr.append(f"[{rep}...]")
+                break
+
+        return sep.join(helpstr)
+
     def __repr__(self) -> str:
         return (
             f"{type(self).__name__}"
@@ -274,8 +298,8 @@ class CommandRoot(Completer):
 
                 full = " ".join(path).upper()
                 if cmd:
-                    yield "{} :: {}".format(
-                        full,
+                    yield "{}\r\n    {}".format(
+                        cmd.usage(full),
                         "\r\n    ".join(
                             sline
                             for line in doc.splitlines()
@@ -299,14 +323,16 @@ class CommandRoot(Completer):
 
                     if cmd.subcommands:
                         yield "\r\nSubcommands:"
-                        for sub in sorted(cmd.subcommands):
-                            yield f"    {full} {sub.upper()}"
+                        for name, sub in sorted(
+                                cmd.subcommands.items(), key=(lambda x: x[0])
+                        ):
+                            yield sub.usage(f"    {full} {name.upper()}")
                 else:
                     yield f"Command {path[0].upper()!r} not found."
             else:
                 yield "Commands:"
                 for cmd in sorted(self.commands.values(), key=lambda x: x.keyword):
-                    yield f"    {cmd.KEYWORD}"
+                    yield f"    {cmd.usage()}"
 
         _help.completions = self.commands
 
