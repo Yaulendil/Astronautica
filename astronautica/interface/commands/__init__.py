@@ -32,6 +32,20 @@ from typing import (
     Union,
 )
 
+from ..etc import T
+from .exceptions import (
+    CommandError,
+    CommandExists,
+    CommandNotAvailable,
+    CommandNotFound,
+    CommandFailure,
+    CommandBadArguments,
+    CommandBadInput,
+)
+
+
+HEAD = T.bold
+OPTION = T.italic_bright_black
 
 _del_extra = partial(compile(fr"[^{ascii_lowercase}-]").sub, "")
 _no_repeat = partial(compile(r"-{2,}").sub, "-")
@@ -46,22 +60,6 @@ CmdType: Type[Callable] = Callable[..., Any]
 simplify = lambda word: _no_repeat(
     _del_extra(_to_dashes(normalize("NFKD", word.casefold()))).strip("-")
 )
-
-
-class CommandError(Exception):
-    """Base Class for problems with Commands."""
-
-
-class CommandNotAvailable(CommandError):
-    """Command cannot be used."""
-
-
-class CommandNotFound(CommandError):
-    """Command cannot be located."""
-
-
-class CommandExists(CommandError):
-    """Command cannot be added."""
 
 
 class Command(object):
@@ -235,25 +233,28 @@ class Command(object):
             return cmd
 
     def usage(self, pre: str = None, *, sep: str = "  ") -> str:
-        helpstr = [pre or self.KEYWORD]
+        helpstr = [HEAD(pre or self.KEYWORD)]
 
         if self.opts:
-            helpstr.append("[options]")
+            helpstr.append(OPTION("[options]"))
 
         for arg, param in self.sig.parameters.items():
-            ptype = param.annotation
+            ptp = param.annotation
             rep = (
-                "<{name}>" if ptype is param.empty else "<{type}:{name}>"
-            ).format(name=arg.upper(), type=ptype.__name__)
+                "<{name}>" if ptp is param.empty or ptp is str else "<{type}:{name}>"
+            ).format(name=arg.upper(), type=ptp.__name__)
 
             if (
                 param.kind is param.POSITIONAL_ONLY
                 or param.kind is param.POSITIONAL_OR_KEYWORD
             ):
-                helpstr.append(rep if param.default is param.empty else f"[{rep}]")
+                helpstr.append(
+                    rep if param.default is param.empty
+                    else OPTION(f"[{rep}]")
+                )
 
             elif param.kind is param.VAR_POSITIONAL:
-                helpstr.append(f"[{rep}...]")
+                helpstr.append(OPTION(f"[{rep}...]"))
                 break
 
         return sep.join(helpstr)

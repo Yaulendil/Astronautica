@@ -12,7 +12,7 @@ from util.storage import PersistentDict
 
 AccessKey: Type[str] = NewType("Access Key", str)
 
-keys: Dict[AccessKey, Optional[Dict[str, str]]] = PersistentDict(
+KEYS: Dict[AccessKey, Optional[Dict[str, str]]] = PersistentDict(
     Path(cfg["data/directory"], "KEYS").with_suffix(".json"), fmt="json"
 )
 logins: Dict[str, "Session"] = {}
@@ -35,10 +35,10 @@ def get_user(name: str, make: bool = False):
 
 
 def new_keys(n: int = 1) -> Iterator[AccessKey]:
-    with keys:
+    with KEYS:
         for _ in range(n):
             tk = generate_token()
-            keys[tk] = None
+            KEYS[tk] = None
             yield tk
 
 
@@ -78,9 +78,9 @@ class Session(object):
             self.user = None
 
     def register(self, username: str, password: str, key: AccessKey):
-        with keys:
-            if key in keys and keys[key] is None:
-                keys[key] = dict(time=dt.utcnow().isoformat(), username=username)
+        with KEYS:
+            if key in KEYS and KEYS[key] is None:
+                KEYS[key] = dict(time=dt.utcnow().isoformat(), username=username)
 
                 with new_user(username, False) as user:
                     user["password"] = pwh.hash(password)

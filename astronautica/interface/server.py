@@ -6,7 +6,7 @@ from uuid import UUID
 
 from ezipc.remote import Remote
 from ezipc.util import P
-from users import new_keys
+from users import KEYS, new_keys
 
 from .commands import CommandNotAvailable, CommandRoot
 from .tui import Interface
@@ -115,11 +115,11 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     @cmd(task=True)
     @needs_no_server
-    async def _open():
+    async def _open(ip4: str = None, port: int = None):
         nonlocal server
         server = Server(
-            cfg.get("connection/address", "127.0.0.1"),
-            cfg.get("connection/port", required=True),
+            ip4 or cfg.get("connection/address", "127.0.0.1"),
+            port or cfg.get("connection/port", required=True),
         )
         server.setup()
 
@@ -152,8 +152,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             name, pw = data
             if name == pw:
                 await remote.notif(
-                    "USR.SYNC",
-                    dict(username=name, hostname="ingress", path="/ships"),
+                    "USR.SYNC", dict(username=name, hostname="ingress", path="/ships"),
                 )
                 return [True]
             else:
@@ -186,12 +185,31 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
                 server = None
 
     @cmd
-    async def keys():
-        ...
+    async def keys_():
+        raise NotImplementedError
 
-    @keys.sub
+    @keys_.sub
     async def generate(number: int = 1):
         return new_keys(number)
+
+    @keys_.sub
+    async def show():
+        return (
+            f"{key} :: {value['username']}" if value is not None else key
+            for key, value in KEYS.items()
+        )
+
+    @show.sub
+    async def free():
+        return (key for key, value in KEYS.items() if value is None)
+
+    @show.sub
+    async def used():
+        return (
+            f"{key} :: {value['username']}"
+            for key, value in KEYS.items()
+            if value is not None
+        )
 
     @cmd
     @needs_server
