@@ -312,7 +312,6 @@ class CommandRoot(Completer):
 
                     if cmd.opts:
                         yield "\r\nOptions:"
-
                         for opt, param in cmd.sig.parameters.items():
                             if param.kind is param.KEYWORD_ONLY:
                                 yield "{:>10} :: {}".format(
@@ -324,14 +323,16 @@ class CommandRoot(Completer):
 
                     if cmd.subcommands:
                         yield "\r\nSubcommands:"
-                        for name, sub in sorted(
-                                cmd.subcommands.items(), key=(lambda x: x[0])
-                        ):
+                        # for name, sub in sorted(
+                        #         cmd.subcommands.items(), key=(lambda x: x[0])
+                        # ):
+                        for name, sub in cmd.subcommands.items():
                             yield sub.usage(f"    {full} {name.upper()}")
                 else:
                     yield f"Command {path[0].upper()!r} not found."
             else:
                 yield "Commands:"
+                # for cmd in self.commands.values():
                 for cmd in sorted(self.commands.values(), key=lambda x: x.keyword):
                     yield f"    {cmd.usage()}"
 
