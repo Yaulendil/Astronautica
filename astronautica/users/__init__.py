@@ -60,6 +60,11 @@ class Session(object):
     def active(self) -> bool:
         return self.remote.open
 
+    async def sync(self, username: str = None, hostname: str = None, path: str = None):
+        await self.remote.notif(
+            "USR.SYNC", dict(username=username, hostname=hostname, path=path)
+        )
+
     def login(self, username: str, password: str) -> bool:
         user = get_user(username, False)
         if user:
@@ -70,7 +75,7 @@ class Session(object):
             else:
                 raise PermissionError("Bad Password")
         else:
-            raise FileNotFoundError
+            raise FileNotFoundError("Nonexistent User")
 
     def logout(self):
         if self.user:

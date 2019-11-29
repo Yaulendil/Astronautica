@@ -1,12 +1,12 @@
 from asyncio import AbstractEventLoop, CancelledError
 from functools import wraps
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 from uuid import UUID
 
 from ezipc.remote import Remote
 from ezipc.util import P
-from users import KEYS, new_keys
+from users import KEYS, new_keys, Session
 
 from .commands import CommandNotAvailable, CommandRoot
 from .tui import Interface
@@ -21,6 +21,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     from ezipc.server import Server
 
     server: Optional[Server] = None
+    sessions: Dict[Remote, Session] = {}
 
     st = Spacetime()
     # space = st.space
@@ -47,6 +48,16 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     hostup()
     cli.prompt.username = "host"
+
+    def needs_session(func):
+        @wraps(func)
+        def wrapped(data, remote):
+            if remote not in sessions:
+                raise CommandNotAvailable("Requires Session.")
+            else:
+                return func(data, remote, sessions[remote])
+
+        return wrapped
 
     def needs_server(func):
         @wraps(func)
@@ -107,7 +118,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     async def save():
         yield "Saving..."
         st.world.save()
-        yield "Galaxy Saved in: {}".format(st.world.gdir)
+        yield f"Galaxy Saved in: {st.world.gdir}"
 
     @galaxy.sub
     async def rand():
@@ -127,16 +138,18 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         world = loop.create_task(st.run())  # Start the World.
 
         @server.hook_connect
-        async def sync(remote: Remote):
-            await remote.notif(
-                "USR.SYNC", dict(username="nobody", hostname="ingress", path="/login")
-            )
-
-        @server.hook_connect
-        async def welcome(remote: Remote):
+        async def prep_session(remote: Remote):
+            session = Session(remote)
+            sessions[remote] = session
+            await session.sync("nobody", "ingress", "/login")
             await remote.notif(
                 "ETC.PRINT", ["Connected to FleetNet.", "Use LOGIN to Authenticate."]
             )
+
+        @server.hook_disconnect
+        async def cleanup_session(remote: Remote):
+            if remote in sessions:
+                del sessions[remote]
 
         ###===---
         # REQUEST HOOKS: All "incoming" Commands from Remote Clients go here.
@@ -148,15 +161,28 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             return [True]
 
         @server.hook_request("CMD.LOGIN")
-        async def login(data, remote):
+        @needs_session
+        async def login(data, remote, session):
             name, pw = data
-            if name == pw:
-                await remote.notif(
-                    "USR.SYNC", dict(username=name, hostname="ingress", path="/ships"),
-                )
-                return [True]
-            else:
-                return [False]
+            # try:
+            return session.login(name, pw)
+            # except:
+            #     return [False]
+            # else:
+            #     return [True]
+
+        @server.hook_request("CMD.REGISTER")
+        @needs_session
+        async def register(data, remote, session):
+            name, pw, key = data
+            return session.login(name, pw, key)
+            # if name == pw:
+            #     await remote.notif(
+            #         "USR.SYNC", dict(username=name, hostname="ingress", path="/ships"),
+            #     )
+            #     return [True]
+            # else:
+            #     return [False]
 
         ###===---
 
