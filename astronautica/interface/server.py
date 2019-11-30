@@ -141,7 +141,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         async def prep_session(remote: Remote):
             session = Session(remote)
             sessions[remote] = session
-            await session.sync("nobody", "ingress", "/login")
+            await session.sync()
             # await remote.notif(
             #     "ETC.PRINT", ["Connected to FleetNet.", "Use LOGIN to Authenticate."]
             # )
@@ -157,32 +157,26 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         @server.hook_request("CMD.CD")
         async def cd(data):
-            cli.echo(repr(data))
+            cli.print(repr(data))
             return [True]
 
         @server.hook_request("CMD.LOGIN")
         @needs_session
-        async def login(data, remote, session):
-            name, pw = data
-            # try:
-            return session.login(name, pw)
-            # except:
-            #     return [False]
-            # else:
-            #     return [True]
+        async def login(data, _remote: Remote, session: Session):
+            if session.login(*data):
+                await session.sync(path="~")
+                return True
+            else:
+                return False
 
         @server.hook_request("CMD.REGISTER")
         @needs_session
-        async def register(data, remote, session):
-            name, pw, key = data
-            return session.register(name, pw, key)
-            # if name == pw:
-            #     await remote.notif(
-            #         "USR.SYNC", dict(username=name, hostname="ingress", path="/ships"),
-            #     )
-            #     return [True]
-            # else:
-            #     return [False]
+        async def register(data, _remote: Remote, session: Session):
+            if session.register(*data):
+                await session.sync(path="~")
+                return True
+            else:
+                return False
 
         ###===---
 
@@ -193,10 +187,10 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             await run
 
         except CancelledError:
-            cli.echo("Server closed.")
+            cli.print("Server closed.")
 
         except Exception as e:
-            cli.echo(f"Server raised {type(e).__name__!r}: {e}")
+            cli.print(f"Server raised {type(e).__name__!r}: {e}")
 
         finally:
             # CLEANUP

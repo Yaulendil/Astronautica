@@ -78,9 +78,9 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
                 ],
             )
         except RemoteError:
-            cli.echo("Authentication Failure.")
+            cli.print("Authentication Failure.")
         else:
-            cli.echo("Login Accepted.")
+            cli.print("Login Accepted.")
 
     @cmd
     @needs_remote
@@ -89,7 +89,7 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         password: str = await cli.get_input("Enter Password", hide=True)
 
         if password == await cli.get_input("Confirm Password", hide=True):
-            try:
+            # try:
                 await send_command(
                     "REGISTER",
                     [
@@ -98,12 +98,12 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
                         key or await cli.get_input("Enter Access Code"),
                     ],
                 )
-            except RemoteError:
-                cli.echo("Registration Failed.")
-            else:
-                cli.echo("Registration Accepted.")
+            # except RemoteError:
+            #     cli.print("Registration Failed.")
+            # else:
+            #     cli.print("Registration Accepted.")
         else:
-            cli.echo("Password Confirmation does not match.")
+            cli.print("Password Confirmation does not match.")
 
     @cmd(task=True)
     @needs_no_remote
@@ -128,8 +128,7 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         @client.hook_notif("ETC.PRINT")
         async def _print(data: list):
-            for line in data:
-                cli.echo(f"{client.remote}: {line}")
+            cli.print(*(f"{client.remote}: {line}" for line in data))
 
         @client.hook_notif("USR.SYNC")
         async def set_id(data: dict):
@@ -148,11 +147,11 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
                 # client.report()
 
         except CancelledError:
-            cli.echo("Connection closed.")
+            cli.print("Connection closed.")
             # client.report()
 
         except Exception as e:
-            cli.echo(f"Connection failed with {type(e).__name__!r}: {e}")
+            cli.print(f"Connection failed with {type(e).__name__!r}: {e}")
             # client.report()
 
         finally:

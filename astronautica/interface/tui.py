@@ -170,7 +170,7 @@ class Interface(object):
         @self.kb.add("c-c")
         def interrupt(*_):
             """Ctrl-C: Interrupt running Job."""
-            self.echo("^C")
+            self.print("^C")
             if self.current_job and not self.current_job.done():
                 self.current_job.cancel()
             self.current_job = None
@@ -269,7 +269,7 @@ class Interface(object):
             self._app.layout.focus(self.command_buffer)
             self.floating_elems.clear()
 
-    def echo(self, *text, sep: str = "\r\n", start: str = "\r\n"):
+    def print(self, *text, sep: str = "\r\n", start: str = "\r\n") -> None:
         """Print Text to the Console Output, and then update the display."""
         self.console_backend.write_text(
             ("" if self.first else start)
@@ -278,6 +278,7 @@ class Interface(object):
                 if isinstance(line, FormattedText)
                 else str(line)
                 for line in text
+                if line is not None
             )
         )
         self.first = False
@@ -296,20 +297,20 @@ class Interface(object):
         """A Command is being run. Print it alongside the Prompt, and then pass
             it to the Handler.
         """
-        self.echo(self.prompt.raw(line))
+        self.print(self.prompt.raw(line))
 
         if line:
             if self.handler:
                 execute_function(
                     line.strip(),
-                    self.echo,
+                    self.print,
                     self.handler,
                     self.LOOP,
                     self.TASKS,
                     self.set_job,
                 )
             else:
-                self.echo("No handler.")
+                self.print("No handler.")
 
     def redraw(self) -> None:
         """Signal the Console to run its Callbacks, and then rerun the Renderer
