@@ -6,7 +6,7 @@ from uuid import UUID
 
 from ezipc.remote import Remote
 from ezipc.util import P
-from users import KEYS, new_keys, Session
+from users import get_user, KEYS, new_keys, Session
 
 from .commands import CommandNotAvailable, CommandRoot
 from .tui import Interface
@@ -89,6 +89,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     @galaxy.sub
     async def new():
+        """Generate a new Galaxy."""
         yield "Generating..."
         st.world = Galaxy.generate((1.4, 1, 0.2), arms=3)
         hostup()
@@ -96,6 +97,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     @galaxy.sub
     async def load(path: str):
+        """Load a Galaxy from a file."""
         yield "Loading..."
         try:
             st.world = Galaxy.from_file(DATA_DIR / "world" / path)
@@ -107,6 +109,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     @galaxy.sub
     async def rename(path: str = None):
+        """Change the storage location of the current Galaxy."""
         path = DATA_DIR / path
         if path.parent != DATA_DIR:
             return "Galaxy Directory must be a simple name."
@@ -116,17 +119,20 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     @galaxy.sub
     async def save():
+        """Write the Galaxy to storage."""
         yield "Saving..."
         st.world.save()
         yield f"Galaxy Saved in: {st.world.gdir}"
 
     @galaxy.sub
     async def rand():
+        """Fetch a randomly-selected System."""
         yield repr(st.world.get_system(UUID(int=st.world.system_random()[3])))
 
     @cmd(task=True)
     @needs_no_server
     async def _open(ip4: str = None, port: int = None):
+        """Open the Server and begin simulating the passage of Time."""
         nonlocal server
         server = Server(
             ip4 or cfg.get("connection/address", "127.0.0.1"),
@@ -205,15 +211,45 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
                 server = None
 
     @cmd
-    async def keys_():
+    async def keys():
+        """Show or manipulate Access Keys."""
         raise NotImplementedError
 
-    @keys_.sub
+    @keys.sub
+    async def free(*access_key):
+        """Dissociate one or more Access Keys from their Usernames."""
+        with KEYS:
+            for k in access_key:
+                if k in KEYS:
+                    owner = (KEYS[k] or {}).get("username")
+                    KEYS[k] = None
+                    try:
+                        if owner:
+                            user = get_user(owner)
+                            yield f"Freeing key {k!r} from {owner!r}."
+                        else:
+                            raise ValueError
+
+                    except FileNotFoundError:
+                        yield f"Key {k!r} owner {owner!r} not found."
+                    except ValueError:
+                        yield f"Key {k!r} is not claimed."
+
+                    else:
+                        if user:
+                            user["key"] = None
+                            user.sync()
+                else:
+                    yield f"Key {k!r} is not claimed."
+
+    @keys.sub
     async def generate(number: int = 1):
+        """Generate a number of new Access Keys."""
         return new_keys(number)
 
-    @keys_.sub
+    @keys.sub
     async def show():
+        """Display active Access Keys."""
         return (
             f"{key} :: {value['username']}" if value is not None else key
             for key, value in KEYS.items()
@@ -221,10 +257,12 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     @show.sub
     async def free():
+        """Display only available Access Keys."""
         return (key for key, value in KEYS.items() if value is None)
 
     @show.sub
     async def used():
+        """Display only Access Keys that are in use."""
         return (
             f"{key} :: {value['username']}"
             for key, value in KEYS.items()
@@ -234,6 +272,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     @cmd
     @needs_server
     async def close():
+        """Stop the Server, and stop iterating Time."""
         nonlocal server
 
         await server.terminate()
