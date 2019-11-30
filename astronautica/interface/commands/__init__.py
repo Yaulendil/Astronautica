@@ -322,19 +322,29 @@ class CommandRoot(Completer):
                                 )
 
                     if cmd.subcommands:
-                        yield "\r\nSubcommands:"
+                        yield f"\r\nSubcommands ({len(cmd.subcommands)}):"
                         # for name, sub in sorted(
                         #         cmd.subcommands.items(), key=(lambda x: x[0])
                         # ):
                         for name, sub in cmd.subcommands.items():
-                            yield sub.usage(f"    {full} {name.upper()}")
+                            yield (
+                                sub.usage(f"    {full} {name.upper()}")
+                                + (
+                                    f"    (+{len(sub.subcommands)})"
+                                    if sub.subcommands else ""
+                                )
+                            )
                 else:
                     yield f"Command {path[0].upper()!r} not found."
             else:
                 yield "Commands:"
                 # for cmd in self.commands.values():
                 for cmd in sorted(self.commands.values(), key=lambda x: x.keyword):
-                    yield f"    {cmd.usage()}"
+                    yield (
+                        f"    {cmd.usage()}"
+                        + (f"    (+{len(cmd.subcommands)})" if cmd.subcommands else "")
+                    )
+            yield ""
 
         _help.completions = self.commands
 
