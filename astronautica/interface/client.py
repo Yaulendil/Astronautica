@@ -4,6 +4,8 @@ from pathlib import Path
 from re import compile
 from typing import Union, Optional
 
+from ezipc.remote import RemoteError
+
 from .commands import CommandNotAvailable, CommandRoot
 from .tui import Interface
 from config import cfg
@@ -53,32 +55,55 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     @needs_remote
     async def send_command(
-        meth: str, data: Union[list, dict] = None, wait: bool = True
+        meth: str,
+        data: Union[list, dict] = None,
+        *,
+        timeout: float = 10,
+        nowait: bool = False,
     ) -> Union[dict, Future, list]:
-        resp = await client.remote.request(f"CMD.{meth}", [] if data is None else data)
-        if wait:
-            return await resp
-        else:
-            return resp
+        future = await client.remote.request(
+            f"CMD.{meth}", [] if data is None else data, timeout=timeout
+        )
+        return future if nowait else await future
 
     @cmd
     @needs_remote
     async def login(username: str = None):
-        # if username is None:
-        #     username = await cli.get_input("Enter Username")
-        # passwd = await cli.get_input("Enter Password")
-
-        result = await send_command(
-            "LOGIN",
-            [
-                username or await cli.get_input("Enter Username"),
-                await cli.get_input("Enter Password", hide=True),
-            ],
-        )
-        if result and result[0]:
-            cli.echo("Login Accepted.")
-        else:
+        try:
+            await send_command(
+                "LOGIN",
+                [
+                    username or await cli.get_input("Enter Username"),
+                    await cli.get_input("Enter Password", hide=True),
+                ],
+            )
+        except RemoteError:
             cli.echo("Authentication Failure.")
+        else:
+            cli.echo("Login Accepted.")
+
+    @cmd
+    @needs_remote
+    async def register(username: str = None, *, key: str = None):
+        username: str = username or await cli.get_input("Enter Username")
+        password: str = await cli.get_input("Enter Password", hide=True)
+
+        if password == await cli.get_input("Confirm Password", hide=True):
+            try:
+                await send_command(
+                    "REGISTER",
+                    [
+                        username,
+                        password,
+                        key or await cli.get_input("Enter Access Code"),
+                    ],
+                )
+            except RemoteError:
+                cli.echo("Registration Failed.")
+            else:
+                cli.echo("Registration Accepted.")
+        else:
+            cli.echo("Password Confirmation does not match.")
 
     @cmd(task=True)
     @needs_no_remote
@@ -100,7 +125,6 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             port = cfg.get("connection/port", required=True)
 
         client = Client(addr, int(port))
-        await client.connect(loop)
 
         @client.hook_notif("ETC.PRINT")
         async def _print(data: list):
@@ -115,7 +139,9 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             cmd.cap_set(disable=data.get("disable"), enable=data.get("enable"))
 
         try:
+            await client.connect(loop)
             cli.redraw()
+
             if client.listening:
                 cli.TASKS.append(client.listening)
                 await client.listening

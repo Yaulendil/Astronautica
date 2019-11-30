@@ -142,9 +142,9 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             session = Session(remote)
             sessions[remote] = session
             await session.sync("nobody", "ingress", "/login")
-            await remote.notif(
-                "ETC.PRINT", ["Connected to FleetNet.", "Use LOGIN to Authenticate."]
-            )
+            # await remote.notif(
+            #     "ETC.PRINT", ["Connected to FleetNet.", "Use LOGIN to Authenticate."]
+            # )
 
         @server.hook_disconnect
         async def cleanup_session(remote: Remote):
@@ -175,7 +175,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         @needs_session
         async def register(data, remote, session):
             name, pw, key = data
-            return session.login(name, pw, key)
+            return session.register(name, pw, key)
             # if name == pw:
             #     await remote.notif(
             #         "USR.SYNC", dict(username=name, hostname="ingress", path="/ships"),
