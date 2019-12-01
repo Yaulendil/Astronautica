@@ -33,10 +33,10 @@ from config import cfg
 
 
 class Mode(Enum):
-    OFF = "OFF"  # auto()
-    SCOPES = "SCOPES"  # auto()
-    SCANS = "SCANS"  # auto()
-    ORDERS = "ORDERS"  # auto()
+    OFF = "OFF"
+    SCOPES = "SCOPES"
+    SCANS = "SCANS"
+    ORDERS = "ORDERS"
 
 
 class Prompt(object):
@@ -68,10 +68,6 @@ class Prompt(object):
         self.processor = BeforeInput(self)
 
         self.char: str = "$ "
-
-    # @property
-    # def char(self):
-    #     return "# " if self.username.lower() == "root" else "$ "
 
     @property
     def prompt(self) -> FormattedText:
@@ -220,11 +216,8 @@ class Interface(object):
         self.current_job: Optional[Task] = None
         self._app: Optional[Application] = None
 
-        # self.echo("Ready.", start="")
-
     def busy(self) -> bool:
         return not (self.current_job is None or self.current_job.done())
-        # return self.current_job is not None and not self.current_job.done()
 
     def set_job(self, job: Task):
         self.current_job = job
@@ -332,7 +325,6 @@ class Interface(object):
                             Window(  # Command Prompt.
                                 BufferControl(self.command_buffer, self.procs),
                                 dont_extend_height=True,
-                                # height=1,
                                 wrap_lines=True,
                             ),
                             Condition(lambda: not self.busy()),
@@ -415,6 +407,4 @@ class Interface(object):
         return self._app
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        # pass
-        # self.app.exit()
         self._app = None

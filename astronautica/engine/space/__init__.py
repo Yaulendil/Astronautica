@@ -159,7 +159,6 @@ class Space(object):
     def progress(self, time: float):
         self.array_position += self.array_velocity * time
         self.array_heading = as_float_array(
-            # from_rotation_vector(as_rotation_vector(self.quat_rotate[1]) * time)
             from_float_array(self.array_rotate * np.array((time, 1, 1, 1)))
             * self.quat_heading
         )

@@ -323,9 +323,6 @@ class CommandRoot(Completer):
 
                     if cmd.subcommands:
                         yield f"\r\nSubcommands ({len(cmd.subcommands)}):"
-                        # for name, sub in sorted(
-                        #         cmd.subcommands.items(), key=(lambda x: x[0])
-                        # ):
                         for name, sub in cmd.subcommands.items():
                             yield (
                                 sub.usage(f"    {full} {name.upper()}")
@@ -338,7 +335,6 @@ class CommandRoot(Completer):
                     yield f"Command {path[0].upper()!r} not found."
             else:
                 yield "Commands:"
-                # for cmd in self.commands.values():
                 for cmd in sorted(self.commands.values(), key=lambda x: x.keyword):
                     yield (
                         f"    {cmd.usage()}"
@@ -379,14 +375,7 @@ class CommandRoot(Completer):
             self.disabled -= set(enable)  # Remove all Enabling Strings.
 
     def change(self, buf: Buffer):
-        l = len(buf.text)
-
-        # # if buf.text.endswith(" "):
-        # if l < self._len:
-        #     # Empty the Completion if the Buffer has decreased in length.
-        #     self.completion = ""
-
-        self._len = l
+        self._len = len(buf.text)
 
     def get_command(
         self, tokens: Union[List[str], Tuple[str, ...]], *, completing: bool = False,

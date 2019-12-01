@@ -92,10 +92,6 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
                     ],
                 )
             return "Registration successful."
-            # except RemoteError:
-            #     cli.print("Registration Failed.")
-            # else:
-            #     cli.print("Registration Accepted.")
         else:
             return "Password Confirmation does not match."
 
@@ -138,15 +134,12 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             if client.listening:
                 cli.TASKS.append(client.listening)
                 await client.listening
-                # client.report()
 
         except CancelledError:
             cli.print("Connection closed.")
-            # client.report()
 
         except Exception as e:
             cli.print(f"Connection failed with {type(e).__name__!r}: {e}")
-            # client.report()
 
         finally:
             # CLEANUP

@@ -48,23 +48,7 @@ class Spacetime:
     def __init__(self, space_: Space = None, world_: Galaxy = None):
         # self.index: List[Object] = []
         self.space: Space = space_ or Space()
-        self.world: Galaxy = world_  # or Galaxy.generate((1.4, 1, 0.2), arms=3)
-
-    # def add(self, obj: Object):
-    #     """Add an Object to the Index of the Spacetime."""
-    #     self.index.append(obj)
-    #
-    # def new(self, cls: Type[Object] = Object, *a, **kw) -> Object:
-    #     """Create a new Instance of an Object. Arguments are passed directly to
-    #         the Object Instantiation. This Method handles adding the new
-    #         Instance to the Index of the Spacetime, and provides its Space
-    #         object to the appropriate Keyword Argument. It then returns the new
-    #         Object Instance.
-    #     """
-    #     kw["space"] = self.space
-    #     obj: Object = cls(*a, **kw)
-    #     self.add(obj)
-    #     return obj
+        self.world: Galaxy = world_
 
     def _tick(self, target: float = 1, allow_collision: bool = True) -> int:
         """Simulate the passing of time. The target amount should be one second
@@ -154,6 +138,6 @@ class Spacetime:
 
         except CancelledError:
             echo("Simulation Coroutine cancelled. Saving...")
-        finally:
+        # finally:
             # self.save_to_file()
-            echo("win", "Spacetime Saved.")
+            # echo("win", "Spacetime Saved.")

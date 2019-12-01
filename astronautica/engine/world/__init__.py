@@ -171,8 +171,6 @@ class Galaxy(object):
             return tuple(self.stars[indices[0]].tolist())
         else:
             return None
-        # t = tuple(x for x in self.stars if x[3] == uuid.int)
-        # return t[0] if t else None
 
     def system_random(self) -> Tuple[float, float, float, int]:
         return choice(self.stars)

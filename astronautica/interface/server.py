@@ -147,9 +147,6 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             session = Session(remote)
             sessions[remote] = session
             await session.sync()
-            # await remote.notif(
-            #     "ETC.PRINT", ["Connected to FleetNet.", "Use LOGIN to Authenticate."]
-            # )
 
         @server.hook_disconnect
         async def cleanup_session(remote: Remote):
