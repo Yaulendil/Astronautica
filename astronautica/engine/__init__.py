@@ -46,7 +46,6 @@ class RealTime(Clock):
 
 class Spacetime:
     def __init__(self, space_: Space = None, world_: Galaxy = None):
-        # self.index: List[Object] = []
         self.space: Space = space_ or Space()
         self.world: Galaxy = world_
 
@@ -55,15 +54,12 @@ class Spacetime:
             divided by a power of two.
         """
         key = lambda o: o[0]
-
-        def collisions_until(_time) -> List[Tuple[float, Tuple[Object, Object]]]:
-            return find_collisions(_time, self.objects) if allow_collision else []
-
-        collisions = collisions_until(target)
-
         hits: int = 0
         passed: float = 0
-        while collisions:
+        collisions: List[Tuple[float, Tuple[Object, Object]]] = []
+
+        # Repeat this until there are no Collisions left to be simulated.
+        while allow_collision and (collisions := find_collisions(target - passed)):
             # Find the soonest Collision.
             seconds, (obj_a, obj_b) = min(collisions, key=key)
 
@@ -77,8 +73,6 @@ class Spacetime:
             # Objects have now had their Velocities changed. Future Collisions
             #   may no longer be valid, so recalculate the Collisions which have
             #   not happened yet.
-            collisions = collisions_until(target - passed)
-            # Repeat this until there are no Collisions left to be simulated.
 
         # Then, simulate the rest of the time.
         self.space.progress(target - passed)
@@ -118,26 +112,24 @@ class Spacetime:
         try:
             turn = td(seconds=turn_length)
             start = dt.utcnow()
-            tick_latest = start.replace(minute=0, second=0, microsecond=0)
+            tick_next = start.replace(minute=0, second=0, microsecond=0)
 
-            while tick_latest < (start - turn):
-                tick_latest += turn
+            while tick_next <= (start - turn):
+                tick_next += turn
 
             while True:
-                tick_next = tick_latest + turn
                 await sleep((tick_next - dt.utcnow()).total_seconds())
-
-                tick_latest = tick_next
                 echo(f"Simulating {turn_length} seconds...")
-
                 await run_iter(CB_PRE_TICK)
+
                 self.progress(turn_length)
-                await run_iter(CB_POST_TICK)
 
                 echo("Simulation complete.")
+                await run_iter(CB_POST_TICK)
+                tick_next += turn
 
         except CancelledError:
-            echo("Simulation Coroutine cancelled. Saving...")
+            echo("Simulation Coroutine cancelled.")  # Saving...")
         # finally:
             # self.save_to_file()
             # echo("win", "Spacetime Saved.")
