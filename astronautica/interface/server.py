@@ -6,7 +6,7 @@ from uuid import UUID
 
 from ezipc.remote import Remote
 from ezipc.util import P
-from users import get_user, KEYS, new_keys, Session
+from users import user_get, KEYS, new_keys, Session
 
 from .commands import CommandNotAvailable, CommandRoot
 from .tui import Interface
@@ -20,23 +20,12 @@ DATA_DIR = Path(cfg["data/directory"])
 def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     from ezipc.server import Server
 
+    P.verbosity = 3
     server: Optional[Server] = None
     sessions: Dict[Remote, Session] = {}
 
     st = Spacetime()
     # space = st.space
-    P.verbosity = 3
-
-    cli.console_header = lambda: " :: ".join(
-        (
-            f"Clients: {len(server.remotes)}" if server else "Server Offline",
-            "Galaxy: {}".format(
-                f"{len(st.world.loaded)}/{st.world.stars.shape[0]}"
-                if st.world and st.world.stars.shape
-                else None
-            ),
-        )
-    )
 
     def hostup():
         if st.world and st.world.gdir:
@@ -48,6 +37,16 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     hostup()
     cli.prompt.username = "host"
+    cli.console_header = lambda: " :: ".join(
+        (
+            f"Clients: {len(server.remotes)}" if server else "Server Offline",
+            "Galaxy: {}".format(
+                f"{len(st.world.loaded)}/{st.world.stars.shape[0]}"
+                if st.world and st.world.stars.shape
+                else None
+            ),
+        )
+    )
 
     def needs_session(func):
         @wraps(func)
@@ -221,11 +220,11 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         with KEYS:
             for k in access_key:
                 if k in KEYS:
-                    owner = (KEYS[k] or {}).get("username")
+                    owner = (KEYS[k] or {}).get("user")
                     KEYS[k] = None
                     try:
                         if owner:
-                            user = get_user(owner)
+                            user = user_get(owner)
                             yield f"Freeing key {k!r} from {owner!r}."
                         else:
                             raise ValueError
@@ -251,7 +250,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     async def show():
         """Display active Access Keys."""
         return (
-            f"{key} :: {value['username']}" if value is not None else key
+            f"{key} :: {value['user']}" if value is not None else key
             for key, value in KEYS.items()
         )
 
@@ -264,7 +263,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     async def used():
         """Display only Access Keys that are in use."""
         return (
-            f"{key} :: {value['username']}"
+            f"{key} :: {value['user']}"
             for key, value in KEYS.items()
             if value is not None
         )

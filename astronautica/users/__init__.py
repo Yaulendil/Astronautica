@@ -20,7 +20,19 @@ KEYS: Dict[AccessKey, Optional[Dict[str, str]]] = PersistentDict(
 logins: Dict[str, "Session"] = {}
 
 
-def approve(name: str) -> bool:
+def approve_password(word: str) -> bool:
+    if not 8 <= len(word):
+        raise ValueError("Password must be at least 8 characters.")
+    elif not len(word) <= 80:
+        raise ValueError(
+            "Your security is commendable, but passwords cannot be more than 80"
+            " characters."
+        )
+    else:
+        return True
+
+
+def approve_username(name: str) -> bool:
     if not 3 <= len(name) <= 20:
         raise ValueError("Username must be between 3 and 20 ASCII characters.")
     elif bad := set(chars_not_ok.findall(name)):
@@ -38,17 +50,6 @@ def generate_token(chunks: int = 3, size: int = 5, div: str = "-") -> AccessKey:
     return AccessKey(div.join(tk[i * size : (i + 1) * size] for i in range(chunks)))
 
 
-def get_user(name: str, make: bool = False):
-    path = Path(cfg["data/directory"], "users", name).with_suffix(".json")
-
-    if path.is_file():
-        return PersistentDict(path, fmt="json")
-    elif make:
-        return new_user(name)
-    else:
-        raise FileNotFoundError
-
-
 def new_keys(n: int = 1) -> Iterator[AccessKey]:
     with KEYS:
         for _ in range(n):
@@ -57,10 +58,17 @@ def new_keys(n: int = 1) -> Iterator[AccessKey]:
             yield tk
 
 
-def new_user(name: str, exist_ok: bool = True):
-    path = Path(cfg["data/directory"], "users", name).with_suffix(".json")
+def user_get(name: str, make: bool = False) -> Optional[PersistentDict]:
+    path = Path(cfg["data/directory"], "users", name.lower()).with_suffix(".json")
 
-    if path.exists() and not exist_ok:
+    if path.is_file() or make:
+        return PersistentDict(path, fmt="json")
+
+
+def user_new(name: str) -> PersistentDict:
+    path = Path(cfg["data/directory"], "users", name.lower()).with_suffix(".json")
+
+    if path.exists():
         raise FileExistsError
     else:
         return PersistentDict(path, fmt="json")
@@ -102,17 +110,18 @@ class Session(object):
         )
 
     def login(self, username: str, password: str) -> bool:
-        user = get_user(username, False)
-        if user:
-            if pwh.verify(password, user.get("password")):
-                self.user = user
-                self.name = username
-                logins[user.path.stem] = self
-                return True
-            else:
-                raise PermissionError("Bad Password")
+        user = user_get(username)
+
+        if not user or not pwh.verify(password, user.get("password", "")):
+            raise PermissionError("Bad Username or Password")
+        elif KEYS.get(user.get("key"), {}).get("user", True) != user.get("name"):
+            raise PermissionError("Key Disabled")
+
         else:
-            raise FileNotFoundError("Nonexistent User")
+            self.user = user
+            self.name = username
+            logins[user.path.stem] = self
+            return True
 
     def logout(self):
         self.name: str = "nobody"
@@ -124,14 +133,14 @@ class Session(object):
             self.user = None
 
     def register(self, username: str, password: str, key: AccessKey) -> bool:
-        if not approve(username):
-            raise ValueError("Username does not meet specifications.")
+        approve_password(password)
+        approve_username(username)
 
         with KEYS:
             if key in KEYS and KEYS[key] is None:
-                KEYS[key] = dict(time=dt.utcnow().isoformat(), username=username)
-
-                with new_user(username, False) as user:
+                with user_new(username) as user:
+                    KEYS[key] = dict(time=dt.utcnow().isoformat(), user=username)
+                    user["name"] = username
                     user["password"] = pwh.hash(password)
                     user["key"] = key
 

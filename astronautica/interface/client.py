@@ -4,8 +4,6 @@ from pathlib import Path
 from re import compile
 from typing import Union, Optional
 
-from ezipc.remote import RemoteError
-
 from .commands import CommandNotAvailable, CommandRoot
 from .tui import Interface
 from config import cfg
@@ -18,7 +16,6 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     from ezipc.client import Client
 
     client: Optional[Client] = None
-
     cli.console_header = (
         lambda: " :: ".join(
             (
@@ -69,18 +66,14 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     @cmd
     @needs_remote
     async def login(username: str = None):
-        try:
-            await send_command(
-                "LOGIN",
-                [
-                    username or await cli.get_input("Enter Username"),
-                    await cli.get_input("Enter Password", hide=True),
-                ],
-            )
-        except RemoteError:
-            cli.print("Authentication Failure.")
-        else:
-            cli.print("Login Accepted.")
+        await send_command(
+            "LOGIN",
+            [
+                username or await cli.get_input("Enter Username"),
+                await cli.get_input("Enter Password", hide=True),
+            ],
+        )
+        cli.print("Login Accepted.")
 
     @cmd
     @needs_remote
@@ -90,7 +83,7 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         if password == await cli.get_input("Confirm Password", hide=True):
             # try:
-                await send_command(
+            await send_command(
                     "REGISTER",
                     [
                         username,
@@ -98,12 +91,13 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
                         key or await cli.get_input("Enter Access Code"),
                     ],
                 )
+            return "Registration successful."
             # except RemoteError:
             #     cli.print("Registration Failed.")
             # else:
             #     cli.print("Registration Accepted.")
         else:
-            cli.print("Password Confirmation does not match.")
+            return "Password Confirmation does not match."
 
     @cmd(task=True)
     @needs_no_remote
