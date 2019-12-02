@@ -6,7 +6,7 @@ from uuid import UUID
 
 from ezipc.remote import Remote
 from ezipc.util import P
-from users import user_get, KEYS, new_keys, Session
+from users import key_free, KEYS, keys_new, Session
 
 from .commands import CommandNotAvailable, CommandRoot
 from .tui import Interface
@@ -216,53 +216,38 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         """Dissociate one or more Access Keys from their Usernames."""
         with KEYS:
             for k in access_key:
-                if k in KEYS:
-                    owner = (KEYS[k] or {}).get("user")
-                    KEYS[k] = None
-                    try:
-                        if owner:
-                            user = user_get(owner)
-                            yield f"Freeing key {k!r} from {owner!r}."
-                        else:
-                            raise ValueError
-
-                    except FileNotFoundError:
-                        yield f"Key {k!r} owner {owner!r} not found."
-                    except ValueError:
-                        yield f"Key {k!r} is not claimed."
-
-                    else:
-                        if user:
-                            user["key"] = None
-                            user.sync()
+                try:
+                    key_free(k)
+                except Exception as e:
+                    yield e
                 else:
-                    yield f"Key {k!r} is not claimed."
+                    yield f"Key {k!r} freed."
 
     @keys.sub
-    async def generate(number: int = 1):
+    async def generate(number: int = 1, note: str = None):
         """Generate a number of new Access Keys."""
-        return new_keys(number)
+        return keys_new(number, note)
 
     @keys.sub
     async def show():
         """Display active Access Keys."""
         return (
-            f"{key} :: {value['user']}" if value is not None else key
+            f"{key} :: {value['user']!r}" if value["user"] is not None else key
             for key, value in KEYS.items()
         )
 
     @show.sub
     async def free():
         """Display only available Access Keys."""
-        return (key for key, value in KEYS.items() if value is None)
+        return (key for key, value in KEYS.items() if value["user"] is None)
 
     @show.sub
     async def used():
         """Display only Access Keys that are in use."""
         return (
-            f"{key} :: {value['user']}"
+            f"{key} :: {value['user']!r}"
             for key, value in KEYS.items()
-            if value is not None
+            if value["user"] is not None
         )
 
     @cmd
