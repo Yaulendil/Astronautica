@@ -234,20 +234,27 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     async def show():
         """Display active Access Keys."""
         return (
-            f"{key} :: {value['user']!r}" if value["user"] is not None else key
+            f"{key}"
+            + (f" :: {value['user']!r}" if value["user"] is not None else "")
+            + (f"\r\n    ({value['note']})" if value["note"] is not None else "")
             for key, value in KEYS.items()
         )
 
     @show.sub
     async def free():
         """Display only available Access Keys."""
-        return (key for key, value in KEYS.items() if value["user"] is None)
+        return (
+            key + (f"\r\n    ({value['note']})" if value["note"] is not None else "")
+            for key, value in KEYS.items()
+            if value["user"] is None
+        )
 
     @show.sub
     async def used():
         """Display only Access Keys that are in use."""
         return (
             f"{key} :: {value['user']!r}"
+            + (f"\r\n    ({value['note']})" if value["note"] is not None else "")
             for key, value in KEYS.items()
             if value["user"] is not None
         )

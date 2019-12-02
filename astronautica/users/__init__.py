@@ -63,7 +63,7 @@ def key_assign(keystr: AccessKey, user: PersistentDict):
         else:
             user["key"] = keystr
             key["user"] = user["name"].lower()
-            key["claimed"] = dt.utcnow().isoformat()
+            key["claimed"] = dt.utcnow().replace(microsecond=0).isoformat()
 
 
 @overload
@@ -108,7 +108,7 @@ def key_free(obj: Union[AccessKey, PersistentDict]):
 
 
 def keys_new(n: int = 1, note: str = None) -> Iterator[AccessKey]:
-    now: str = dt.utcnow().isoformat()
+    now: str = dt.utcnow().replace(microsecond=0).isoformat()
     with KEYS:
         for i in range(n):
             tk = _generate_token()

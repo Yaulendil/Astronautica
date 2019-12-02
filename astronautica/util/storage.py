@@ -77,7 +77,7 @@ class PersistentDict(dict):
         if self.format == "csv":
             csv.writer(fd).writerows(self.items())
         elif self.format == "json":
-            json.dump(self, fd, separators=(",", ":"))
+            json.dump(self, fd, indent=2, separators=(",", ":"))
         elif self.format == "pickle":
             pickle.dump(dict(self), fd, 2)
         else:
