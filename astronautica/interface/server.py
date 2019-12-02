@@ -8,7 +8,7 @@ from ezipc.remote import Remote
 from ezipc.util import P
 from users import key_free, KEYS, keys_new, Session
 
-from .commands import CommandNotAvailable, CommandRoot
+from .commands import CommandError, CommandFailure, CommandNotAvailable, CommandRoot
 from .tui import Interface
 from config import cfg
 from engine import CB_POST_TICK, Galaxy, Spacetime
@@ -218,8 +218,10 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             for k in access_key:
                 try:
                     key_free(k)
-                except Exception as e:
+                except CommandError as e:
                     yield e
+                except Exception as e:
+                    yield CommandFailure(str(e))
                 else:
                     yield f"Key {k!r} freed."
 

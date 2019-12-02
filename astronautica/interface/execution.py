@@ -16,7 +16,9 @@ def handle_return(echo: EchoType, result):
     """
     if isinstance(result, (Iterator, Sequence)) and not isinstance(result, str):
         for each in result:
-            if each is not None:
+            if isinstance(each, BaseException):
+                echo(f"{type(each).__name__}: {each}")
+            elif each is not None:
                 echo(str(each))
 
     else:
@@ -37,8 +39,10 @@ async def handle_async(line: str, echo: EchoType, result, dispatched: bool = Fal
             kw = line.split()[0].lower()
 
             async for each in result:
-                if each is not None:
-                    echo(f"{T.bold(kw)}: {each}")
+                if isinstance(each, BaseException):
+                    echo(f"! {T.bold(kw)}: {type(each).__name__}: {each}")
+                elif each is not None:
+                    echo(f"  {T.bold(kw)}: {each}")
 
         elif result is not None:
             handle_return(echo, result)

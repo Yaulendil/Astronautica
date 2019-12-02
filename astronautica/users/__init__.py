@@ -82,15 +82,19 @@ def key_free(obj: Union[AccessKey, PersistentDict]):
         if isinstance(obj, str):
             keystr = obj
             key = KEYS[keystr]
-            user = user_get(key["user"])
+            user = user_get(key["user"] or "")
 
             if not user:
-                raise FileNotFoundError(key["user"])
+                raise ValueError("Key is not claimed.")
 
         elif isinstance(obj, dict):
             user = obj
             keystr = user["key"]
-            key = KEYS[keystr]
+
+            if not keystr or keystr not in KEYS:
+                raise ValueError("User does not have a valid Key.")
+            else:
+                key = KEYS[keystr]
 
         else:
             raise TypeError(f"Type of Argument ({type(obj).__name__!r}) invalid.")
