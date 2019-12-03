@@ -27,7 +27,7 @@ from prompt_toolkit.widgets import Frame, HorizontalLine, VerticalLine
 from ptterm import Terminal
 
 from .commands import CommandRoot
-from .etc import keys, STYLE, T, unstyle
+from .etc import crlf, keys, STYLE, T, unstyle
 from .execution import execute_function
 from config import cfg
 
@@ -262,16 +262,18 @@ class Interface(object):
             self._app.layout.focus(self.command_buffer)
             self.floating_elems.clear()
 
-    def print(self, *text, sep: str = "\r\n", start: str = "\r\n") -> None:
+    def print(self, *text, sep: str = "\n", start: str = "\n") -> None:
         """Print Text to the Console Output, and then update the display."""
         self.console_backend.write_text(
-            ("" if self.first else start)
-            + sep.join(
-                fragment_list_to_text(line)
-                if isinstance(line, FormattedText)
-                else str(line)
-                for line in text
-                if line is not None
+            crlf(
+                ("" if self.first else start)
+                + sep.join(
+                    fragment_list_to_text(line)
+                    if isinstance(line, FormattedText)
+                    else str(line)
+                    for line in text
+                    if line is not None
+                )
             )
         )
         self.first = False

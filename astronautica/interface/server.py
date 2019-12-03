@@ -236,7 +236,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         return (
             f"{key}"
             + (f" :: {value['user']!r}" if value["user"] is not None else "")
-            + (f"\r\n    ({value['note']})" if value["note"] is not None else "")
+            + (f"\n    ({value['note']})" if value["note"] is not None else "")
             for key, value in KEYS.items()
         )
 
@@ -244,7 +244,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     async def free():
         """Display only available Access Keys."""
         return (
-            key + (f"\r\n    ({value['note']})" if value["note"] is not None else "")
+            key + (f"\n    ({value['note']})" if value["note"] is not None else "")
             for key, value in KEYS.items()
             if value["user"] is None
         )
@@ -254,7 +254,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         """Display only Access Keys that are in use."""
         return (
             f"{key} :: {value['user']!r}"
-            + (f"\r\n    ({value['note']})" if value["note"] is not None else "")
+            + (f"\n    ({value['note']})" if value["note"] is not None else "")
             for key, value in KEYS.items()
             if value["user"] is not None
         )

@@ -1,4 +1,5 @@
 from itertools import repeat
+from re import compile
 from typing import Any, Callable, Dict, Tuple, Type, Union
 
 from blessings import Terminal
@@ -17,6 +18,7 @@ STYLE = Style(list(cfg.get("interface/style", required=True).items()))
 T = Terminal()
 
 
+lf = compile(r"(?<!\r)\n(?!\r)")
 noact = lambda x: x
 unstyle = {
     "class:etc": noact,
@@ -26,6 +28,10 @@ unstyle = {
 
 
 EchoType: Type[Callable] = Callable[[Union[str, Tuple[str, ...]]], None]
+
+
+def crlf(s: str) -> str:
+    return lf.sub("\r\n", s)
 
 
 def fmt(text: Union[FormattedText, str], style: str = "class:etc") -> FormattedText:
