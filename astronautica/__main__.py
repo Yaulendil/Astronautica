@@ -1,24 +1,30 @@
 """Astronautica: A MUD in Space."""
 
 from asyncio import AbstractEventLoop, gather, get_event_loop, wait_for
-from getopt import getopt, GetoptError
+from getopt import getopt
 from sys import argv, exit
+
+from config import cfg
 
 
 HOST: bool = False
 
 try:
-    opts, args = getopt(argv[1:], "hH", ["help", "host"])
-except GetoptError as e:
-    exit(e)
+    opts, args = getopt(argv[1:], "hH", ["config=", "data=", "help", "host"])
 
-else:
     for k, v in opts:
-        if k == "-h" or k == "--help":
+        if k == "--config":
+            cfg.load(v)
+        elif k == "--data":
+            cfg["data/directory"] = v
+        elif k == "-h" or k == "--help":
             print(__doc__)
             exit(0)
         elif k == "-H" or k == "--host":
             HOST = True
+
+except Exception as e:
+    exit(e)
 
 
 from prompt_toolkit.eventloop import use_asyncio_event_loop
