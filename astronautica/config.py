@@ -1,6 +1,8 @@
+from itertools import chain
+
 from pathlib import Path
 from sys import argv
-from typing import Any, Sequence, Tuple, Union
+from typing import Any, Iterable, Sequence, Tuple, Union
 
 import yaml
 
@@ -21,6 +23,13 @@ def getpath(filename: str = "config.yml"):
         raise FileNotFoundError(p)
 
 
+def split(route: Sequence[str]) -> Sequence[str]:
+    if isinstance(route, str):
+        route = [route]
+
+    return list(chain(*(part.split(DELIM) for part in route)))
+
+
 class ConfigError(Exception):
     """Required value not found in Configuration File."""
 
@@ -30,22 +39,27 @@ class ConfigError(Exception):
 
 class Config(object):
     def __init__(self, path: Path = getpath()):
+        self.data = {}
         self.path: Path = path
+
+        self.load()
+
+    def load(self, path: Union[Path, str] = None):
+        if path is not None:
+            self.path = Path(path)
+
         with self.path.open("r") as file:
             self.data = yaml.safe_load(file)
 
     def get(
         self,
-        route: str,
+        route: Union[Iterable[str], str],
         default: Any = None,
         *,
         enforce: type = None,
         required: bool = False,
-    ):
-        if DELIM in route:
-            route = route.split(DELIM)
-        else:
-            route = [route]
+    ) -> Any:
+        route = split(route)
 
         here = self.data
         try:
@@ -61,15 +75,22 @@ class Config(object):
                 return here
             else:
                 raise TypeError(
-                    f"Config option '{'.'.join(route)}' is of incorrect type:"
+                    f"Config option {'.'.join(route)!r} is of incorrect type:"
                     f" Wanted '{enforce}', got '{type(here)}'"
                 )
 
-    def __getitem__(self, key: Union[str, Tuple[str]]):
+    def set(self, route: Union[Iterable[str], str], value: Any) -> None:
+        *route, final = split(route)
+        self.get(route, enforce=dict)[final] = value
+
+    def __getitem__(self, key: Union[str, Tuple[str, Any]]) -> Any:
         if isinstance(key, str):
             return self.get(key)
         elif isinstance(key, Sequence):
             return self.get(*key)
+
+    def __setitem__(self, key: Union[Iterable[str], str], value: Any) -> None:
+        return self.set(key, value)
 
 
 cfg = Config()
