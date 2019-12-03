@@ -392,9 +392,17 @@ class CommandRoot(Completer):
 
     @staticmethod
     def split(line: str) -> List[str]:
-        sh = shlex(line, posix=True, punctuation_chars=True)
-        sh.wordchars += ":+"
-        return list(sh)
+        if line:
+            sh = shlex(line, posix=True, punctuation_chars=True)
+            sh.wordchars += ":+"
+            out = list(sh)
+
+            if line.endswith(" "):
+                out.append("")
+
+            return out
+        else:
+            return [""]
 
     def split_and_get(self, line: str) -> Tuple[Optional[Command], Sequence[str]]:
         return self.get_command(self.split(line))
@@ -402,20 +410,12 @@ class CommandRoot(Completer):
     def get_completions(
         self, document: Document, complete_event: CompleteEvent
     ) -> Iterator[Completion]:
-        if complete_event.text_inserted:
+        if not complete_event.completion_requested:
             self.completion = ""
             return
 
         line = document.text_before_cursor.lstrip()
-        tokens = self.split(line)
-
-        if line.endswith(" "):
-            tokens.append("")
-
-        if tokens:
-            most, word = tokens[:-1], tokens[-1]
-        else:
-            most, word = [], line
+        *most, word = self.split(line)
 
         if most:
             cmd, trail = self.get_command(most, completing=True)
