@@ -18,4 +18,9 @@ def get_client(loop: AbstractEventLoop) -> Tuple[Interface, CommandRoot]:
     cmd.set_client(cli)
     P.output_line = cli.print
 
+    @cmd
+    def test(*text: str):
+        """Test Command: Immediately print back all arguments provided."""
+        yield from text
+
     return cli, cmd

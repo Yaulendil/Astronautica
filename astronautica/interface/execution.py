@@ -71,45 +71,65 @@ def execute_function(
         handle the process of either retrieving its output, or dispatching a
         Task to do so.
     """
-    comseq: List[List[str]] = [[]]
+    tokens = handler.split(line)
 
-    for token in handler.split(line):
-        if token == ";" or token == "&&":
-            comseq.append([])
-        else:
-            comseq[-1].append(token)
+    for i, token in enumerate(tokens):
+        if token == "|":
+            tokens, filt = tokens[:i], tokens[i + 1:]
 
-    for tokens_ in filter(None, comseq):
-        command, args = handler.get_command(tokens_)
-        try:
-            if command is None:
-                raise CommandNotFound(f"Command {tokens_[0].upper()!r} not found.")
-            elif command.keyword in handler.disabled:
-                raise CommandNotAvailable(
-                    f"Command {tokens_[0].upper()!r} not available."
-                )
+            def output(*text, **kw) -> None:
+                if any(want in ln for want in filt for ln in text):
+                    return echo(*text, **kw)
+            break
 
-            if command.is_async:
-                # This Command Function is Asynchronous. Dispatch a Task to run
-                #   and manage it.
-                task = loop.create_task(
-                    handle_async(line, echo, command(args), command.dispatch_task)
-                )
-                tasks.append(task)
+        elif token == "||":
+            tokens, filt = tokens[:i], tokens[i + 1:]
 
-                if not command.dispatch_task:
-                    set_job(task)
-                    task.add_done_callback(lambda *_: set_job(None))
-                # else:
-                #     echo("Asynchronous Task dispatched.")
-            else:
-                # This Command Function is Synchronous. We have no choice but to
-                #   accept the blocking.
-                handle_return(echo, command(args))
+            def output(*text, **kw) -> None:
+                if all(want in ln for want in filt for ln in text):
+                    return echo(*text, **kw)
+            break
 
-        except Exception as exc:
-            echo(
-                f"Error: {T.bold(line)}\n    {type(exc).__name__}: {exc}"
-                if str(exc)
-                else f"Error: {T.bold(line)}\n    {type(exc).__name__}"
+        elif token == "%":
+            tokens, filt = tokens[:i], tokens[i + 1:]
+
+            def output(*text, **kw) -> None:
+                if not any(want in ln for want in filt for ln in text):
+                    return echo(*text, **kw)
+            break
+    else:
+        output = echo
+
+    command, args = handler.get_command(tokens)
+    try:
+        if command is None:
+            raise CommandNotFound(f"Command {tokens[0].upper()!r} not found.")
+        elif command.keyword in handler.disabled:
+            raise CommandNotAvailable(
+                f"Command {tokens[0].upper()!r} not available."
             )
+
+        if command.is_async:
+            # This Command Function is Asynchronous. Dispatch a Task to run
+            #   and manage it.
+            task = loop.create_task(
+                handle_async(line, output, command(args), command.dispatch_task)
+            )
+            tasks.append(task)
+
+            if not command.dispatch_task:
+                set_job(task)
+                task.add_done_callback(lambda *_: set_job(None))
+            # else:
+            #     echo("Asynchronous Task dispatched.")
+        else:
+            # This Command Function is Synchronous. We have no choice but to
+            #   accept the blocking.
+            handle_return(output, command(args))
+
+    except Exception as exc:
+        echo(
+            f"Error: {T.bold(line)}\n    {type(exc).__name__}: {exc}"
+            if str(exc)
+            else f"Error: {T.bold(line)}\n    {type(exc).__name__}"
+        )

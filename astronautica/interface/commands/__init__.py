@@ -414,8 +414,7 @@ class CommandRoot(Completer):
             self.completion = ""
             return
 
-        line = document.text_before_cursor.lstrip()
-        *most, word = self.split(line)
+        *most, word = self.split(document.text_before_cursor.lstrip())
 
         if most:
             cmd, trail = self.get_command(most, completing=True)
@@ -424,7 +423,6 @@ class CommandRoot(Completer):
             cmd_dict = cmd.completions
         else:
             cmd = trail = None
-            word = line
             cmd_dict = self.commands
 
         if word.startswith("-"):
