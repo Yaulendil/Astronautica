@@ -3,13 +3,14 @@ from sys import exit
 from typing import Tuple
 
 from blessings import Terminal
-# from matplotlib import use
+from matplotlib import use
 
-# use("GTK3Cairo")
+use("GTK3Cairo")
 
 from matplotlib import pyplot
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+from vectormath import Vector3
 
 from .space.geometry import from_spherical, to_spherical
 
@@ -41,8 +42,13 @@ def axes(
 
 
 def make_test(x: float = 0.8, y: float = 0.6, z: float = 0.7, *, filename="axes.png"):
-    fig = pyplot.figure(figsize=(4, 4))
-    ax = axes(fig)  # , 0, 1)
+    fig = pyplot.figure(figsize=(8, 8))
+    ax = axes(fig, azim=245, elev=30)
+
+    # ax.autoscale()
+    ax.set_xbound(0, 1.2)
+    ax.set_ybound(-1.2, 0)
+    ax.set_zbound(0, 1.2)
 
     rho, theta, phi = to_spherical(x, y, z)
 
@@ -51,10 +57,15 @@ def make_test(x: float = 0.8, y: float = 0.6, z: float = 0.7, *, filename="axes.
     color_phi = "blue"
     grey = "#777777"
     seg = 25
-    w = 0.1
+    # w = 0.1
 
-    def mark(x_, y_, z_):
-        ax.text(x_, y_, z_, f"{np.round((x_, y_, z_), 2)}")
+    def mark(x_, y_, z_, label: str = None):
+        ax.text(
+            x_,
+            y_,
+            z_,
+            (label or "  ({})").format(", ".join(map(str, np.round((x_, y_, z_), 2)))),
+        )
 
     def plot(*points: Tuple[float, float, float], **kw):
         points = np.array(points)
@@ -72,28 +83,37 @@ def make_test(x: float = 0.8, y: float = 0.6, z: float = 0.7, *, filename="axes.
 
     # # SECONDARY Labels.
     # ax.text(0, rho * 0.52, 0, "ρ", c="black")
-    # ax.text(*polar3_cart3(rho * 0.52, (theta / 2), phi), "θ", c="black")
-    # ax.text(*polar3_cart3(rho * 0.52, 0, (phi / 2)), "φ", c="black")
+    # ax.text(*from_spherical(rho * 0.52, (theta / 2), phi), "θ", c="black")
+    # ax.text(*from_spherical(rho * 0.52, 0, (phi / 2)), "φ", c="black")
     # plot(*arc_theta(0.5), c=grey)  # GREY Theta Arc.
     # plot(*arc_phi(0.5), c=grey)  # GREY Phi Arc.
+
+    # # Right Angle.
+    # angle_off = min(abs(x * w), abs(y * w), abs(z * w))
+    # plot(
+    #     (x, y, angle_off),
+    #     (x, y - angle_off, angle_off),
+    #     (x, y - angle_off, 0),
+    #     c="grey",
+    # )
 
     plot(*arc_theta(), c=color_theta)  # Theta Arc.
     plot(*arc_phi(), c=color_phi)  # Phi Arc.
 
-    # Right Angle.
-    plot(
-        (x, y, z * w),
-        (x * (1 - w), y * (1 - w), z * w),
-        (x * (1 - w), y * (1 - w), 0),
-        c="black",
-    )
-
     # Coordinate Triangle.
-    plot((0, 0, 0), (x, y, z), (x, y, 0), (0, 0, 0), c=grey)
+    plot(
+        (x, y, z),  # Endpoint.
+        (x, y, 0),  # Below Endpoint.
+        (x, 0, 0),  # Endpoint on X-Axis.
+        (0, 0, 0),  # Origin.
+        Vector3(x, y, 0).normalize() * rho,  # Point where Theta=0.
+        c=grey,
+    )
     plot((0, 0, 0), (x, y, z), c=color_rho)
 
+    # mark(x, 0, 0)  # Endpoint on X-Axis.
+    # mark(x, y, 0)  # Below Endpoint.
     mark(x, y, z)  # Endpoint.
-    mark(x, y, 0)  # Below Endpoint.
 
     # COLORED Labels.
     ax.text(
@@ -112,6 +132,7 @@ def make_test(x: float = 0.8, y: float = 0.6, z: float = 0.7, *, filename="axes.
         c=color_theta,
         fontsize=12,
         horizontalalignment="left",
+        verticalalignment="bottom",
     )
     ax.text(
         *from_spherical(rho, 0, (phi / 2)),
@@ -119,8 +140,10 @@ def make_test(x: float = 0.8, y: float = 0.6, z: float = 0.7, *, filename="axes.
         c=color_phi,
         fontsize=12,
         horizontalalignment="left",
+        verticalalignment="bottom",
     )
 
+    # ax.set_axis_off()
     fig.savefig(filename)
     return ax, fig
 
@@ -137,10 +160,11 @@ def test(
     ax, fig = make_test(x, y, z)
 
     if spin or scan:
-        # # ax.set_axis_off()
+        # ax.set_axis_off()
         try:
             with T.hidden_cursor():
-                for angle in range(1, 361):
+                final = 360
+                for angle in range(1, final + 1):
                     if scan:
                         ax, fig = make_test(
                             *from_spherical(1, angle / 2 - 90, angle - 1),
@@ -154,7 +178,7 @@ def test(
 
                     with T.location():
                         print(
-                            f"Frame {angle:0>3}/360  {angle/360:>6.1%}  ",
+                            f"Frame {angle:0>3}/{final}  {angle/final:>6.1%}  ",
                             end="",
                             flush=True,
                         )
