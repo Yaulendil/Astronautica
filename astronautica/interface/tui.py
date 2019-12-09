@@ -32,6 +32,12 @@ from .execution import execute_function
 from config import cfg
 
 
+class Alert(Enum):
+    NORM = "#000 bg:ansigray bold"
+    WARN = "#000 bg:ansiyellow bold"
+    CRIT = "bg:ansired bold"
+
+
 class Mode(Enum):
     OFF = "OFF"
     SCOPES = "SCOPES"
@@ -137,6 +143,7 @@ class Interface(object):
         "handler",
         "current_job",
         "_app",
+        "_style",
     }
 
     def __init__(self, loop: AbstractEventLoop, command_handler: CommandRoot = None):
@@ -148,6 +155,7 @@ class Interface(object):
         # noinspection PyTypeChecker
         mode = cycle(Mode)
         self.state: Mode = next(mode)
+        self._style: Alert = Alert.NORM
 
         @self.kb.add("s-tab")
         def nextmode(*_) -> None:
@@ -180,13 +188,27 @@ class Interface(object):
 
         # Build the UI.
         self.header_bar = FormattedTextControl(
-            lambda: "{left:{pad}^{half}}│{right:{pad}^{half}}".format(
-                left=self.console_header(),
-                right=f"Panel Display: {self.state.value} [Shift-Tab]",
-                half=(int(T.width / 2)),
-                pad="",
+            lambda: FormattedText(
+                [
+                    (
+                        "",
+                        f"{self.console_header():^{int(T.width / 2)}}│<⇧TAB> / ",
+                    ),
+                    *(
+                        ("reverse" if self.state is m else "", f" {m.value} ")
+                        for m in Mode
+                    ),
+                ]
             )
         )
+        # self.header_bar = FormattedTextControl(
+        #     lambda: "{left:{pad}^{half}}│{right:{pad}^{half}}".format(
+        #         left=self.console_header(),
+        #         right=f"Panel Display: {self.state.value} [Shift-Tab]",
+        #         half=int(T.width / 2),
+        #         pad="",
+        #     )
+        # )
         self.command_buffer = Buffer(
             accept_handler=self.enter,
             complete_while_typing=True,
@@ -317,6 +339,12 @@ class Interface(object):
         if self._app:
             self._app.renderer.render(self._app, self._app.layout)
 
+    def style_meth(self, new: Alert = None) -> str:
+        if new is None:
+            return str(self._style.value)
+        else:
+            self._style = new
+
     def __enter__(self) -> Application:
         """Build a Layout and instantiate an Application around it."""
         main = VSplit(
@@ -346,7 +374,7 @@ class Interface(object):
                                 FormattedTextControl(lambda: self.handler.completion),
                                 height=1,
                                 ignore_content_width=True,
-                                style="ansigray bold reverse",
+                                style=self.style_meth,
                             ),
                             Condition(lambda: bool(self.handler.completion)),
                         ),
@@ -401,7 +429,7 @@ class Interface(object):
         root = Layout(
             HSplit(
                 (
-                    Window(self.header_bar, height=1, style="ansigray bold reverse"),
+                    Window(self.header_bar, height=1, style=self.style_meth),
                     FloatContainer(main, self.floating_elems),
                 )
             )
