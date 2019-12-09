@@ -1,4 +1,4 @@
-from asyncio import AbstractEventLoop, CancelledError
+from asyncio import AbstractEventLoop, CancelledError, gather
 from functools import wraps
 from pathlib import Path
 from typing import Dict, Optional
@@ -6,10 +6,10 @@ from uuid import UUID
 
 from ezipc.remote import Remote
 from ezipc.util import P
-from users import key_free, KEYS, keys_new, Session
 
 from .commands import CommandError, CommandFailure, CommandNotAvailable, CommandRoot
 from .tui import Interface
+from .users import key_free, KEYS, keys_new, Session
 from config import cfg
 from engine import CB_POST_TICK, Galaxy, Spacetime
 
@@ -184,15 +184,17 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         bcast = lambda: server.bcast_notif("ETC.PRINT", ["New Telemetry available."])
         CB_POST_TICK.append(bcast)
+        msg = "Server Closing."
 
         try:
-            await run
+            await gather(run, world)
 
         except CancelledError:
             cli.print("Server closed.")
 
         except Exception as e:
             cli.print(f"Server raised {type(e).__name__!r}: {e}")
+            msg = "Server Crashed."
 
         finally:
             # CLEANUP
@@ -203,7 +205,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
                 await world
 
             if server:
-                await server.terminate()
+                await server.terminate(msg)
                 server = None
 
     @cmd
