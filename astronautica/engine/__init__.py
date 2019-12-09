@@ -13,6 +13,7 @@ from inspect import isawaitable
 from time import time
 from typing import Dict, Iterable, List, Tuple
 
+from ezipc import err
 from ezipc.util import echo
 
 from .collision import find_collisions
@@ -57,9 +58,12 @@ class Spacetime:
         hits: int = 0
         passed: float = 0
         collisions: List[Tuple[float, Tuple[Object, Object]]] = []
+        objs = self.objects
 
         # Repeat this until there are no Collisions left to be simulated.
-        while allow_collision and (collisions := find_collisions(target - passed)):
+        while allow_collision and (
+            collisions := find_collisions(target - passed, objs)
+        ):
             # Find the soonest Collision.
             seconds, (obj_a, obj_b) = min(collisions, key=key)
 
@@ -114,7 +118,7 @@ class Spacetime:
             start = dt.utcnow()
             tick_next = start.replace(minute=0, second=0, microsecond=0)
 
-            while tick_next <= (start - turn):
+            while tick_next <= start:
                 tick_next += turn
 
             while True:
@@ -122,14 +126,18 @@ class Spacetime:
                 echo(f"Simulating {turn_length} seconds...")
                 await run_iter(CB_PRE_TICK)
 
-                self.progress(turn_length)
+                try:
+                    self.progress(turn_length)
+                except Exception as e:
+                    err("Failed to progress Time:", e)
+                else:
+                    echo("Simulation complete.")
 
-                echo("Simulation complete.")
                 await run_iter(CB_POST_TICK)
                 tick_next += turn
 
         except CancelledError:
             echo("Simulation Coroutine cancelled.")  # Saving...")
         # finally:
-            # self.save_to_file()
-            # echo("win", "Spacetime Saved.")
+        #     self.save_to_file()
+        #     echo("win", "Spacetime Saved.")
