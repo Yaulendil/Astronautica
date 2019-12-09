@@ -7,8 +7,8 @@ import numpy as np
 from numpy.linalg import norm
 from yaml import safe_dump, safe_load
 
+from ..rendering import render_galaxy
 from ..serial import deserialize
-from ..visualizer import render
 from .base import Clock
 from .generation import generate_galaxy, generate_system
 from .gravity import MultiSystem, System
@@ -60,7 +60,7 @@ class Galaxy(object):
                 for line in file:
                     if line.count(DELIM) == 3:
                         x, y, z, h = line.strip("\n").replace(" ", "").split(DELIM)
-                        yield (float(x), float(y), float(z), UUID(hex=h).int)
+                        yield float(x), float(y), float(z), UUID(hex=h).int
 
         stars = np.array(list(stream()))
         return cls(stars, path, UUID(hex=data["uuid"]))
@@ -128,7 +128,7 @@ class Galaxy(object):
         return sum(1 for x in map(self.unload_system, self.loaded.values()) if x)
 
     def render(self, *a, **kw):
-        render(self.stars[..., :3], *a, **kw)
+        render_galaxy(self.stars[..., :3], *a, **kw)
 
     def rename(self, target: Path):
         if not target.exists():
