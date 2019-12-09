@@ -27,13 +27,13 @@ except Exception as e:
     exit(e)
 
 
-from prompt_toolkit.eventloop import use_asyncio_event_loop
+# from prompt_toolkit.eventloop import use_asyncio_event_loop
 
 from interface import get_client, setup_client, setup_host
 
 
 loop: AbstractEventLoop = get_event_loop()
-use_asyncio_event_loop(loop)
+# use_asyncio_event_loop(loop)
 
 
 cli, commands = get_client(loop)
@@ -45,7 +45,7 @@ else:
 
 try:
     with cli as app:
-        loop.run_until_complete(app.run_async().to_asyncio_future())
+        loop.run_until_complete(app.run_async())
 
 except (EOFError, KeyboardInterrupt):
     pass
