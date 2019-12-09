@@ -116,6 +116,10 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         client = Client(addr, int(port))
 
+        @client.hook_notif("TLM.UPDATE")
+        async def update(data: list):
+            cli.print(*(f"{client.remote}: {line}" for line in data))
+
         @client.hook_notif("ETC.PRINT")
         async def _print(data: list):
             cli.print(*(f"{client.remote}: {line}" for line in data))

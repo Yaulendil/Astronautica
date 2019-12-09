@@ -130,6 +130,7 @@ class Spacetime:
                     self.progress(turn_length)
                 except Exception as e:
                     err("Failed to progress Time:", e)
+                    raise e
                 else:
                     echo("Simulation complete.")
 

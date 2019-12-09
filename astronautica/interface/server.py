@@ -11,7 +11,7 @@ from .commands import CommandError, CommandFailure, CommandNotAvailable, Command
 from .tui import Interface
 from .users import key_free, KEYS, keys_new, Session
 from config import cfg
-from engine import CB_POST_TICK, Galaxy, Spacetime
+from engine import CB_POST_TICK, Coordinates, Galaxy, Object, Spacetime, LocalSpace
 
 
 DATA_DIR = Path(cfg["data/directory"])
@@ -25,6 +25,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     sessions: Dict[Remote, Session] = {}
 
     st = Spacetime()
+    local = LocalSpace(None, st.space)
     # space = st.space
 
     def hostup():
@@ -128,6 +129,16 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         """Fetch a randomly-selected System."""
         yield repr(st.world.get_system(UUID(int=st.world.system_random()[3])))
 
+    @cmd
+    async def obj():
+        raise NotImplementedError
+
+    @obj.sub
+    async def new():
+        co = Coordinates(local)
+        ob = Object(frame=co)
+        return str(ob.serialize())
+
     @cmd(task=True)
     @needs_no_server
     async def _open(ip4: str = None, port: int = None):
@@ -182,7 +193,13 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         ###===---
 
-        bcast = lambda: server.bcast_notif("ETC.PRINT", ["New Telemetry available."])
+        async def bcast():
+            await server.bcast_notif(
+                "TLM.UPDATE",
+                [[o.serialize() for o in objs] for _local, objs in st.index.items()],
+            )
+
+        # bcast = lambda: server.bcast_notif("ETC.PRINT", ["New Telemetry available."])
         CB_POST_TICK.append(bcast)
         msg = "Server Closing."
 

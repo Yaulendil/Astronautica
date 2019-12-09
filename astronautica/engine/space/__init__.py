@@ -163,6 +163,9 @@ class Space(object):
             * self.quat_heading
         )
 
+    def __getitem__(self, idx: int) -> "LocalSpace":
+        return tuple(ls for ls in LocalSpace.ALL if ls.index == idx)[0]
+
 
 class LocalSpace(object):
     ALL: List["LocalSpace"] = []
@@ -250,6 +253,9 @@ class LocalSpace(object):
             np.linalg.norm(vec) * ((const.G * mass) / np.square(vec.length))
             for vec in self.array_position
         )
+
+    def __getitem__(self, idx: int) -> "Coordinates":
+        return tuple(ls for ls in Coordinates.ALL if ls.index == idx)[0]
 
 
 class Coordinates(object):
@@ -346,3 +352,20 @@ class Coordinates(object):
             ),
         )
         return new
+
+    def serialize(self):
+        flat = {
+            "type": type(self).__name__,
+            "data": {
+                "pos": list(self.position),
+                "vel": list(self.velocity),
+                "aim": list(self.heading.components),
+                "rot": list(self.rotate.components),
+            },
+            "subs": None,
+        }
+        return flat
+
+    @classmethod
+    def from_serial(cls, data, subs):
+        ...
