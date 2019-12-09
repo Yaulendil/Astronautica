@@ -228,8 +228,9 @@ class Interface(object):
             # Create a new Future.
             fut = self.LOOP.create_future()
 
-            def finish(_buf: Buffer):
+            def finish(_buf: Buffer) -> bool:
                 fut.set_result(_buf.text)
+                return False
 
             # Create a Buffer, and assign its Handler to set the Result of the
             #   Future created above.
@@ -279,14 +280,15 @@ class Interface(object):
         self.first = False
         self.redraw()
 
-    def enter(self, buffer: Buffer) -> None:
+    def enter(self, buffer: Buffer) -> bool:
         """The User has Accepted the LineBuffer. Read the Buffer, reset the
             line, and then forward the text to the Execute Function.
         """
         self.handler.completion = ""
         command: str = buffer.text
-        buffer.reset(append_to_history=True)
+        buffer.reset(append_to_history=not command.startswith(" "))
         self.execute(command)
+        return False
 
     def execute(self, line: str) -> None:
         """A Command is being run. Print it alongside the Prompt, and then pass
@@ -346,7 +348,7 @@ class Interface(object):
                                 ignore_content_width=True,
                                 style="ansigray bold reverse",
                             ),
-                            Condition(lambda: self.handler.completion),
+                            Condition(lambda: bool(self.handler.completion)),
                         ),
                     )
                 ),
