@@ -1,6 +1,8 @@
+from functools import wraps
+
 from itertools import repeat
 from re import compile
-from typing import Any, Callable, Dict, Tuple, Type, Union
+from typing import Any, Callable, Dict, Tuple, Type, Union, Hashable
 
 from blessings import Terminal
 from prompt_toolkit.formatted_text import FormattedText
@@ -30,6 +32,19 @@ unstyle = {
 EchoType: Type[Callable] = Callable[[Union[str, Tuple[str, ...]]], None]
 
 
+def cached(func):
+    cache = {}
+
+    @wraps(func)
+    def func_cached(inp: Hashable):
+        if inp not in cache:
+            cache[inp] = func(inp)
+
+        return cache[inp]
+
+    return func_cached
+
+
 def crlf(s: str) -> str:
     return lf.sub("\r\n", s)
 
@@ -44,6 +59,7 @@ def fmt(text: Union[FormattedText, str], style: str = "class:etc") -> FormattedT
 attrs = ("bold", "italic", "reverse")
 
 
+@cached
 def resolve(style: str):
     fg = ""
     fg_attr = set()
@@ -81,7 +97,10 @@ def resolve(style: str):
 
 
 def unformat(text: FormattedText) -> str:
-    return "".join((unstyle.get(style) or resolve(style))(line) for style, line in text)
+    # noinspection PyTypeChecker
+    return "".join(
+        (unstyle.get(style) or resolve(style))(line) for style, line, *_ in text
+    )
 
 
 def keys(
