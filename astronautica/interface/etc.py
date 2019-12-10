@@ -1,5 +1,4 @@
 from functools import wraps
-
 from itertools import repeat
 from re import compile
 from typing import Any, Callable, Dict, Tuple, Type, Union, Hashable

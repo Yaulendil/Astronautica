@@ -26,9 +26,11 @@ from prompt_toolkit.layout.processors import (
 from prompt_toolkit.widgets import Frame, HorizontalLine, VerticalLine
 from ptterm import Terminal
 
-from .commands import CommandRoot
-from .etc import crlf, keys, STYLE, T, unstyle
-from .execution import execute_function
+from ..commands import CommandRoot
+from ..etc import crlf, keys, STYLE, T, unstyle
+from ..execution import execute_function
+from .orders import OrdersDisplay
+from .scans import TelemetryDisplay
 from config import cfg
 
 
@@ -230,8 +232,8 @@ class Interface(object):
 
         self.scope_topdown = FormattedTextControl(text="TopDown")
         self.scope_horizon = FormattedTextControl(text="Horizon")
-        self.scans = FormattedTextControl(text="Scans")
-        self.orders = FormattedTextControl(text="Orders")
+        self.scans = TelemetryDisplay()
+        self.orders = OrdersDisplay()
 
         # Register the Command Handler.
         self.handler = command_handler

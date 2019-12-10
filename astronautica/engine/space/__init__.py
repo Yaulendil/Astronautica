@@ -362,7 +362,7 @@ class Coordinates(object):
                 "aim": list(self.heading.components),
                 "rot": list(self.rotate.components),
             },
-            "subs": None,
+            "subs": {},
         }
         return flat
 

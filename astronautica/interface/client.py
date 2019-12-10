@@ -118,7 +118,8 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         @client.hook_notif("TLM.UPDATE")
         async def update(data: list):
-            cli.print(*(f"{client.remote}: {line}" for line in data))
+            cli.print("Receiving new Telemetry.")
+            cli.scans.telemetry = data
 
         @client.hook_notif("ETC.PRINT")
         async def _print(data: list):
@@ -143,7 +144,7 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             cli.print("Connection closed.")
 
         except Exception as e:
-            cli.print(f"Connection failed with {type(e).__name__!r}: {e}")
+            cli.print(f"Connection failed: {type(e).__name__}: {e}")
 
         finally:
             # CLEANUP
@@ -156,11 +157,23 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     @cmd
     @needs_remote
-    async def disconnect():
+    def disconnect():
         nonlocal client
 
-        await client.terminate()
+        t = client.terminate()
         client = None
+        return t
+
+    async def fetch():
+        if client and client.alive:
+            telem = await client.remote.request("TLM.FETCH", timeout=10)
+            if telem:
+                cli.scans.telemetry = telem
+
+    @cmd
+    @needs_remote
+    async def _fetch():
+        return await fetch()
 
     async def cleanup():
         if client:
