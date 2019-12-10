@@ -1,4 +1,4 @@
-from functools import partial, update_wrapper
+from functools import cached_property, partial, update_wrapper
 from getopt import getopt
 from inspect import (
     isasyncgenfunction,
@@ -20,6 +20,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Final,
     Iterator,
     List,
     MutableSet,
@@ -32,7 +33,7 @@ from typing import (
     Union,
 )
 
-from ..etc import T
+from ..etc import cached, T
 from .exceptions import (
     CommandError,
     CommandExists,
@@ -84,7 +85,7 @@ class Command(object):
     )
 
     def __init__(self, func: CmdType, keyword: str, client, task: bool = False):
-        self._func: CmdType = func
+        self._func: Final[CmdType] = func
 
         self.keyword: str = simplify(keyword)
         self.KEYWORD: str = self.keyword.upper()
@@ -126,7 +127,7 @@ class Command(object):
     def doc(self) -> str:
         return self._func.__doc__
 
-    @property
+    @cached_property
     def is_async(self):
         true = unwrap(self._func)
         return (
@@ -232,7 +233,8 @@ class Command(object):
             self.add(cmd)
             return cmd
 
-    def usage(self, pre: str = None, *, sep: str = "  ") -> str:
+    @cached
+    def usage(self, pre: str = None) -> str:
         helpstr = [HEAD(pre or self.KEYWORD)]
 
         if self.opts:
@@ -257,7 +259,7 @@ class Command(object):
                 helpstr.append(OPTION(f"[{rep}...]"))
                 break
 
-        return sep.join(helpstr)
+        return "  ".join(helpstr)
 
     def __repr__(self) -> str:
         return (
