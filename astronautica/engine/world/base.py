@@ -8,6 +8,8 @@ from ..units import Units, UNITS_PLANET
 
 
 class Body(Node, ABC):
+    __slots__ = ("data",)
+
     def __init__(self, mass: float, radius: float, units: Units = UNITS_PLANET):
         self.data = Data(mass, radius, units)
 

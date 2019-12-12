@@ -24,6 +24,11 @@ class Data:
 
 
 class Object(Node):
+    __slots__ = (
+        "data",
+        "frame",
+    )
+
     ALL: Set["Object"] = set()
 
     def __init__(self, data: dict = None, frame: Coordinates = None):

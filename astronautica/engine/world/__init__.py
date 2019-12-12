@@ -21,6 +21,13 @@ LINE = (DELIM.join((*(["{: = 23}"] * 3), "{}")) + "\n").format
 
 
 class SystemHandler(object):
+    __slots__ = (
+        "data",
+        "path",
+        "system",
+        "uuid",
+    )
+
     def __init__(self, filepath: Path, dat: Tuple[float, float, float, int]):
         self.path = filepath
         _load = self.path.exists()
@@ -42,6 +49,14 @@ class SystemHandler(object):
 
 
 class Galaxy(object):
+    __slots__ = (
+        "gdir",
+        "gid",
+        "loaded",
+        "obj",
+        "stars",
+    )
+
     @classmethod
     def from_file(cls, path: Union[Path, str]) -> "Galaxy":
         path = Path(path)

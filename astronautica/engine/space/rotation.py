@@ -8,6 +8,11 @@ from .base import Rotation
 
 
 class Pointer(Rotation):
+    __slots__ = (
+        "domain",
+        "index",
+    )
+
     def __init__(self, domain, index: int):
         self.domain = domain
         self.index: int = index
@@ -33,6 +38,11 @@ class Pointer(Rotation):
 
 
 class Virtual(Rotation):
+    __slots__ = (
+        "_hdg",
+        "_rot",
+    )
+
     def __init__(self, aim: quaternion, rot: quaternion):
         # Orientation.
         self._hdg = aim

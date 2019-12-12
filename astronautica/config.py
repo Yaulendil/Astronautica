@@ -10,7 +10,7 @@ import yaml
 DELIM = "/"
 
 
-def getpath(filename: str = "config.yml"):
+def getpath(filename: str = "config.yml") -> Path:
     p = Path(argv[0])
 
     if p.name == filename:
@@ -38,6 +38,11 @@ class ConfigError(Exception):
 
 
 class Config(object):
+    __slots__ = (
+        "data",
+        "path",
+    )
+
     def __init__(self, path: Path = getpath()):
         self.data = {}
         self.path: Path = path

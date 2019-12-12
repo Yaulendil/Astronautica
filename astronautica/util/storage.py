@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 import pickle
 import shutil
-from typing import Union, Literal
+from typing import Literal, Union
 
 
 class PersistentDict(dict):
@@ -26,6 +26,13 @@ class PersistentDict(dict):
         selectable between pickle, json, and csv. All three serialization
         formats are backed by fast C implementations.
     """
+
+    __slots__ = (
+        "flag",
+        "format",
+        "mode",
+        "path",
+    )
 
     def __init__(
         self,
@@ -46,29 +53,6 @@ class PersistentDict(dict):
                 self.load(fd)
 
         dict.__init__(self, *a, **kw)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc_info):
-        self.close()
-
-    def sync(self):
-        """Write Dict to disk."""
-        if self.flag != "r":
-            tmp = self.path.with_suffix(".tmp")
-
-            try:
-                with tmp.open("wb" if self.format == "pickle" else "w") as fd:
-                    self.dump(fd)
-            except:
-                tmp.unlink()
-                raise
-
-            shutil.move(tmp, self.path)  # atomic commit
-
-            if self.mode is not None:
-                self.path.chmod(self.mode)
 
     def close(self):
         self.sync()
@@ -92,3 +76,26 @@ class PersistentDict(dict):
             except:
                 continue
         raise ValueError("File not in a supported format")
+
+    def sync(self):
+        """Write Dict to disk."""
+        if self.flag != "r":
+            tmp = self.path.with_suffix(".tmp")
+
+            try:
+                with tmp.open("wb" if self.format == "pickle" else "w") as fd:
+                    self.dump(fd)
+            except:
+                tmp.unlink()
+                raise
+
+            shutil.move(tmp, self.path)  # atomic commit
+
+            if self.mode is not None:
+                self.path.chmod(self.mode)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self.close()

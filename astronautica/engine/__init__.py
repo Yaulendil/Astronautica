@@ -46,6 +46,11 @@ class RealTime(Clock):
 
 
 class Spacetime:
+    __slots__ = (
+        "space",
+        "world",
+    )
+
     def __init__(self, space_: Space = None, world_: Galaxy = None):
         self.space: Space = space_ or Space()
         self.world: Galaxy = world_

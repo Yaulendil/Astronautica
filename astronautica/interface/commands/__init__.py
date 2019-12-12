@@ -166,6 +166,8 @@ class Command(object):
                 yield from repeat(arg)
                 return
 
+        # This cannot Return, because the resulting Iterator must not terminate
+        #   a Zip it is used in.
         yield from repeat(None)
 
     def _cast(self, key: str, value: Optional[str]):
@@ -182,16 +184,13 @@ class Command(object):
                 and wanted is not Signature.empty
             ):
                 try:
-                    return wanted(value)
+                    wanted = wanted(value)
                 except Exception as e:
                     raise TypeError(
                         # f"Cannot Cast {wanted.__name__}({value!r}) for {key!r}."
                         f"Value {value!r} cannot be cast into {wanted.__name__}."
                     ) from e
-            else:
-                return value
-        else:
-            return value
+        return value
 
     def _cast_args(self, args: Sequence[str]) -> Sequence:
         return tuple(self._cast(a, b) for a, b in zip(self._arguments, args))

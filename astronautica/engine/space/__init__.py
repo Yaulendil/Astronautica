@@ -39,6 +39,14 @@ INITIAL_OBJECTS = 10
 class Space(object):
     """Coordinates tracker/handler object."""
 
+    __slots__ = (
+        "array_position",
+        "array_velocity",
+        "array_heading",
+        "array_rotate",
+        "domains",
+    )
+
     def __init__(self, struct: dict = None):
         """Initialize positions and velocities to be ndarrays, three dimensions
             deep.

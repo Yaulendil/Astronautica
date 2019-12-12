@@ -8,6 +8,8 @@ from .base import Position
 
 
 class Pointer(Position):
+    __slots__ = ("index",)
+
     def __init__(self, domain, index: int, *, unit: u.Unit = u.meter):
         self.domain = domain
         self.index: int = index
@@ -51,6 +53,11 @@ class Virtual(Position):
     """Virtual Position object: Track information as Vector3 and return
         transformations as requested, WITHOUT registering into a Space.
     """
+
+    __slots__ = (
+        "_pos",
+        "_vel",
+    )
 
     def __init__(
         self,

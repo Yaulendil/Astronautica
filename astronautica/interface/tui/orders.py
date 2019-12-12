@@ -2,6 +2,11 @@ from prompt_toolkit.layout import FormattedTextControl
 
 
 class OrdersDisplay(FormattedTextControl):
+    __slots__ = (
+        "_orders",
+        "_output",
+    )
+
     def __init__(self, *a, **kw):
         self._output: str = ""
         self._orders = []

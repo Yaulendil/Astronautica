@@ -15,6 +15,11 @@ def display(name: str, obj: dict):
 
 
 class TelemetryDisplay(FormattedTextControl):
+    __slots__ = (
+        "_output",
+        "_telemetry",
+    )
+
     header = "TELEMETRY"
 
     def __init__(self, *a, **kw):
