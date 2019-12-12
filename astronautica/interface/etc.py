@@ -32,12 +32,17 @@ EchoType: Type[Callable] = Callable[[Union[str, Tuple[str, ...]]], None]
 
 
 def cached(func):
+    """Decorate a Function with a Hashable first Argument, so that the outcome
+        of a Call is only calculated once for any given value of the Argument.
+        All subsequent Calls with the same first Argument will return the value
+        calculated the first time.
+    """
     cache = {}
 
     @wraps(func)
-    def func_cached(inp: Hashable):
+    def func_cached(inp: Hashable, *a, **kw):
         if inp not in cache:
-            cache[inp] = func(inp)
+            cache[inp] = func(inp, *a, **kw)
 
         return cache[inp]
 
