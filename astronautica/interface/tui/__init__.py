@@ -282,6 +282,7 @@ class Interface(object):
             ]
             self._app.layout.focus(buf)
             # Open a popup Float, and wait for the Future to be fulfilled.
+            self.redraw()
             return await fut
         finally:
             self._app.layout.focus(self.command_buffer)
