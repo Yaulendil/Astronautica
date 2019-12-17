@@ -56,12 +56,10 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         data: Union[list, dict] = None,
         *,
         timeout: float = 10,
-        nowait: bool = False,
     ) -> Union[dict, Future, list]:
-        future = await client.remote.request(
+        return await client.remote.request(
             f"CMD.{meth}", [] if data is None else data, timeout=timeout
         )
-        return future if nowait else await future
 
     @cmd
     @needs_remote
