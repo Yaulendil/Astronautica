@@ -2,7 +2,7 @@ from asyncio import AbstractEventLoop, CancelledError, gather
 from datetime import datetime as dt
 from functools import wraps
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 from uuid import UUID
 
 from ezipc.remote import Remote
@@ -172,10 +172,11 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     @obj.sub
     async def new(
         *,
-        position: list = None,
-        velocity: list = None,
-        heading: list = None,
-        rotation: list = None,
+        mass: float = None,
+        position: Tuple[float, float, float] = None,
+        velocity: Tuple[float, float, float] = None,
+        heading: Tuple[float, float, float, float] = None,
+        rotation: Tuple[float, float, float, float] = None,
     ):
         co = Coordinates(local)
 
@@ -189,6 +190,10 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             co.rotation = rotation
 
         ob = Object(frame=co)
+
+        if mass:
+            ob.data.mass = mass
+
         invalidate_tcache()
         refresh()
         return f"Tracking new {type(ob).__name__}."

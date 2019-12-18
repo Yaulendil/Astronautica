@@ -1,3 +1,4 @@
+# noinspection PyUnresolvedReferences
 from functools import cached_property, partial, update_wrapper
 from getopt import getopt
 from inspect import (
@@ -9,20 +10,18 @@ from inspect import (
 )
 from itertools import repeat
 from re import compile
-from string import ascii_lowercase
-from unicodedata import normalize
-
-from prompt_toolkit.buffer import Buffer
-from prompt_toolkit.completion import CompleteEvent, Completer, Completion
-from prompt_toolkit.document import Document
 from shlex import shlex
+from string import ascii_lowercase
 from typing import (
     Any,
     Callable,
     Dict,
     Final,
+    get_args,
+    get_origin,
     Iterator,
     List,
+    Mapping,
     MutableSet,
     Optional,
     overload,
@@ -32,6 +31,11 @@ from typing import (
     Type,
     Union,
 )
+from unicodedata import normalize
+
+from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.completion import CompleteEvent, Completer, Completion
+from prompt_toolkit.document import Document
 
 from ..etc import cached, T
 from .exceptions import (
@@ -61,6 +65,21 @@ CmdType: Type[Callable] = Callable[..., Any]
 simplify = lambda word: _no_repeat(
     _del_extra(_to_dashes(normalize("NFKD", word.casefold()))).strip("-")
 )
+
+
+def typestr(typ, subscript: bool = True) -> str:
+    if isinstance(typ, type):
+        return typ.__name__
+    else:
+        orig = get_origin(typ)
+        if orig:
+            args = get_args(typ)
+            if args and subscript:
+                return "{}[{}]".format(orig.__name__.title(), ", ".join(map(typestr, args)))
+            else:
+                return orig.__name__.title()
+        else:
+            return str(typ)
 
 
 class Command(object):
@@ -178,23 +197,65 @@ class Command(object):
             return bool(value)
         elif key in self.sig.parameters:
             wanted: Type = self.sig.parameters[key].annotation
-            if (
-                isinstance(wanted, type)
-                and not issubclass(wanted, str)
-                and wanted is not Signature.empty
-            ):
+            if wanted is not str and wanted is not Signature.empty:
+                orig = get_origin(wanted) or wanted
                 try:
-                    if issubclass(wanted, (list, tuple)):
-                        value = wanted(value.split(","))
-                    elif issubclass(wanted, dict):
-                        value = wanted(term.split("=", 1) for term in value.split(","))
-                    else:
+                    if issubclass(orig, Mapping):
+                        dat = (term.split("=", 1) for term in value.split(",") if term)
+                        if isinstance(wanted, type):
+                            value = wanted(dat)
+                        else:
+                            # noinspection PyTypeChecker
+                            value = dict(dat)
+
+                    elif issubclass(orig, Sequence):
+                        args = get_args(wanted)
+                        dat = [term for term in value.split(",") if term]
+
+                        if issubclass(orig, tuple):
+                            len_want = len(args)
+                            len_have = len(dat)
+
+                            if ... in args:
+                                value = tuple(map(args[0], dat))
+                            elif len_want == len_have:
+                                value = tuple(
+                                    a(b) if isinstance(a, type) else b
+                                    for a, b in zip(args, dat)
+                                )
+                            else:
+                                raise ValueError(
+                                    f"Expected {len_want} Values, got {len_have}"
+                                )
+
+                        elif issubclass(orig, list) and args:
+                            value = list(map(args[0], dat))
+
+                        elif isinstance(orig, type):
+                            value = orig(dat)
+                        else:
+                            value = dat
+
+                    elif isinstance(wanted, type):
                         value = wanted(value)
-                except Exception as e:
+                    else:
+                        value = orig(value)
+
+                except ValueError as e:
                     raise TypeError(
-                        # f"Cannot Cast {wanted.__name__}({value!r}) for {key!r}."
-                        f"Value {value!r} cannot be cast to {wanted.__name__}."
+                        "Value {!r} cannot be cast to {}: {}".format(
+                            value, typestr(wanted, False), e,
+                        )
+                    )
+
+                except Exception as e:
+                    # raise e
+                    raise TypeError(
+                        "Value {!r} cannot be cast to {}.".format(
+                            value, typestr(wanted, False),
+                        )
                     ) from e
+
         return value
 
     def _cast_args(self, args: Sequence[str]) -> Sequence:
@@ -242,21 +303,20 @@ class Command(object):
         helpstr = [HEAD(pre or self.KEYWORD)]
 
         if self.opts:
-            helpstr.append(OPTION("[options]"))
+            helpstr.append(OPTION("(OPTIONS)"))
 
         for arg, param in self.sig.parameters.items():
             ptp = param.annotation
             rep = (
                 "<{name}>" if ptp is param.empty or ptp is str else "<{type}:{name}>"
-            ).format(name=arg.upper(), type=ptp.__name__)
+            ).format(name=arg.upper(), type=typestr(ptp),)
 
             if (
                 param.kind is param.POSITIONAL_ONLY
                 or param.kind is param.POSITIONAL_OR_KEYWORD
             ):
                 helpstr.append(
-                    rep if param.default is param.empty
-                    else OPTION(f"[{rep}]")
+                    rep if param.default is param.empty else OPTION(f"[{rep}]")
                 )
 
             elif param.kind is param.VAR_POSITIONAL:
@@ -324,7 +384,7 @@ class CommandRoot(Completer):
                                     f"--{opt}" if len(opt) > 1 else f"-{opt}",
                                     "str"
                                     if param.annotation is Signature.empty
-                                    else param.annotation.__name__
+                                    else typestr(param.annotation),
                                 )
 
                     if cmd.subcommands:
@@ -334,7 +394,8 @@ class CommandRoot(Completer):
                                 sub.usage(f"    {full} {name.upper()}")
                                 + (
                                     f"    (+{len(sub.subcommands)})"
-                                    if sub.subcommands else ""
+                                    if sub.subcommands
+                                    else ""
                                 )
                             )
                 else:
