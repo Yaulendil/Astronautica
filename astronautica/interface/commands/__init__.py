@@ -184,11 +184,16 @@ class Command(object):
                 and wanted is not Signature.empty
             ):
                 try:
-                    wanted = wanted(value)
+                    if issubclass(wanted, (list, tuple)):
+                        value = wanted(value.split(","))
+                    elif issubclass(wanted, dict):
+                        value = wanted(term.split("=", 1) for term in value.split(","))
+                    else:
+                        value = wanted(value)
                 except Exception as e:
                     raise TypeError(
                         # f"Cannot Cast {wanted.__name__}({value!r}) for {key!r}."
-                        f"Value {value!r} cannot be cast into {wanted.__name__}."
+                        f"Value {value!r} cannot be cast to {wanted.__name__}."
                     ) from e
         return value
 
@@ -395,7 +400,7 @@ class CommandRoot(Completer):
     def split(line: str) -> List[str]:
         if line:
             sh = shlex(line, posix=True, punctuation_chars=True)
-            sh.wordchars += ":+"
+            sh.wordchars += ":+,"
             out = list(sh)
 
             if line.endswith(" "):

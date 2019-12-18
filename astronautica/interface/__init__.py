@@ -19,8 +19,12 @@ def get_client(loop: AbstractEventLoop) -> Tuple[Interface, CommandRoot]:
     P.output_line = cli.print
 
     @cmd
-    def test(*text: str):
+    def test(*text: str, list_: list = None, dict_: dict = None):
         """Test Command: Immediately print back all arguments provided."""
         yield from text
+        if list_:
+            yield repr(list_)
+        if dict_:
+            yield repr(dict_)
 
     return cli, cmd
