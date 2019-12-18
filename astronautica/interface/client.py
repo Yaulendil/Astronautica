@@ -1,8 +1,11 @@
-from asyncio import AbstractEventLoop, CancelledError, Future
+from asyncio import AbstractEventLoop, CancelledError
 from functools import wraps
 from pathlib import Path
 from re import compile
-from typing import Union, Optional
+from typing import Optional
+
+from ezipc.remote import RemoteError
+from ezipc.util import echo
 
 from .commands import CommandNotAvailable, CommandRoot
 from .tui import Interface
@@ -50,28 +53,28 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         return wrapped
 
-    @needs_remote
-    async def send_command(
-        meth: str,
-        data: Union[list, dict] = None,
-        *,
-        timeout: float = 10,
-    ) -> Union[dict, Future, list]:
-        return await client.remote.request(
-            f"CMD.{meth}", [] if data is None else data, timeout=timeout
-        )
+    async def fetch():
+        if client and client.alive:
+            try:
+                telem = await client.remote.request("TLM.FETCH", timeout=10)
+            except TimeoutError:
+                pass
+            else:
+                echo("Telemetry Updated.")
+                cli.scans.telemetry = telem
 
     @cmd
     @needs_remote
     async def login(username: str = None):
-        await send_command(
-            "LOGIN",
+        await client.remote.request(
+            "USR.LOGIN",
             [
                 username or await cli.get_input("Enter Username"),
                 await cli.get_input("Enter Password", hide=True),
             ],
+            timeout=10,
         )
-        cli.print("Login Accepted.")
+        echo("Login Accepted.")
 
     @cmd
     @needs_remote
@@ -81,13 +84,14 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         if password == await cli.get_input("Confirm Password", hide=True):
             # try:
-            await send_command(
-                    "REGISTER",
+            await client.remote.request(
+                    "USR.REGISTER",
                     [
                         username,
                         password,
                         key or await cli.get_input("Enter Access Code"),
                     ],
+                timeout=10,
                 )
             return "Registration successful."
         else:
@@ -116,7 +120,7 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         @client.hook_notif("TLM.UPDATE")
         async def update(data: list):
-            cli.print("Receiving new Telemetry.")
+            echo("Receiving new Telemetry.")
             cli.scans.telemetry = data
 
         @client.hook_notif("ETC.PRINT")
@@ -132,6 +136,11 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         try:
             await client.connect(loop)
+            try:
+                await fetch()
+            except RemoteError:
+                pass
+
             cli.redraw()
 
             if client.listening:
@@ -146,6 +155,7 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         finally:
             # CLEANUP
+            cli.scans.telemetry = None
             if client and client.alive:
                 await client.terminate()
             client = None
@@ -155,18 +165,12 @@ def setup_client(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
     @cmd
     @needs_remote
-    def disconnect():
+    async def disconnect():
         nonlocal client
 
         t = client.terminate()
         client = None
-        return t
-
-    async def fetch():
-        if client and client.alive:
-            telem = await client.remote.request("TLM.FETCH", timeout=10)
-            if telem:
-                cli.scans.telemetry = telem
+        await t
 
     @cmd
     @needs_remote

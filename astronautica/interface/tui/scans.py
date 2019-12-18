@@ -41,6 +41,7 @@ class TelemetryDisplay(FormattedTextControl):
 
     def update(self) -> str:
         yield self.header
-        for loc in self.telemetry:
-            for obj in loc:
-                yield from display("Contact", obj)
+        if self.telemetry:
+            for loc in self.telemetry:
+                for obj in loc:
+                    yield from display("Contact", obj)

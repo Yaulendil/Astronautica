@@ -1,3 +1,4 @@
+from datetime import datetime as dt
 from re import compile
 from typing import Dict, Optional
 
@@ -39,6 +40,7 @@ def approve_username(name: str) -> bool:
 
 class Session(object):
     __slots__ = (
+        "time_connected",
         "remote",
         "user",
         "name",
@@ -50,6 +52,8 @@ class Session(object):
         self.remote: Remote = remote
         self.user: Optional[PersistentDict] = None
 
+        self.time_connected = dt.utcnow().replace(microsecond=0)
+
         self.name: str = "nobody"
         self.host: str = "ingress"
         self.path: str = "/login"
@@ -57,6 +61,10 @@ class Session(object):
     @property
     def active(self) -> bool:
         return self.remote.open
+
+    @property
+    def valid(self) -> bool:
+        return LOGINS.get(self.user.path.stem) is self
 
     async def echo(self, *text: str):
         return await self.remote.notif("ETC.PRINT", text)
@@ -82,7 +90,9 @@ class Session(object):
 
         else:
             self.user = user
-            self.name = username
+            self.name = username.lower()
+            self.time_connected = dt.utcnow().replace(microsecond=0)
+
             LOGINS[user.path.stem] = self
             return True
 

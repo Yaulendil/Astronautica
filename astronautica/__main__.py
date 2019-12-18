@@ -1,8 +1,10 @@
 """Astronautica: A MUD in Space."""
 
-from asyncio import AbstractEventLoop, gather, get_event_loop, wait_for
+from asyncio import AbstractEventLoop, CancelledError, gather, get_event_loop, wait_for
 from getopt import getopt
 from sys import argv, exit
+
+from ezipc.util import err
 
 from config import cfg
 
@@ -33,6 +35,7 @@ from interface import get_client, setup_client, setup_host
 
 
 loop: AbstractEventLoop = get_event_loop()
+# loop.set_debug(True)
 # use_asyncio_event_loop(loop)
 
 
@@ -43,7 +46,12 @@ else:
     cleanup = setup_client(cli, commands, loop)
 
 
+def print_error(_loop, ctx):
+    err(ctx["message"], ctx.get("exception"))
+
+
 try:
+    loop.set_exception_handler(print_error)
     with cli as app:
         loop.run_until_complete(app.run_async())
 
@@ -51,11 +59,12 @@ except (EOFError, KeyboardInterrupt):
     pass
 
 finally:
+    loop.set_exception_handler(None)
     try:
         if cleanup:
             loop.run_until_complete(cleanup())
 
-        loop.run_until_complete(
+        cleaning = loop.create_task(
             wait_for(
                 gather(
                     loop.shutdown_asyncgens(),
@@ -67,6 +76,14 @@ finally:
                 loop=loop,
             )
         )
+
+        final = loop.run_until_complete(cleaning)
+
         loop.close()
+
+    except (CancelledError, TimeoutError):
+        pass
     except KeyboardInterrupt:
         print()
+    except Exception as ex:
+        print(ex)

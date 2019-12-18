@@ -1,4 +1,5 @@
 from asyncio import AbstractEventLoop, CancelledError, gather
+from datetime import datetime as dt
 from functools import wraps
 from pathlib import Path
 from typing import Dict, Optional
@@ -9,7 +10,7 @@ from ezipc.util import P
 
 from .commands import CommandError, CommandFailure, CommandNotAvailable, CommandRoot
 from .tui import Interface
-from .users import key_free, KEYS, keys_new, Session
+from .users import key_free, KEYS, keys_new, LOGINS, Session
 from config import cfg
 from engine import CB_POST_TICK, Coordinates, Galaxy, Object, Spacetime, LocalSpace
 
@@ -83,6 +84,13 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     # COMMAND HOOKS: All "local" Commands for the Server Console go here.
     ###===---
 
+    def refresh():
+        cli.scans.telemetry = [
+            [o.serialize() for o in objs] for _local, objs in st.index.items()
+        ]
+
+    CB_POST_TICK.append(refresh)
+
     @cmd
     def galaxy():
         raise NotImplementedError
@@ -94,6 +102,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         st.world = Galaxy.generate((1.4, 1, 0.2), arms=3)
         hostup()
         yield f"New Galaxy of {st.world.stars.shape[0]} stars generated."
+        refresh()
 
     @galaxy.sub
     async def load(path: str):
@@ -106,6 +115,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         else:
             hostup()
             yield f"Loaded {st.world.stars.shape[0]} stars."
+            refresh()
 
     @galaxy.sub
     async def rename(path: str = None):
@@ -130,6 +140,17 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         yield repr(st.world.get_system(UUID(int=st.world.system_random()[3])))
 
     @cmd
+    def who():
+        yield "Connected Clients:"
+        for name, sess in LOGINS.items():
+            yield "{!r:>12} :: {:>15}:{:<5} :: {}".format(
+                sess.user.get("name", sess.name),
+                sess.remote.addr,
+                sess.remote.port,
+                dt.utcnow().replace(microsecond=0) - sess.time_connected,
+            )
+
+    @cmd
     async def obj():
         raise NotImplementedError
 
@@ -137,6 +158,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     async def new():
         co = Coordinates(local)
         ob = Object(frame=co)
+        refresh()
         return str(ob.serialize())
 
     @cmd(task=True)
@@ -168,12 +190,11 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         # REQUEST HOOKS: All "incoming" Commands from Remote Clients go here.
         ###===---
 
-        @server.hook_request("CMD.CD")
-        async def cd(data):
-            cli.print(repr(data))
-            return [True]
+        @server.hook_request("TLM.FETCH")
+        async def fetch(_data):
+            return [[o.serialize() for o in objs] for _local, objs in st.index.items()]
 
-        @server.hook_request("CMD.LOGIN")
+        @server.hook_request("USR.LOGIN")
         @needs_session
         async def login(data, _remote: Remote, session: Session):
             if session.login(*data):
@@ -182,7 +203,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             else:
                 return False
 
-        @server.hook_request("CMD.REGISTER")
+        @server.hook_request("USR.REGISTER")
         @needs_session
         async def register(data, _remote: Remote, session: Session):
             if session.register(*data):
