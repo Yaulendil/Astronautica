@@ -8,6 +8,7 @@ from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import FormattedText, fragment_list_to_text
+from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import Float, FloatContainer
 from prompt_toolkit.layout.containers import (
     ConditionalContainer,
@@ -42,8 +43,8 @@ class Alert(Enum):
 
 class Mode(Enum):
     OFF = "OFF"
-    SCOPES = "SCOPES"
     SCANS = "SCANS"
+    SCOPES = "SCOPES"
     ORDERS = "ORDERS"
 
 
@@ -341,6 +342,10 @@ class Interface(object):
         self.console_backend.ready()
         if self._app:
             self._app.renderer.render(self._app, self._app.layout)
+
+    def shortcut(self, command: str, *keys_: Union[Keys, str]):
+        """Easily add a Keyboard Shortcut to Execute a Command."""
+        return self.kb.add(*keys_)(lambda *_: self.execute(command))
 
     def style_meth(self, new: Alert = None) -> str:
         if new is None:

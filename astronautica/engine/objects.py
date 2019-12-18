@@ -19,7 +19,7 @@ __all__ = ["Data", "Object"]
 @attrs
 class Data:
     mass: float = 100
-    radius: float = 100
+    radius: float = 10
     units: Units = UNITS_LOCAL
 
 

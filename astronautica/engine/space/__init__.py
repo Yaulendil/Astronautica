@@ -17,7 +17,7 @@ Spherical Coordinates:
 """
 
 from itertools import count
-from typing import Dict, Iterator, List, Optional, Sequence
+from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 from weakref import proxy
 
 from astropy import constants as const
@@ -295,20 +295,40 @@ class Coordinates(object):
         self.ALL.append(proxy(self, self.free_wr))
 
     @property
+    def type(self) -> Tuple[type, type]:
+        return type(self._position), type(self._rotation)
+
+    @property
     def position(self) -> Vector3:
         return self._position and self._position.position
+
+    @position.setter
+    def position(self, value: Vector3) -> None:
+        self._position.position = value
 
     @property
     def velocity(self) -> Vector3:
         return self._position and self._position.velocity
 
+    @velocity.setter
+    def velocity(self, value: Vector3) -> None:
+        self._position.velocity = value
+
     @property
     def heading(self) -> quaternion:
         return self._rotation and self._rotation.heading
 
+    @heading.setter
+    def heading(self, value: quaternion) -> None:
+        self._rotation.heading = value
+
     @property
     def rotate(self) -> quaternion:
         return self._rotation and self._rotation.rotate
+
+    @rotate.setter
+    def rotate(self, value: quaternion) -> None:
+        self._rotation.rotate = value
 
     def set_posrot(self, pos: base.Position, rot: base.Rotation):
         self._position: base.Position = pos
@@ -365,10 +385,10 @@ class Coordinates(object):
         flat = {
             "type": type(self).__name__,
             "data": {
-                "pos": list(self.position),
-                "vel": list(self.velocity),
-                "aim": list(self.heading.components),
-                "rot": list(self.rotate.components),
+                "pos": [round(p, 3) for p in self.position],
+                "vel": [round(p, 3) for p in self.velocity],
+                "aim": [round(p, 3) for p in self.heading.components],
+                "rot": [round(p, 3) for p in self.rotate.components],
             },
             "subs": {},
         }

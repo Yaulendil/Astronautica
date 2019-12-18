@@ -28,6 +28,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     st = Spacetime()
     local = LocalSpace(None, st.space)
     # space = st.space
+    tcache = None
 
     def hostup():
         if st.world and st.world.gdir:
@@ -49,6 +50,27 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
             ),
         )
     )
+
+    def invalidate_tcache():
+        nonlocal tcache
+
+        tcache = None
+
+    CB_POST_TICK.append(invalidate_tcache)
+
+    def get_telemetry():
+        nonlocal tcache
+
+        if not tcache:
+            tcache = [
+                [o.serialize() for o in objs] for _local, objs in st.index.items()
+            ]
+        return tcache
+
+    def refresh():
+        cli.scans.telemetry = get_telemetry()
+
+    CB_POST_TICK.append(refresh)
 
     def needs_session(func):
         @wraps(func)
@@ -83,13 +105,6 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
     ###===---
     # COMMAND HOOKS: All "local" Commands for the Server Console go here.
     ###===---
-
-    def refresh():
-        cli.scans.telemetry = [
-            [o.serialize() for o in objs] for _local, objs in st.index.items()
-        ]
-
-    CB_POST_TICK.append(refresh)
 
     @cmd
     def galaxy():
@@ -155,11 +170,28 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
         raise NotImplementedError
 
     @obj.sub
-    async def new():
+    async def new(
+        *,
+        position: list = None,
+        velocity: list = None,
+        heading: list = None,
+        rotation: list = None,
+    ):
         co = Coordinates(local)
+
+        if position:
+            co.position = position
+        if velocity:
+            co.velocity = velocity
+        if heading:
+            co.heading = heading
+        if rotation:
+            co.rotation = rotation
+
         ob = Object(frame=co)
+        invalidate_tcache()
         refresh()
-        return str(ob.serialize())
+        return f"Tracking new {type(ob).__name__}."
 
     @cmd(task=True)
     @needs_no_server
@@ -192,7 +224,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         @server.hook_request("TLM.FETCH")
         async def fetch(_data):
-            return [[o.serialize() for o in objs] for _local, objs in st.index.items()]
+            return get_telemetry()
 
         @server.hook_request("USR.LOGIN")
         @needs_session
@@ -216,8 +248,7 @@ def setup_host(cli: Interface, cmd: CommandRoot, loop: AbstractEventLoop):
 
         async def bcast():
             await server.bcast_notif(
-                "TLM.UPDATE",
-                [[o.serialize() for o in objs] for _local, objs in st.index.items()],
+                "TLM.UPDATE", get_telemetry()
             )
 
         # bcast = lambda: server.bcast_notif("ETC.PRINT", ["New Telemetry available."])

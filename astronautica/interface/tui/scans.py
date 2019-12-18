@@ -11,7 +11,7 @@ def display(name: str, obj: dict):
     subs = obj.get("subs")
     if subs:
         for name_, sub in subs.items():
-            yield from ("    " + x for x in display(name_, sub))
+            yield from (f"  {x}" for x in display(name_, sub))
 
 
 class TelemetryDisplay(FormattedTextControl):
