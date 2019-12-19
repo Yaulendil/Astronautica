@@ -1,7 +1,7 @@
 """Interface Package: Command line Client and all integrations with Engine."""
 
 from asyncio import AbstractEventLoop  # , sleep
-from typing import Tuple
+from typing import List, Tuple
 
 from ezipc.util import P
 
@@ -18,9 +18,18 @@ def get_client(loop: AbstractEventLoop) -> Tuple[Interface, CommandRoot]:
     P.output_line = cli.print
 
     @cmd
-    def test(*text: str, list_: list = None, dict_: dict = None):
+    def test(
+        *text: str,
+        x: bool = False,
+        y: str = "zxcv",
+        z: int = 1337,
+        bool_: bool = False,
+        list_: List[int] = None,
+        dict_: dict = None,
+    ):
         """Test Command: Immediately print back all arguments provided."""
         yield from text
+        yield f"{x=!r:>5}, {y=!r}, {z=!r}, {bool_=!r:>5}"
         if list_:
             yield repr(list_)
         if dict_:

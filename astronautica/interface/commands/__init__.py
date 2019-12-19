@@ -164,7 +164,12 @@ class Command(object):
             else:
                 if self.opts:
                     opts, args = getopt(tokens, self.shorts, self.longs)
-                    opts = {k.strip("-"): self._cast(k.strip("-"), v) for k, v in opts}
+                    opts = {
+                        (k1 := k.strip("-")): (
+                            True if k1 in self.bools else self._cast(k1, v)
+                        )
+                        for k, v in opts
+                    }
 
                     return self._func(*self._cast_args(args), **opts)
                 else:
@@ -492,10 +497,40 @@ class CommandRoot(Completer):
 
         if word.startswith("-"):
             # User has started with a dash. Complete --Options, not Subcommands.
-            if cmd and all(t.startswith("-") for t in trail):
-                keys = [p for p in cmd.opts if p.startswith(word) and p not in most]
+            complete_longs = complete_shorts = False
+            cur = word.strip("-")
+            keys = []
+
+            if word == "-":
+                # Term is ONLY A DASH so far. Complete both Longs and Shorts.
+                complete_longs = complete_shorts = True
+            elif word.startswith("--"):
+                # Term begins with TWO dashes. Complete Longs only.
+                complete_longs = True
             else:
-                keys = []
+                # Term is ONE dash, and then something. Complete Shorts only.
+                complete_shorts = True
+
+            if complete_shorts:
+                if cur:
+                    # Term could be valid as it is.
+                    keys.append(word)
+
+                if set(cur) <= cmd.bools:
+                    # All Short Opts in the Term are Boolean; More Short Opts
+                    #   can be added onto the end.
+                    keys.extend(
+                        word + shopt
+                        for shopt in cmd.shorts
+                        if shopt != ":" and shopt not in word
+                    )
+
+            if complete_longs:
+                keys.extend(
+                    "--" + p.rstrip("=")
+                    for p in cmd.longs
+                    if p.startswith(word.lstrip("-")) and p not in most
+                )
 
         elif not trail:
             # User has not started with a dash, and has not entered any other
@@ -516,5 +551,10 @@ class CommandRoot(Completer):
                 # If there is only one possibility, append a Space or `=`.
                 yield Completion(
                     keys[0][len(word) :]
-                    + ("=" if word.startswith("--") and word not in cmd.bools else " ")
+                    + (
+                        "="
+                        if keys[0].startswith("--")
+                        and keys[0].strip("-") not in cmd.bools
+                        else " "
+                    )
                 )
