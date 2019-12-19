@@ -298,6 +298,95 @@ class Command(object):
             self.add(cmd)
             return cmd
 
+    def can_complete_next(self, sequence: Sequence[str]) -> bool:
+        """Determine, given the previous Arguments, whether the current Argument
+            is eligible for Completion.
+
+        # TODO
+        """
+        try:
+            if sequence[-1].startswith("--"):
+                # ~$  ...  --qwert  ZXCV
+                # "ZXCV" may be a Parameter of "--qwert" if "--qwert" is NOT a
+                #   Boolean; If this is the case, "ZXCV" may NOT be Completed.
+                return sequence[-1].strip("-") in self.bools
+
+            elif sequence[-1].startswith("-"):
+                # ~$  ...  -qwert  ZXCV
+                # "QWERT" may be a Parameter of "-t". However, "t" may be a
+                #   Parameter of "-r". Find the last Boolean in "-qwert".
+
+                for i, letter in enumerate(sequence[-1][1:], 1):
+                    # Find the first Short...
+                    if letter in self.bools:
+                        continue
+                    else:
+                        # ...Which is NOT a Bool.
+                        if len(sequence[-1]) > i:
+                            # If the Cluster is NOT over, the next Argument must
+                            #   not be considered a Value for it, because the
+                            #   rest of this Cluster is the Parameter.
+
+                            # Therefore, the current Argument IS a Value for it,
+                            #   and can be Completed.
+                            return True
+                        else:
+                            # This Cluster has ended on a non-Boolean. The next
+                            #   Argument MUST be its Value.
+                            return False
+
+                else:
+                    # Every Short in this Cluster is a Boolean.
+                    # Therefore, the current Argument cannot be a Value for it,
+                    #   and can be Completed.
+                    return True
+
+            elif sequence[-2].startswith("--"):
+                # ~$  ...  --asdf  qwert  ZXCV
+                # "qwert" may be a Parameter of "--asdf" if "--asdf" is NOT a
+                #   Boolean; If this is the case, "ZXCV" may be Completed.
+                return sequence[-2].strip("-") not in self.bools
+
+            elif sequence[-2].startswith("-"):
+                # ~$  ...  -asdf  qwert  ZXCV
+                # "qwert" may be a Parameter of "-f". However, "f" may be a
+                #   Parameter of "-d". Find the last Boolean in "-asdf".
+
+                for i, letter in enumerate(sequence[-2][1:], 1):
+                    # Find the first Short...
+                    if letter in self.bools:
+                        continue
+                    else:
+                        # ...Which is NOT a Bool.
+                        if len(sequence[-2]) > i:
+                            # If the Cluster is NOT over, the next Argument must
+                            #   not be considered a Value for it, because the
+                            #   rest of this Cluster is the Parameter.
+
+                            # Therefore, the next Argument is NOT a Value for
+                            #   this Option; The current Argument is NOT
+                            #   possible to Complete.
+                            return False
+
+                        else:
+                            # This Cluster has ended on a non-Boolean. The next
+                            #   Argument MUST be its Value.
+                            return True
+
+                else:
+                    # Every Short in this Cluster is a Boolean.
+                    # Therefore, the next Argument is NOT a Value for it, which
+                    #   means that the current Argument cannot be Completed.
+                    return False
+
+            else:
+                # ~$  ...  asdf  qwert  ZXCV
+                # "asdf" may be a Parameter, but "qwert" CANNOT be. Therefore,
+                #   "ZXCV" is blocked from Completing by "qwert".
+                return False
+        except:
+            return False
+
     @cached_property
     def _usage(self) -> str:
         helpstr = []
@@ -494,7 +583,7 @@ class CommandRoot(Completer):
             cmd = trail = None
             cmd_dict = self.commands
 
-        if word.startswith("-"):
+        if word.startswith("-"):  # and cmd and cmd.can_complete_next(most):
             # User has started with a dash. Complete --Options, not Subcommands.
             complete_longs = complete_shorts = False
             cur = word.strip("-")

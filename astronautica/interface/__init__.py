@@ -35,4 +35,8 @@ def get_client(loop: AbstractEventLoop) -> Tuple[Interface, CommandRoot]:
         if dict_:
             yield repr(dict_)
 
+    @test.sub
+    def science(num: int):
+        return "A" * num
+
     return cli, cmd
