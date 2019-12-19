@@ -368,9 +368,9 @@ class CommandRoot(Completer):
 
                 full = " ".join(path).upper()
                 if cmd:
-                    yield "{}\r\n    {}".format(
+                    yield "{}\n    {}".format(
                         cmd.usage(full),
-                        "\r\n    ".join(
+                        "\n    ".join(
                             sline
                             for line in doc.splitlines()
                             if (sline := line.strip())
@@ -380,7 +380,7 @@ class CommandRoot(Completer):
                     )
 
                     if cmd.opts:
-                        yield "\r\nOptions:"
+                        yield "\nOptions:"
                         for opt, param in cmd.sig.parameters.items():
                             if param.kind is param.KEYWORD_ONLY:
                                 yield "{:>10} :: {}".format(
@@ -391,16 +391,15 @@ class CommandRoot(Completer):
                                 )
 
                     if cmd.subcommands:
-                        yield f"\r\nSubcommands ({len(cmd.subcommands)}):"
-                        for name, sub in cmd.subcommands.items():
-                            yield (
-                                sub.usage(f"    {full} {name.upper()}")
-                                + (
-                                    f"    (+{len(sub.subcommands)})"
-                                    if sub.subcommands
-                                    else ""
-                                )
+                        yield f"\nSubcommands ({len(cmd.subcommands)}):" + "".join(
+                            sub.usage(f"\n    {full} {name.upper()}")
+                            + (
+                                f"    (+{len(sub.subcommands)})"
+                                if sub.subcommands
+                                else ""
                             )
+                            for name, sub in cmd.subcommands.items()
+                        )
                 else:
                     yield f"Command {path[0].upper()!r} not found."
             else:
