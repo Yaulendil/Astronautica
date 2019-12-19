@@ -75,7 +75,9 @@ def typestr(typ, subscript: bool = True) -> str:
         if orig:
             args = get_args(typ)
             if args and subscript:
-                return "{}[{}]".format(orig.__name__.title(), ", ".join(map(typestr, args)))
+                return "{}[{}]".format(
+                    orig.__name__.title(), ", ".join(map(typestr, args))
+                )
             else:
                 return orig.__name__.title()
         else:
@@ -91,7 +93,6 @@ class Command(object):
         "__dict__",
         "_func",
         "bools",
-        "client",
         "completions",
         "dispatch_task",
         "keyword",
@@ -103,12 +104,11 @@ class Command(object):
         "subcommands",
     )
 
-    def __init__(self, func: CmdType, keyword: str, client, task: bool = False):
+    def __init__(self, func: CmdType, keyword: str, task: bool = False):
         self._func: Final[CmdType] = func
 
         self.keyword: str = simplify(keyword)
         self.KEYWORD: str = self.keyword.upper()
-        self.client = client
         self.dispatch_task: bool = task
 
         self.subcommands: Dict[str, Command] = {}
@@ -267,11 +267,6 @@ class Command(object):
         else:
             self.subcommands[command.keyword] = command
 
-    def set_client(self, client):
-        self.client = client
-        for cmd in self.subcommands.values():
-            cmd.set_client(client)
-
     @overload
     def sub(self, name: str) -> Callable[[CmdType], "Command"]:
         ...
@@ -293,14 +288,14 @@ class Command(object):
 
         elif isinstance(func, Callable):
             cmd: Command = update_wrapper(
-                Command(func, name or func.__name__, self.client, task=task), func
+                Command(func, name or func.__name__, task=task), func
             )
             self.add(cmd)
             return cmd
 
-    @cached
-    def usage(self, pre: str = None) -> str:
-        helpstr = [HEAD(pre or self.KEYWORD)]
+    @cached_property
+    def _usage(self) -> str:
+        helpstr = []
 
         if self.opts:
             helpstr.append(OPTION("(OPTIONS)"))
@@ -325,12 +320,15 @@ class Command(object):
 
         return "  ".join(helpstr)
 
+    @cached
+    def usage(self, pre: str = None) -> str:
+        return "{}  {}".format(HEAD(pre or self.KEYWORD), self._usage)
+
     def __repr__(self) -> str:
         return (
             f"{type(self).__name__}"
             f"({self._func},"
             f" {self.keyword!r},"
-            f" {self.client},"
             f" {self.dispatch_task})"
         )
 
@@ -424,7 +422,7 @@ class CommandRoot(Completer):
 
         elif isinstance(func, Callable):
             cmd: Command = update_wrapper(
-                Command(func, name or func.__name__, self.client, task=task), func
+                Command(func, name or func.__name__, task=task), func
             )
             self.add(cmd)
             return cmd
@@ -515,10 +513,8 @@ class CommandRoot(Completer):
         else:
             self.completion = ""
             if keys:
-                # If there is only one possibility, append a Space.
-                yield Completion(keys[0][len(word) :] + " ")
-
-    def set_client(self, client):
-        self.client = client
-        for cmd in self.commands.values():
-            cmd.set_client(client)
+                # If there is only one possibility, append a Space or `=`.
+                yield Completion(
+                    keys[0][len(word) :]
+                    + ("=" if word.startswith("--") and word not in cmd.bools else " ")
+                )

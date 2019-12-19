@@ -15,7 +15,6 @@ from .tui import Interface
 def get_client(loop: AbstractEventLoop) -> Tuple[Interface, CommandRoot]:
     cmd = CommandRoot()
     cli = Interface(loop, command_handler=cmd)
-    cmd.set_client(cli)
     P.output_line = cli.print
 
     @cmd
